@@ -56,6 +56,9 @@ pub struct LookupRequest {
     pub source_tx_hash: String,
     pub source_domain: i64,
     pub mode: Option<String>,
+    pub dest_domain: Option<i64>,
+    pub amount: Option<String>,
+    pub cctp_version: Option<i64>,
 }
 
 #[derive(Debug, Serialize)]

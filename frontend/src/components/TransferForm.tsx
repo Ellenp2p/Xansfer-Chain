@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { isConnected as freighterConnected, getAddress } from '@stellar/freighter-api'
+import { useFreighter } from '../hooks/useFreighter'
 import { useWalletStore } from '../stores/walletStore'
 import { useTransferStore } from '../stores/transferStore'
 import { useNetworkMode } from '../stores/networkMode'
@@ -23,36 +23,21 @@ export default function TransferForm() {
   const store = useTransferStore()
   const mode = useNetworkMode((s) => s.mode)
   const { step, error: transferError, sourceTxHash, startTransfer, reset } = useCctpTransfer()
+  const freighter = useFreighter()
   const [destAddress, setDestAddress] = useState('')
+  const [useCustomDestAddress, setUseCustomDestAddress] = useState(false)
   const [cctpVersion, setCctpVersion] = useState(2)
 
   const submitting = step !== 'idle' && step !== 'error' && step !== 'complete' && step !== 'submitted'
 
-  // Probe Freighter on mount — syncs wallet store for other components
+  // Sync Freighter state → wallet store
   useEffect(() => {
-    let cancelled = false
-    async function probe() {
-      try {
-        const { address } = await getAddress()
-        if (!cancelled && address) {
-          wallet.setStellarWallet({ address, chainType: 'stellar', domain: 27 })
-          return
-        }
-      } catch { /* not installed or not connected */ }
-      try {
-        const { isConnected } = await freighterConnected()
-        if (!cancelled && isConnected) {
-          const { address } = await getAddress()
-          if (!cancelled && address) {
-            wallet.setStellarWallet({ address, chainType: 'stellar', domain: 27 })
-          }
-        }
-      } catch { /* ignore */ }
+    if (freighter.connected && freighter.address) {
+      wallet.setStellarWallet({ address: freighter.address, chainType: 'stellar', domain: 27 })
+    } else if (!freighter.connected) {
+      wallet.setStellarWallet(null)
     }
-    probe()
-    const retry = setTimeout(probe, 2000)
-    return () => { cancelled = true; clearTimeout(retry) }
-  }, [])
+  }, [freighter.connected, freighter.address])
 
   // Reset domain selections when network mode changes
   const prevMode = useNetworkMode((s) => s.mode)
@@ -61,6 +46,8 @@ export default function TransferForm() {
     store.setDestDomain(null as unknown as number)
     store.setTransferType('standard')
     setCctpVersion(2)
+    setDestAddress('')
+    setUseCustomDestAddress(false)
   }, [prevMode])
 
   // Navigate to status page when ready
@@ -116,9 +103,9 @@ export default function TransferForm() {
     if (srcChainType === 'solana') return !!wallet.solana
     if (srcChainType === 'aptos') return !!wallet.aptos
     if (srcChainType === 'sui') return !!wallet.sui
-    if (srcChainType === 'stellar') return true  // adapter checks Freighter at submit time
+    if (srcChainType === 'stellar') return freighter.connected && !!freighter.address
     return false
-  }, [srcChainType, wallet.evm, wallet.solana, wallet.aptos, wallet.sui, wallet.stellar])
+  }, [srcChainType, wallet.evm, wallet.solana, wallet.aptos, wallet.sui, freighter.connected, freighter.address])
 
   const dstWalletReady = useMemo(() => {
     if (!dstChainType) return false
@@ -126,9 +113,36 @@ export default function TransferForm() {
     if (dstChainType === 'solana') return !!wallet.solana
     if (dstChainType === 'aptos') return !!wallet.aptos
     if (dstChainType === 'sui') return !!wallet.sui
-    if (dstChainType === 'stellar') return true  // adapter checks Freighter at claim time
+    if (dstChainType === 'stellar') return freighter.connected && !!freighter.address
     return false
-  }, [dstChainType, wallet.evm, wallet.solana, wallet.aptos, wallet.sui, wallet.stellar])
+  }, [dstChainType, wallet.evm, wallet.solana, wallet.aptos, wallet.sui, freighter.connected, freighter.address])
+
+  // Address of the connected destination-chain wallet (if any)
+  const destWalletAddress = useMemo(() => {
+    if (!dstChainType) return ''
+    if (dstChainType === 'evm') return wallet.evm?.address ?? ''
+    if (dstChainType === 'solana') return wallet.solana?.address ?? ''
+    if (dstChainType === 'aptos') return wallet.aptos?.address ?? ''
+    if (dstChainType === 'sui') return wallet.sui?.address ?? ''
+    if (dstChainType === 'stellar') return freighter.address ?? ''
+    return ''
+  }, [dstChainType, wallet.evm, wallet.solana, wallet.aptos, wallet.sui, freighter.address])
+
+  // Auto-fill destination address when destination chain changes and its wallet is connected.
+  // Respects the custom-address checkbox: only override when checkbox is off.
+  useEffect(() => {
+    if (!useCustomDestAddress && dstWalletReady && destWalletAddress) {
+      setDestAddress(destWalletAddress)
+    }
+  }, [store.destDomain, destWalletAddress, useCustomDestAddress, dstWalletReady])
+
+  const handleCustomAddressToggle = (checked: boolean) => {
+    setUseCustomDestAddress(checked)
+    if (!checked && dstWalletReady && destWalletAddress) {
+      // Unchecking "custom" restores the connected destination wallet address.
+      setDestAddress(destWalletAddress)
+    }
+  }
 
   const ready =
     store.sourceDomain != null &&
@@ -262,13 +276,25 @@ export default function TransferForm() {
 
       {/* Destination address */}
       <div>
-        <label className="mb-1 block text-xs font-medium text-gray-400">Destination Address</label>
+        <div className="mb-1 flex items-center justify-between">
+          <label className="text-xs font-medium text-gray-400">Destination Address</label>
+          <label className="flex cursor-pointer items-center gap-1.5 text-[10px] text-gray-400 hover:text-gray-300">
+            <input
+              type="checkbox"
+              checked={useCustomDestAddress}
+              onChange={(e) => handleCustomAddressToggle(e.target.checked)}
+              className="h-3.5 w-3.5 rounded border-gray-600 bg-gray-700 text-brand-600 focus:ring-brand-500"
+            />
+            Use custom address
+          </label>
+        </div>
         <input
           type="text"
           placeholder="0x... or wallet address"
           value={destAddress}
           onChange={(e) => setDestAddress(e.target.value)}
-          className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 sm:px-4 py-2.5 sm:py-3 font-mono text-sm text-white placeholder-gray-600 outline-none transition focus:border-brand-500"
+          disabled={!useCustomDestAddress}
+          className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 sm:px-4 py-2.5 sm:py-3 font-mono text-sm text-white placeholder-gray-600 outline-none transition focus:border-brand-500 disabled:cursor-not-allowed disabled:bg-gray-900/50 disabled:text-gray-500"
         />
       </div>
 

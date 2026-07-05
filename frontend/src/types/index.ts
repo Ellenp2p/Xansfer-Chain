@@ -7,6 +7,8 @@ export interface ChainConfig {
   rpc_url: string
   explorer_url: string
   usdc_address: string
+  /** Stellar Asset Contract (SAC) address for native USDC token. Required for chain_type=stellar burn_token parameter. */
+  usdc_sac?: string
   token_messenger_v2: string
   message_transmitter_v2: string
   token_messenger_v1?: string

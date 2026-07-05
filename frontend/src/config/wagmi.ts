@@ -78,6 +78,15 @@ const sonicTestnet: Chain = {
   testnet: true,
 }
 
+const arcTestnet: Chain = {
+  id: 5042002,
+  name: 'Arc Testnet',
+  nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 },
+  rpcUrls: { default: { http: ['https://rpc.testnet.arc.network'] } },
+  blockExplorers: { default: { name: 'Arcscan Testnet', url: 'https://testnet.arcscan.app' } },
+  testnet: true,
+}
+
 // ── Mainnet config ──────────────────────────────────────────────────────────
 
 const MAINNET_WAGMI_CHAINS: [Chain, ...Chain[]] = [
@@ -96,7 +105,7 @@ export const mainnetConfig: Config = createConfig({
 const TESTNET_WAGMI_CHAINS: [Chain, ...Chain[]] = [
   sepolia, avalancheFuji, optimismSepolia, arbitrumSepolia, baseSepolia, polygonAmoy,
   lineaSepolia, sonicTestnet,
-  cronosTestnet, bnbTestnet, unichainSepolia,
+  cronosTestnet, bnbTestnet, unichainSepolia, arcTestnet,
 ]
 
 export const testnetConfig: Config = createConfig({

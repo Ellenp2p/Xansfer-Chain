@@ -1,11 +1,12 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useWalletStore } from '../stores/walletStore'
 import { useHistoryStore } from '../stores/historyStore'
+import { useNetworkMode } from '../stores/networkMode'
 import type { TxStatus } from '../types'
 import { ExternalLink, Search } from 'lucide-react'
-import { useState } from 'react'
 import { lookupTransaction } from '../lib/api'
+import { getChains } from '../config/chains'
 
 const STATUS_COLORS: Record<TxStatus, string> = {
   pending: 'bg-yellow-500/20 text-yellow-400',
@@ -16,26 +17,35 @@ const STATUS_COLORS: Record<TxStatus, string> = {
 }
 
 export default function TransactionHistory() {
-  const { connected, address } = useWalletStore()
+  const { evm, solana, stellar, aptos, sui } = useWalletStore()
   const { transactions, loading, error, fetchTransactions } = useHistoryStore()
+  const { mode } = useNetworkMode()
   const navigate = useNavigate()
+
+  const addresses = useMemo(
+    () => [evm?.address, solana?.address, stellar?.address, aptos?.address, sui?.address].filter(Boolean) as string[],
+    [evm?.address, solana?.address, stellar?.address, aptos?.address, sui?.address],
+  )
+  const connected = addresses.length > 0
+
+  const chains = useMemo(() => getChains(mode), [mode])
 
   // Manual lookup state
   const [lookupHash, setLookupHash] = useState('')
-  const [lookupDomain, setLookupDomain] = useState('0')
+  const [lookupDomain, setLookupDomain] = useState(String(chains[0]?.domain ?? 0))
   const [lookupResult, setLookupResult] = useState<string | null>(null)
   const [lookupLoading, setLookupLoading] = useState(false)
 
   useEffect(() => {
-    if (connected && address) fetchTransactions(address)
-  }, [connected, address])
+    if (connected) fetchTransactions(addresses)
+  }, [connected, addresses, fetchTransactions])
 
   async function handleLookup() {
     if (!lookupHash.trim()) return
     setLookupLoading(true)
     setLookupResult(null)
     try {
-      const res = await lookupTransaction(lookupHash.trim(), parseInt(lookupDomain))
+      const res = await lookupTransaction(lookupHash.trim(), parseInt(lookupDomain), mode)
       if (res.transaction) {
         navigate(`/tx/${res.transaction.source_tx_hash}`)
       } else if (res.circle_status) {
@@ -81,12 +91,11 @@ export default function TransactionHistory() {
             onChange={(e) => setLookupDomain(e.target.value)}
             className="w-full sm:w-auto rounded-lg border border-gray-700 bg-gray-800 px-3 py-2.5 text-sm text-white outline-none"
           >
-            <option value="0">Ethereum (0)</option>
-            <option value="1">Avalanche (1)</option>
-            <option value="2">OP Mainnet (2)</option>
-            <option value="3">Arbitrum (3)</option>
-            <option value="6">Base (6)</option>
-            <option value="7">Polygon (7)</option>
+            {chains.map((c) => (
+              <option key={c.domain} value={c.domain}>
+                {c.name} ({c.domain})
+              </option>
+            ))}
           </select>
           <button
             onClick={handleLookup}

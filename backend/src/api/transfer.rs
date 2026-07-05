@@ -6,7 +6,7 @@ use axum::{
 use chrono::Utc;
 use sqlx::SqlitePool;
 
-use crate::attestation::poller::AttestationPoller;
+use crate::attestation::poller::{AttestationPoller, parse_message_meta};
 use crate::chains::registry::ChainRegistry;
 use crate::db::models::{
     CreateTransactionRequest, LookupRequest, RelayJob, Transaction, TransactionStatusResponse,
@@ -46,9 +46,9 @@ pub async fn create_transaction(
         return Err((StatusCode::BAD_REQUEST, "Invalid dest domain".into()));
     }
 
-    // Reject placeholder hashes (all zeros)
-    let zero_hash = "0x".to_string() + &"0".repeat(64);
-    if req.source_tx_hash == zero_hash {
+    // Reject placeholder hashes (all zeros), with or without 0x prefix
+    let normalized_hash = req.source_tx_hash.strip_prefix("0x").unwrap_or(&req.source_tx_hash).to_lowercase();
+    if normalized_hash.len() == 64 && normalized_hash.chars().all(|c| c == '0') {
         return Err((StatusCode::BAD_REQUEST, "Invalid source transaction hash".into()));
     }
 
@@ -223,6 +223,40 @@ pub async fn lookup_transaction(
     State(state): State<AppState>,
     Query(params): Query<LookupRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let network_mode = params.mode.as_deref().unwrap_or("testnet");
+    let cctp_version = params.cctp_version.unwrap_or(2);
+
+    // 1. Call Circle Iris API first so we can recover metadata even if DB is empty.
+    let circle_status = state
+        .poller
+        .check_transaction(params.source_domain, &params.source_tx_hash, cctp_version, network_mode)
+        .await
+        .map_err(|e| (StatusCode::BAD_GATEWAY, format!("Circle lookup failed: {e}")))?;
+
+    // 2. Parse metadata from Circle message when available.
+    let mut parsed_version = cctp_version;
+    let mut parsed_dest_domain: Option<i64> = None;
+    if let Some(ref msg) = circle_status {
+        if let Some(ref message_hex) = msg.message {
+            if let Some((v, _src, dst)) = parse_message_meta(message_hex) {
+                parsed_version = v;
+                parsed_dest_domain = Some(dst);
+            }
+        }
+        if let Some(v) = msg.cctp_version {
+            parsed_version = v;
+        }
+    }
+
+    let final_version = params.cctp_version.unwrap_or(parsed_version);
+    let final_dest_domain = params.dest_domain
+        .or(parsed_dest_domain)
+        .ok_or((StatusCode::BAD_REQUEST, "dest_domain is required when it cannot be parsed from the message".into()))?;
+    let final_amount = params.amount
+        .clone()
+        .unwrap_or_else(|| "0".to_string());
+
+    // 3. Upsert transaction in DB.
     let tx: Option<Transaction> = sqlx::query_as(
         "SELECT * FROM transactions WHERE source_tx_hash = ? AND source_domain = ?",
     )
@@ -232,20 +266,44 @@ pub async fn lookup_transaction(
     .await
     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("DB error: {}", e)))?;
 
-    let version = tx.as_ref().map(|t| t.cctp_version).unwrap_or(2);
-    let network_mode = params.mode.as_deref()
-        .or_else(|| tx.as_ref().map(|t| t.network_mode.as_str()))
-        .unwrap_or("testnet");
+    if tx.is_none() {
+        // No DB record — create one from manual lookup data.
+        let now = Utc::now().to_rfc3339();
+        let new_id = uuid::Uuid::new_v4().to_string();
+        let status = circle_status.as_ref().and_then(|m| m.attestation.as_ref()).map(|a| {
+            if a == "PENDING" || a.is_empty() { "pending" }
+            else if circle_status.as_ref().unwrap().forward_state.as_deref() == Some("COMPLETE") { "complete" }
+            else { "attested" }
+        }).unwrap_or("pending");
 
-    let circle_status = state
-        .poller
-        .check_transaction(params.source_domain, &params.source_tx_hash, version, network_mode)
+        let attestation = circle_status.as_ref().and_then(|m| m.attestation.clone());
+        let message = circle_status.as_ref().and_then(|m| m.message.clone());
+        let forward_tx = circle_status.as_ref().and_then(|m| m.forward_tx_hash.clone());
+
+        sqlx::query(
+            "INSERT OR IGNORE INTO transactions (id, source_domain, dest_domain, source_tx_hash, source_address, dest_address, amount, status, cctp_version, transfer_type, network_mode, attestation, message, dest_tx_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        )
+        .bind(&new_id)
+        .bind(params.source_domain)
+        .bind(final_dest_domain)
+        .bind(&params.source_tx_hash)
+        .bind("")
+        .bind("")
+        .bind(&final_amount)
+        .bind(status)
+        .bind(final_version)
+        .bind("standard")
+        .bind(network_mode)
+        .bind(&attestation)
+        .bind(&message)
+        .bind(&forward_tx)
+        .bind(&now)
+        .bind(&now)
+        .execute(&state.pool)
         .await
-        .ok()
-        .flatten();
-
-    // If we got attestation data from Circle, update the DB immediately
-    if let (Some(ref tx), Some(ref msg)) = (&tx, &circle_status) {
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("DB insert error: {}", e)))?;
+    } else if let Some(ref msg) = circle_status {
+        // Existing record — update attestation/message if Circle has new data.
         if let Some(ref attestation) = msg.attestation {
             if attestation != "PENDING" && !attestation.is_empty() {
                 let now = Utc::now().to_rfc3339();
@@ -261,14 +319,14 @@ pub async fn lookup_transaction(
                 .bind(&msg.message)
                 .bind(&dest_tx)
                 .bind(&now)
-                .bind(&tx.id)
+                .bind(&tx.as_ref().unwrap().id)
                 .execute(&state.pool)
                 .await;
             }
         }
     }
 
-    // Re-fetch the updated transaction
+    // 4. Re-fetch after potential insert/update.
     let mut tx: Option<Transaction> = sqlx::query_as(
         "SELECT * FROM transactions WHERE source_tx_hash = ? AND source_domain = ?",
     )
@@ -278,7 +336,7 @@ pub async fn lookup_transaction(
     .await
     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("DB error: {}", e)))?;
 
-    // If attested and message available, check on-chain if already claimed
+    // 5. If attested and message available, check on-chain if already claimed.
     if let Some(ref t) = tx {
         if t.status == "attested" {
             if let Some(ref message) = t.message {
@@ -300,7 +358,6 @@ pub async fn lookup_transaction(
                             .await
                             .ok();
 
-                            // Re-fetch after update
                             tx = sqlx::query_as(
                                 "SELECT * FROM transactions WHERE source_tx_hash = ? AND source_domain = ?",
                             )
@@ -326,15 +383,29 @@ pub async fn lookup_transaction(
 
 pub async fn list_transactions(
     State(state): State<AppState>,
-    Path(address): Path<String>,
+    Query(params): Query<std::collections::HashMap<String, String>>,
 ) -> Json<serde_json::Value> {
-    let txs: Vec<Transaction> = sqlx::query_as(
-        "SELECT * FROM transactions WHERE source_address = ? ORDER BY created_at DESC LIMIT 50",
-    )
-    .bind(&address)
-    .fetch_all(&state.pool)
-    .await
-    .unwrap_or_default();
+    // Support both legacy /address/:addr and new /address?address=...&address=...
+    let addresses: Vec<&str> = params
+        .get("address")
+        .map(|s| s.split(',').collect())
+        .unwrap_or_default();
+
+    let txs: Vec<Transaction> = if addresses.is_empty() {
+        Vec::new()
+    } else {
+        // Build IN clause placeholders
+        let placeholders: String = addresses.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+        let sql = format!(
+            "SELECT * FROM transactions WHERE source_address IN ({}) ORDER BY created_at DESC LIMIT 50",
+            placeholders
+        );
+        let mut query = sqlx::query_as(&sql);
+        for addr in &addresses {
+            query = query.bind(*addr);
+        }
+        query.fetch_all(&state.pool).await.unwrap_or_default()
+    };
 
     Json(serde_json::json!({ "transactions": txs }))
 }

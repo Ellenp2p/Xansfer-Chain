@@ -6,17 +6,22 @@ interface HistoryState {
   transactions: Transaction[]
   loading: boolean
   error: string | null
-  fetchTransactions: (address: string) => Promise<void>
+  fetchTransactions: (addresses: string[]) => Promise<void>
 }
 
 export const useHistoryStore = create<HistoryState>((set) => ({
   transactions: [],
   loading: false,
   error: null,
-  fetchTransactions: async (address) => {
+  fetchTransactions: async (addresses) => {
+    const unique = [...new Set(addresses.filter(Boolean))]
+    if (unique.length === 0) {
+      set({ transactions: [], loading: false, error: null })
+      return
+    }
     set({ loading: true, error: null })
     try {
-      const { transactions } = await api.listTransactions(address)
+      const { transactions } = await api.listTransactions(unique)
       set({ transactions, loading: false })
     } catch (e) {
       set({ error: e instanceof Error ? e.message : 'Failed to load', loading: false })

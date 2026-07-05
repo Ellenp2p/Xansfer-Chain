@@ -155,7 +155,28 @@ impl AttestationPoller {
 
         Ok(true)
     }
+}
 
+/// Parse CCTP message metadata from raw message hex.
+/// Returns (header_version, source_domain, dest_domain). Amount is intentionally
+/// not parsed here because v2 message body layouts vary (standard vs fast/hook);
+/// use the user-supplied amount or default to "0".
+pub fn parse_message_meta(message_hex: &str) -> Option<(i64, i64, i64)> {
+    let hex = message_hex.strip_prefix("0x").unwrap_or(message_hex);
+    let bytes = hex::decode(hex).ok()?;
+
+    if bytes.len() < 12 {
+        return None;
+    }
+
+    let version = u32::from_be_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]) as i64;
+    let source_domain = u32::from_be_bytes([bytes[4], bytes[5], bytes[6], bytes[7]]) as i64;
+    let dest_domain = u32::from_be_bytes([bytes[8], bytes[9], bytes[10], bytes[11]]) as i64;
+
+    Some((version, source_domain, dest_domain))
+}
+
+impl AttestationPoller {
     pub async fn check_transaction(&self, source_domain: i64, source_tx_hash: &str, cctp_version: i64, network_mode: &str) -> Result<Option<CctpMessage>> {
         let api_base = iris_api_base(cctp_version, network_mode);
 

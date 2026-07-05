@@ -49,7 +49,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/transactions/:id", get(transfer::get_transaction))
         .route("/api/transactions/:id/status", get(transfer::get_transaction_status))
         .route("/api/transactions/:id/claim", post(transfer::report_claim))
-        .route("/api/transactions/address/:address", get(transfer::list_transactions))
+        .route("/api/transactions/address", get(transfer::list_transactions))
         .route("/api/lookup", get(transfer::lookup_transaction))
         .route("/api/relay/claim", post(relay_handler::claim_transaction))
         .route("/ws", get(ws::ws_handler))

@@ -4,6 +4,7 @@ import WalletSync from './components/WalletSync'
 import Transfer from './pages/Transfer'
 import Status from './pages/Status'
 import History from './pages/History'
+import Lookup from './pages/Lookup'
 
 export default function App() {
   return (
@@ -15,6 +16,7 @@ export default function App() {
           <Route path="/" element={<Transfer />} />
           <Route path="/tx/:id" element={<Status />} />
           <Route path="/history" element={<History />} />
+          <Route path="/lookup" element={<Lookup />} />
         </Routes>
       </main>
     </div>

@@ -45,18 +45,22 @@ export async function getTransaction(id: string): Promise<TransactionStatusRespo
 }
 
 export async function listTransactions(
-  address: string,
+  addresses: string[],
 ): Promise<{ transactions: Transaction[] }> {
-  return fetchJson(`/transactions/address/${encodeURIComponent(address)}`)
+  const params = new URLSearchParams()
+  addresses.forEach((a) => params.append('address', a))
+  return fetchJson(`/transactions/address?${params.toString()}`)
 }
 
 export async function lookupTransaction(
   sourceTxHash: string,
   sourceDomain: number,
+  mode?: string,
 ): Promise<LookupResponse> {
   const params = new URLSearchParams({
     source_tx_hash: sourceTxHash,
     source_domain: String(sourceDomain),
   })
+  if (mode) params.set('mode', mode)
   return fetchJson(`/lookup?${params}`)
 }

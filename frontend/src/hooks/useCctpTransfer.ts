@@ -73,6 +73,9 @@ export function useCctpTransfer() {
 
       const chainWallet = srcChain.chain_type === 'evm' ? wallet.evm
         : srcChain.chain_type === 'aptos' ? wallet.aptos
+        : srcChain.chain_type === 'stellar' ? wallet.stellar
+        : srcChain.chain_type === 'solana' ? wallet.solana
+        : srcChain.chain_type === 'sui' ? wallet.sui
         : null
       if (!chainWallet) {
         setError(`Connect your ${srcChain.chain_type} wallet first`)
@@ -106,8 +109,9 @@ export function useCctpTransfer() {
         try {
           await adapter.approveUsdc(srcChain, amount, cctpVersion)
         } catch (e) {
-          console.error('[approveUsdc]', e)
-          setError('Approval cancelled. No USDC was spent.')
+          const msg = e instanceof Error ? e.message : String(e)
+          console.error('[approveUsdc]', msg)
+          setError(`Approve failed: ${msg}`)
           setStep('error')
           return
         }
@@ -126,8 +130,10 @@ export function useCctpTransfer() {
             cctpVersion,
             transferType,
           })
-        } catch {
-          setError('Burn cancelled. No USDC was spent.')
+        } catch (burnErr) {
+          const msg = burnErr instanceof Error ? burnErr.message : String(burnErr)
+          console.error('[burnUsdc]', msg)
+          setError(`Burn failed: ${msg}`)
           setStep('error')
           return
         }
@@ -175,7 +181,7 @@ export function useCctpTransfer() {
         setStep('error')
       }
     },
-    [mode, wallet, evmAdapter, aptosAdapter],
+    [mode, wallet, evmAdapter, aptosAdapter, stellarAdapter],
   )
 
   const claimOnDestination = useCallback(
@@ -241,7 +247,7 @@ export function useCctpTransfer() {
         setStep('error')
       }
     },
-    [mode, sourceTxHash, evmAdapter, aptosAdapter],
+    [mode, sourceTxHash, evmAdapter, aptosAdapter, stellarAdapter],
   )
 
   const reset = useCallback(() => {

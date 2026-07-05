@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeftRight, History, Layers } from 'lucide-react'
+import { ArrowLeftRight, History, Layers, Search } from 'lucide-react'
 import WalletButton from './WalletButton'
 import WalletPanel from './WalletPanel'
 import NetworkToggle from './NetworkToggle'
@@ -30,6 +30,13 @@ export default function Header() {
             >
               <History className="h-4 w-4" />
               <span className="hidden sm:inline">History</span>
+            </Link>
+            <Link
+              to="/lookup"
+              className="flex items-center gap-1.5 transition hover:text-white"
+            >
+              <Search className="h-4 w-4" />
+              <span className="hidden sm:inline">Lookup</span>
             </Link>
           </nav>
           <div className="flex items-center gap-2 shrink-0">

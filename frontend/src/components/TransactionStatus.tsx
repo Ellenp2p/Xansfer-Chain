@@ -1,7 +1,7 @@
-import { useParams } from 'react-router-dom'
+import { useParams, Link } from 'react-router-dom'
 import { useCctpTransfer } from '../hooks/useCctpTransfer'
 import { useAttestationStatus } from '../hooks/useAttestationStatus'
-import { CheckCircle2, Clock, Loader2, AlertCircle, RefreshCw, Send } from 'lucide-react'
+import { CheckCircle2, Clock, Loader2, AlertCircle, RefreshCw, Send, Search } from 'lucide-react'
 
 const STEPS = ['pending', 'attested', 'complete'] as const
 
@@ -38,9 +38,16 @@ export default function TransactionStatus() {
 
   if (error || !data) {
     return (
-      <div className="py-20 text-center text-red-400">
-        <AlertCircle className="mx-auto mb-2 h-8 w-8" />
-        {error || 'Transaction not found'}
+      <div className="py-20 text-center">
+        <AlertCircle className="mx-auto mb-2 h-8 w-8 text-red-400" />
+        <p className="mb-4 text-red-400">{error || 'Transaction not found'}</p>
+        <Link
+          to="/lookup"
+          className="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700"
+        >
+          <Search className="h-4 w-4" />
+          Lookup manually
+        </Link>
       </div>
     )
   }
