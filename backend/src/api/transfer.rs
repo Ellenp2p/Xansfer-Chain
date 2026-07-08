@@ -394,13 +394,16 @@ pub async fn list_transactions(
     let txs: Vec<Transaction> = if addresses.is_empty() {
         Vec::new()
     } else {
-        // Build IN clause placeholders
-        let placeholders: String = addresses.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
-        let sql = format!(
-            "SELECT * FROM transactions WHERE source_address IN ({}) ORDER BY created_at DESC LIMIT 50",
-            placeholders
-        );
-        let mut query = sqlx::query_as(&sql);
+        // Build IN clause safely with QueryBuilder
+        let mut builder: sqlx::QueryBuilder<sqlx::Sqlite> =
+            sqlx::QueryBuilder::new("SELECT * FROM transactions WHERE source_address IN (");
+        let mut separated = builder.separated(", ");
+        for _ in &addresses {
+            separated.push("?");
+        }
+        separated.push_unseparated(") ORDER BY created_at DESC LIMIT 50");
+
+        let mut query = builder.build_query_as();
         for addr in &addresses {
             query = query.bind(*addr);
         }
