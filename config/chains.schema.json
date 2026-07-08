@@ -1,0 +1,127 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Xansfer Chain Config",
+  "type": "object",
+  "required": ["version", "modes"],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Config file format version"
+    },
+    "modes": {
+      "type": "object",
+      "required": ["mainnet", "testnet"],
+      "properties": {
+        "mainnet": { "$ref": "#/definitions/ModeConfig" },
+        "testnet": { "$ref": "#/definitions/ModeConfig" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "definitions": {
+    "ModeConfig": {
+      "type": "object",
+      "required": ["chains", "cctp"],
+      "properties": {
+        "chains": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/ChainConfig" }
+        },
+        "cctp": { "$ref": "#/definitions/CctpConfig" }
+      },
+      "additionalProperties": false
+    },
+    "ChainConfig": {
+      "type": "object",
+      "required": [
+        "domain", "name", "chain_id", "rpc_url", "explorer_url",
+        "usdc_address", "token_messenger_v2", "message_transmitter_v2",
+        "cctp_versions", "chain_type", "supports_fast_transfer",
+        "supports_forwarding", "block_time_ms", "finality_blocks"
+      ],
+      "properties": {
+        "domain": { "type": "integer" },
+        "name": { "type": "string", "minLength": 1 },
+        "chain_id": { "type": ["integer", "null"] },
+        "rpc_url": { "$ref": "#/definitions/ResolvableString" },
+        "explorer_url": { "type": "string", "minLength": 1 },
+        "usdc_address": { "type": "string" },
+        "usdc_sac": { "type": "string" },
+        "token_messenger_v2": { "type": "string" },
+        "message_transmitter_v2": { "type": "string" },
+        "token_messenger_v1": { "type": "string" },
+        "message_transmitter_v1": { "type": "string" },
+        "cctp_versions": {
+          "type": "array",
+          "items": { "type": "integer", "enum": [1, 2] }
+        },
+        "chain_type": {
+          "type": "string",
+          "enum": ["evm", "stellar", "solana", "starknet", "aptos", "sui"]
+        },
+        "supports_fast_transfer": { "type": "boolean" },
+        "supports_forwarding": { "type": "boolean" },
+        "block_time_ms": { "type": "integer", "minimum": 1 },
+        "finality_blocks": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "CctpConfig": {
+      "type": "object",
+      "required": ["v2"],
+      "properties": {
+        "v2": { "$ref": "#/definitions/CctpVersionConfig" },
+        "v1": { "$ref": "#/definitions/CctpVersionConfigWithDomains" }
+      },
+      "additionalProperties": false
+    },
+    "CctpVersionConfig": {
+      "type": "object",
+      "required": ["token_messenger", "message_transmitter", "attestation_api"],
+      "properties": {
+        "token_messenger": { "type": "string", "minLength": 1 },
+        "message_transmitter": { "type": "string", "minLength": 1 },
+        "attestation_api": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "CctpVersionConfigWithDomains": {
+      "type": "object",
+      "required": ["token_messenger", "message_transmitter", "attestation_api"],
+      "properties": {
+        "token_messenger": {
+          "type": "object",
+          "additionalProperties": { "type": "string", "minLength": 1 }
+        },
+        "message_transmitter": {
+          "type": "object",
+          "additionalProperties": { "type": "string", "minLength": 1 }
+        },
+        "attestation_api": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "ResolvableString": {
+      "oneOf": [
+        { "type": "string", "minLength": 1 },
+        {
+          "type": "object",
+          "required": ["env"],
+          "properties": {
+            "env": { "type": "string", "minLength": 1 }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["template"],
+          "properties": {
+            "template": { "type": "string", "minLength": 1 }
+          },
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

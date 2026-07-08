@@ -1,0 +1,73 @@
+{
+  "version": 1,
+  "modes": {
+    "mainnet": {
+      "chains": [
+        {
+          "domain": 0,
+          "name": "Ethereum",
+          "chain_id": 1,
+          "rpc_url": { "template": "https://eth-mainnet.g.alchemy.com/v2/${ALCHEMY_KEY}" },
+          "explorer_url": "https://etherscan.io",
+          "usdc_address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+          "token_messenger_v2": "0x28b5a0e9C2308A3d74BE81826939D71BC9371B2e",
+          "message_transmitter_v2": "0x81D40F21F12A8F0E3252Bccb954D720d9770512A",
+          "token_messenger_v1": "0xBd3fa81B58Ba92a82136038B25aDec7066af3155",
+          "message_transmitter_v1": "0x0a992d191DEeC32aFe36203Ad87D7d289a738F81",
+          "cctp_versions": [1, 2],
+          "chain_type": "evm",
+          "supports_fast_transfer": true,
+          "supports_forwarding": true,
+          "block_time_ms": 12000,
+          "finality_blocks": 12
+        }
+      ],
+      "cctp": {
+        "v2": {
+          "token_messenger": "0x28b5a0e9C2308A3d74BE81826939D71BC9371B2e",
+          "message_transmitter": "0x81D40F21F12A8F0E3252Bccb954D720d9770512A",
+          "attestation_api": "https://iris-api.circle.com"
+        },
+        "v1": {
+          "token_messenger": { "0": "0xBd3fa81B58Ba92a82136038B25aDec7066af3155" },
+          "message_transmitter": { "0": "0x0a992d191DEeC32aFe36203Ad87D7d289a738F81" },
+          "attestation_api": "https://iris-api.circle.com"
+        }
+      }
+    },
+    "testnet": {
+      "chains": [
+        {
+          "domain": 0,
+          "name": "Ethereum Sepolia",
+          "chain_id": 11155111,
+          "rpc_url": { "env": "SEPOLIA_RPC_URL" },
+          "explorer_url": "https://sepolia.etherscan.io",
+          "usdc_address": "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
+          "token_messenger_v2": "0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA",
+          "message_transmitter_v2": "0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275",
+          "token_messenger_v1": "0x9f3B8679c73C2Fef8b59B4f3444d4e156319E528",
+          "message_transmitter_v1": "0x7865fAfC2db2093669d92c0F33AeEF291086BEFD",
+          "cctp_versions": [1, 2],
+          "chain_type": "evm",
+          "supports_fast_transfer": true,
+          "supports_forwarding": true,
+          "block_time_ms": 12000,
+          "finality_blocks": 12
+        }
+      ],
+      "cctp": {
+        "v2": {
+          "token_messenger": "0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA",
+          "message_transmitter": "0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275",
+          "attestation_api": "https://iris-api-sandbox.circle.com"
+        },
+        "v1": {
+          "token_messenger": { "0": "0x9f3B8679c73C2Fef8b59B4f3444d4e156319E528" },
+          "message_transmitter": { "0": "0x7865fAfC2db2093669d92c0F33AeEF291086BEFD" },
+          "attestation_api": "https://iris-api-sandbox.circle.com"
+        }
+      }
+    }
+  }
+}

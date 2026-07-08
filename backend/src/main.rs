@@ -1,6 +1,7 @@
 mod api;
 mod attestation;
 mod chains;
+mod config;
 mod db;
 mod relay;
 
@@ -27,7 +28,7 @@ async fn main() -> anyhow::Result<()> {
     let chains = ChainRegistry::new();
     let (tx_notify, _) = broadcast::channel::<String>(256);
 
-    let poller = Arc::new(AttestationPoller::new(pool.clone(), tx_notify.clone()));
+    let poller = Arc::new(AttestationPoller::new(pool.clone(), tx_notify.clone(), chains.clone()));
     let state = AppState {
         pool: pool.clone(),
         chains,

@@ -8,19 +8,8 @@ use tiny_keccak::{Hasher, Keccak};
 use tokio::sync::broadcast;
 use tracing::{error, info, warn};
 
+use crate::chains::registry::ChainRegistry;
 use crate::db::models::Transaction;
-
-const IRIS_API_SANDBOX: &str = "https://iris-api-sandbox.circle.com";
-const IRIS_API_PROD: &str = "https://iris-api.circle.com";
-
-fn iris_api_base(cctp_version: i64, network_mode: &str) -> String {
-    let base = if network_mode == "testnet" { IRIS_API_SANDBOX } else { IRIS_API_PROD };
-    if cctp_version == 2 {
-        format!("{base}/v2")
-    } else {
-        base.to_string()
-    }
-}
 
 #[derive(Debug, Deserialize)]
 pub struct MessagesResponse {
@@ -46,10 +35,11 @@ pub struct AttestationPoller {
     pool: SqlitePool,
     http: Client,
     tx_notify: broadcast::Sender<String>,
+    chains: ChainRegistry,
 }
 
 impl AttestationPoller {
-    pub fn new(pool: SqlitePool, tx_notify: broadcast::Sender<String>) -> Self {
+    pub fn new(pool: SqlitePool, tx_notify: broadcast::Sender<String>, chains: ChainRegistry) -> Self {
         Self {
             pool,
             http: Client::builder()
@@ -57,6 +47,7 @@ impl AttestationPoller {
                 .build()
                 .expect("HTTP client"),
             tx_notify,
+            chains,
         }
     }
 
@@ -95,7 +86,7 @@ impl AttestationPoller {
 
     async fn check_attestation(&self, tx: &Transaction) -> Result<bool> {
         let version = tx.cctp_version;
-        let api_base = iris_api_base(version, &tx.network_mode);
+        let api_base = self.iris_api_base(version, &tx.network_mode);
 
         let url = format!(
             "{}/messages/{}?transactionHash={}",
@@ -155,6 +146,15 @@ impl AttestationPoller {
 
         Ok(true)
     }
+
+    fn iris_api_base(&self, cctp_version: i64, network_mode: &str) -> String {
+        self.chains
+            .get_attestation_api(network_mode, cctp_version)
+            .unwrap_or_else(|| {
+                crate::chains::registry::default_attestation_api(network_mode, cctp_version)
+                    .unwrap_or_else(|| "https://iris-api.circle.com".to_string())
+            })
+    }
 }
 
 /// Parse CCTP message metadata from raw message hex.
@@ -177,8 +177,14 @@ pub fn parse_message_meta(message_hex: &str) -> Option<(i64, i64, i64)> {
 }
 
 impl AttestationPoller {
-    pub async fn check_transaction(&self, source_domain: i64, source_tx_hash: &str, cctp_version: i64, network_mode: &str) -> Result<Option<CctpMessage>> {
-        let api_base = iris_api_base(cctp_version, network_mode);
+    pub async fn check_transaction(
+        &self,
+        source_domain: i64,
+        source_tx_hash: &str,
+        cctp_version: i64,
+        network_mode: &str,
+    ) -> Result<Option<CctpMessage>> {
+        let api_base = self.iris_api_base(cctp_version, network_mode);
 
         let url = format!(
             "{}/messages/{}?transactionHash={}",

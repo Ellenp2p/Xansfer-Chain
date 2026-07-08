@@ -17,22 +17,29 @@ function makeConnectors() {
 
 // ── Additional EVM chains not in wagmi/chains but supported by Xansfer ──────
 
-const cronos: Chain = {
-  id: 25,
-  name: 'Cronos',
-  nativeCurrency: { name: 'Cronos', symbol: 'CRO', decimals: 18 },
-  rpcUrls: { default: { http: ['https://evm.cronos.org'] } },
-  blockExplorers: { default: { name: 'CronosScan', url: 'https://cronoscan.com' } },
+import { getChainByDomain } from './chains'
+
+function makeCustomChain(domain: number, mode: 'mainnet' | 'testnet'): Chain | null {
+  const chain = getChainByDomain(domain, mode)
+  if (!chain || chain.chain_id == null) return null
+
+  return {
+    id: chain.chain_id,
+    name: chain.name,
+    nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+    rpcUrls: { default: { http: [chain.rpc_url] } },
+    blockExplorers: { default: { name: chain.name, url: chain.explorer_url } },
+    testnet: mode === 'testnet',
+  } as Chain
 }
 
-const cronosTestnet: Chain = {
-  id: 338,
-  name: 'Cronos Testnet',
-  nativeCurrency: { name: 'Cronos', symbol: 'CRO', decimals: 18 },
-  rpcUrls: { default: { http: ['https://evm-croeseed-338.cronos.org'] } },
-  blockExplorers: { default: { name: 'Cronos Testnet', url: 'https://cronos.org/explorer/testnet3' } },
-  testnet: true,
-}
+const cronos = makeCustomChain(32, 'mainnet')!
+const cronosTestnet = makeCustomChain(32, 'testnet')!
+const unichain = makeCustomChain(10, 'mainnet')!
+const unichainSepolia = makeCustomChain(10, 'testnet')!
+const lineaSepolia = makeCustomChain(11, 'testnet')!
+const sonicTestnet = makeCustomChain(13, 'testnet')!
+const arcTestnet = makeCustomChain(26, 'testnet')!
 
 const bnbTestnet: Chain = {
   id: 97,
@@ -40,50 +47,6 @@ const bnbTestnet: Chain = {
   nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
   rpcUrls: { default: { http: ['https://data-seed-prebsc-1-s1.binance.org:8545'] } },
   blockExplorers: { default: { name: 'BscScan Testnet', url: 'https://testnet.bscscan.com' } },
-  testnet: true,
-}
-
-const unichain: Chain = {
-  id: 130,
-  name: 'Unichain',
-  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-  rpcUrls: { default: { http: ['https://mainnet.unichain.org'] } },
-  blockExplorers: { default: { name: 'Uniscan', url: 'https://uniscan.io' } },
-}
-
-const unichainSepolia: Chain = {
-  id: 1301,
-  name: 'Unichain Sepolia',
-  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-  rpcUrls: { default: { http: ['https://sepolia.unichain.org'] } },
-  blockExplorers: { default: { name: 'Uniscan Sepolia', url: 'https://sepolia.uniscan.io' } },
-  testnet: true,
-}
-
-const lineaSepolia: Chain = {
-  id: 59141,
-  name: 'Linea Sepolia',
-  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-  rpcUrls: { default: { http: ['https://rpc.sepolia.linea.build'] } },
-  blockExplorers: { default: { name: 'Lineascan Sepolia', url: 'https://sepolia.lineascan.build' } },
-  testnet: true,
-}
-
-const sonicTestnet: Chain = {
-  id: 57054,
-  name: 'Sonic Testnet',
-  nativeCurrency: { name: 'Sonic', symbol: 'S', decimals: 18 },
-  rpcUrls: { default: { http: ['https://rpc.testnet.sonicscan.org'] } },
-  blockExplorers: { default: { name: 'Sonicscan Testnet', url: 'https://testnet.sonicscan.org' } },
-  testnet: true,
-}
-
-const arcTestnet: Chain = {
-  id: 5042002,
-  name: 'Arc Testnet',
-  nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 },
-  rpcUrls: { default: { http: ['https://rpc.testnet.arc.network'] } },
-  blockExplorers: { default: { name: 'Arcscan Testnet', url: 'https://testnet.arcscan.app' } },
   testnet: true,
 }
 
