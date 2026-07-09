@@ -68,9 +68,14 @@ export interface CctpContractSet {
 export function getCctpContracts(domain: number, version: number, mode: Mode): CctpContractSet | null {
   const cctp = getCctpForMode(mode)
   if (version === 2) {
+    const domainKey = String(domain)
+    const tokenMessenger = cctp.v2.token_messenger_domains?.[domainKey]
+      ?? cctp.v2.token_messenger
+    const messageTransmitter = cctp.v2.message_transmitter_domains?.[domainKey]
+      ?? cctp.v2.message_transmitter
     return {
-      tokenMessenger: resolveString(cctp.v2.token_messenger),
-      messageTransmitter: resolveString(cctp.v2.message_transmitter),
+      tokenMessenger: resolveString(tokenMessenger),
+      messageTransmitter: resolveString(messageTransmitter),
     }
   }
   if (version === 1 && cctp.v1) {
