@@ -8,6 +8,11 @@ use crate::chains::{ChainConfig, ChainType};
 const DEFAULT_CONFIG_PATH: &str = "config/chains.json";
 const CONFIG_PATH_ENV: &str = "CHAIN_CONFIG";
 
+// Embed the project-root config so the built-in defaults are exactly the
+// contents of config/chains.json. At runtime CHAIN_CONFIG or a local
+// config/chains.json can override this.
+const EMBEDDED_CONFIG: &str = include_str!("../../../config/chains.json");
+
 #[derive(Debug, Error)]
 pub enum ConfigError {
     #[error("io error reading config: {0}")]
@@ -130,9 +135,7 @@ pub fn load_config() -> Result<ChainsConfig, ConfigError> {
     } else if let Ok(contents) = std::fs::read_to_string(DEFAULT_CONFIG_PATH) {
         contents
     } else {
-        // When running from the backend/ subdirectory in dev, the project root
-        // config is one level up.
-        std::fs::read_to_string("../config/chains.json")?
+        EMBEDDED_CONFIG.to_string()
     };
     let config: ChainsConfig = serde_json::from_str(&contents)?;
     validate(&config)?;
