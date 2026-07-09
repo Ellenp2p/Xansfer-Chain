@@ -32,10 +32,6 @@ pub enum ChainType {
 }
 
 impl ChainConfig {
-    pub fn explorer_tx_url(&self, tx_hash: &str) -> String {
-        format!("{}/tx/{}", self.explorer_url, tx_hash)
-    }
-
     pub fn supported_transfer_types(&self, dest: &ChainConfig) -> Vec<String> {
         let mut types = vec!["standard".to_string()];
 

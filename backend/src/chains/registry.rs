@@ -2,10 +2,6 @@ use std::collections::HashMap;
 use crate::chains::{ChainConfig, ChainType};
 use crate::config::loader::{load_config, resolve_mode_chains, CctpConfig};
 
-const MSG_TRANSMITTER_V2_MAINNET: &str = "0x81D40F21F12A8F0E3252Bccb954D720d9770512A";
-const MSG_TRANSMITTER_V2_TESTNET: &str = "0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275";
-const TOKEN_MESSENGER_V2_MAINNET: &str = "0x28b5a0e9C2308A3d74BE81826939D71BC9371B2e";
-const TOKEN_MESSENGER_V2_TESTNET: &str = "0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA";
 const ATTESTATION_API_MAINNET: &str = "https://iris-api.circle.com";
 const ATTESTATION_API_TESTNET: &str = "https://iris-api-sandbox.circle.com";
 
@@ -34,20 +30,6 @@ fn v1_contracts_mainnet(domain: i64) -> (Option<String>, Option<String>) {
         7 => (
             Some("0x9f3B8679c73C2Fef8b59B4f3444d4e156319e387".into()),
             Some("0xF3be9355363857F3e001be68856A2f96b4C39Ba9".into()),
-        ),
-        _ => (None, None),
-    }
-}
-
-fn v1_contracts_testnet(domain: i64) -> (Option<String>, Option<String>) {
-    match domain {
-        0 => (
-            Some("0x9f3B8679c73C2Fef8b59B4f3444d4e156319E528".into()),
-            Some("0x7865fAfC2db2093669d92c0F33AeEF291086BEFD".into()),
-        ),
-        1 => (
-            Some("0xeb08f243E5d3FCFF26A9E38Aea666c6243d421b4".into()),
-            Some("0xa9fb1b30a9d03985dF65DdBb7A6a6B63e64EF04c".into()),
         ),
         _ => (None, None),
     }
@@ -144,30 +126,6 @@ impl ChainRegistry {
             let cctp = self.cctp.get(mode)?;
             let v1 = cctp.v1.as_ref()?;
             v1.message_transmitter.get(&domain.to_string()).cloned()
-        } else {
-            None
-        }
-    }
-
-    pub fn get_token_messenger(
-        &self,
-        domain: i64,
-        network_mode: &str,
-        cctp_version: i64,
-    ) -> Option<String> {
-        let mode = normalize_mode(network_mode);
-        if cctp_version == 2 {
-            let cctp = self.cctp.get(mode)?;
-            let domain_key = domain.to_string();
-            cctp.v2
-                .token_messenger_domains
-                .get(&domain_key)
-                .cloned()
-                .or_else(|| Some(cctp.v2.token_messenger.clone()))
-        } else if cctp_version == 1 {
-            let cctp = self.cctp.get(mode)?;
-            let v1 = cctp.v1.as_ref()?;
-            v1.token_messenger.get(&domain.to_string()).cloned()
         } else {
             None
         }
@@ -289,23 +247,5 @@ pub fn default_attestation_api(network_mode: &str, cctp_version: i64) -> Option<
         Some(format!("{}/v2", base))
     } else {
         Some(base.to_string())
-    }
-}
-
-pub fn default_message_transmitter(network_mode: &str, cctp_version: i64, domain: i64) -> Option<String> {
-    if cctp_version == 2 {
-        Some(if network_mode == "testnet" { MSG_TRANSMITTER_V2_TESTNET } else { MSG_TRANSMITTER_V2_MAINNET }.into())
-    } else {
-        let (_tm, mt) = if network_mode == "testnet" { v1_contracts_testnet(domain) } else { v1_contracts_mainnet(domain) };
-        mt
-    }
-}
-
-pub fn default_token_messenger(network_mode: &str, cctp_version: i64, domain: i64) -> Option<String> {
-    if cctp_version == 2 {
-        Some(if network_mode == "testnet" { TOKEN_MESSENGER_V2_TESTNET } else { TOKEN_MESSENGER_V2_MAINNET }.into())
-    } else {
-        let (tm, _mt) = if network_mode == "testnet" { v1_contracts_testnet(domain) } else { v1_contracts_mainnet(domain) };
-        tm
     }
 }

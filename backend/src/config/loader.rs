@@ -50,14 +50,11 @@ pub struct CctpVersionConfig {
     pub message_transmitter: String,
     pub attestation_api: String,
     #[serde(default)]
-    pub token_messenger_domains: HashMap<String, String>,
-    #[serde(default)]
     pub message_transmitter_domains: HashMap<String, String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct CctpVersionConfigWithDomains {
-    pub token_messenger: HashMap<String, String>,
     pub message_transmitter: HashMap<String, String>,
     pub attestation_api: String,
 }

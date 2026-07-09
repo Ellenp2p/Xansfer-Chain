@@ -29,6 +29,13 @@ async fn main() -> anyhow::Result<()> {
     let (tx_notify, _) = broadcast::channel::<String>(256);
 
     let poller = Arc::new(AttestationPoller::new(pool.clone(), tx_notify.clone(), chains.clone()));
+
+    // Spawn attestation poller background loop
+    let poller_bg = poller.clone();
+    tokio::spawn(async move {
+        poller_bg.run().await;
+    });
+
     let state = AppState {
         pool: pool.clone(),
         chains,
