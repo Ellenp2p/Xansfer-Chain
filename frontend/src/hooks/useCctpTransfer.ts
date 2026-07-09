@@ -271,6 +271,14 @@ export function useCctpTransfer() {
           return
         }
 
+        // Some wallet connectors resolve instead of throwing on rejection.
+        // Treat a missing/empty hash as a failure so the UI never shows "complete".
+        if (!claimTxHash || typeof claimTxHash !== 'string') {
+          setError('Claim failed: wallet did not return a transaction hash')
+          setStep('error')
+          return
+        }
+
         setDestTxHash(claimTxHash)
         setStep('complete')
 

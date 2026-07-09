@@ -173,7 +173,10 @@ pub async fn get_transaction_status(
                 match state.poller.check_message_received(&rpc, &mt, message).await {
                     Ok(true) => {
                         let now = Utc::now().to_rfc3339();
-                        tracing::info!("Message {} already claimed on-chain, marking complete", tx.source_tx_hash);
+                        tracing::info!(
+                            "Message {} already claimed on-chain (dest_domain={}), marking complete",
+                            tx.source_tx_hash, tx.dest_domain
+                        );
                         sqlx::query(
                             "UPDATE transactions SET status = 'complete', claimed_at = ?, updated_at = ? WHERE source_tx_hash = ?"
                         )

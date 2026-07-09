@@ -20,7 +20,7 @@ function formatSeconds(s: number): string {
 
 export default function TransactionStatus() {
   const { id } = useParams<{ id: string }>()
-  const { step: claimStep, error: claimError, claimOnDestination, reset } = useCctpTransfer()
+  const { step: claimStep, error: claimError, destTxHash, claimOnDestination, reset } = useCctpTransfer()
 
   // Single fetch source — hook handles all polling
   const { data, isLoading, error, refetch, elapsed, estimatedWait } = useAttestationStatus(
@@ -53,7 +53,7 @@ export default function TransactionStatus() {
   }
 
   const tx = data.transaction
-  const claimComplete = (claimStep as string) === 'complete' || data.claimed
+  const claimComplete = ((claimStep as string) === 'complete' && !!destTxHash) || data.claimed
   const si = stepIndex(tx.status, claimComplete)
   const isClaiming = claimStep !== 'idle' && claimStep !== 'error' && claimStep !== 'complete'
   const canShowClaim = data.can_claim && tx.transfer_type !== 'relay' && tx.status !== 'complete' && !data.claimed && !claimComplete && !isClaiming
