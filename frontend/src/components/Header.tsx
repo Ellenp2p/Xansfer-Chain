@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeftRight, History, Layers, Search, Server } from 'lucide-react'
 import WalletButton from './WalletButton'
@@ -7,22 +7,44 @@ import NetworkToggle from './NetworkToggle'
 
 function useBackendOnline() {
   const [online, setOnline] = useState(true)
+  const onlineRef = useRef(online)
+
+  useEffect(() => {
+    onlineRef.current = online
+  }, [online])
 
   useEffect(() => {
     let cancelled = false
+    let timeoutId: ReturnType<typeof setTimeout>
+
     const check = async () => {
       try {
-        const res = await fetch('/api/chains', { method: 'GET' })
+        const controller = new AbortController()
+        const timer = setTimeout(() => controller.abort(), 5000)
+        const res = await fetch('/api/chains', {
+          method: 'GET',
+          signal: controller.signal,
+        })
+        clearTimeout(timer)
         if (!cancelled) setOnline(res.ok)
       } catch {
         if (!cancelled) setOnline(false)
       }
     }
+
+    const schedule = () => {
+      timeoutId = setTimeout(async () => {
+        await check()
+        if (!cancelled) schedule()
+      }, onlineRef.current ? 10_000 : 30_000)
+    }
+
     check()
-    const id = setInterval(check, 10_000)
+    schedule()
+
     return () => {
       cancelled = true
-      clearInterval(id)
+      clearTimeout(timeoutId)
     }
   }, [])
 
