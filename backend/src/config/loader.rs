@@ -125,8 +125,15 @@ fn interpolate(template: &str) -> Result<String, ConfigError> {
 }
 
 pub fn load_config() -> Result<ChainsConfig, ConfigError> {
-    let path = std::env::var(CONFIG_PATH_ENV).unwrap_or_else(|_| DEFAULT_CONFIG_PATH.to_string());
-    let contents = std::fs::read_to_string(&path)?;
+    let contents = if let Ok(path) = std::env::var(CONFIG_PATH_ENV) {
+        std::fs::read_to_string(&path)?
+    } else if let Ok(contents) = std::fs::read_to_string(DEFAULT_CONFIG_PATH) {
+        contents
+    } else {
+        // When running from the backend/ subdirectory in dev, the project root
+        // config is one level up.
+        std::fs::read_to_string("../config/chains.json")?
+    };
     let config: ChainsConfig = serde_json::from_str(&contents)?;
     validate(&config)?;
     Ok(config)
