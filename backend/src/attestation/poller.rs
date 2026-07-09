@@ -44,6 +44,7 @@ impl AttestationPoller {
             pool,
             http: Client::builder()
                 .timeout(Duration::from_secs(30))
+                .no_hickory_dns()
                 .build()
                 .expect("HTTP client"),
             tx_notify,

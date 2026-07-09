@@ -23,6 +23,19 @@ async fn main() -> anyhow::Result<()> {
         .with_env_filter(EnvFilter::from_default_env().add_directive("xansfer=debug".parse()?))
         .init();
 
+    std::panic::set_hook(Box::new(|info| {
+        let payload = info.payload();
+        let message = if let Some(s) = payload.downcast_ref::<&str>() {
+            (*s).to_string()
+        } else if let Some(s) = payload.downcast_ref::<String>() {
+            s.clone()
+        } else {
+            "unknown panic payload".to_string()
+        };
+        let location = info.location().map(|l| format!("{}:{}", l.file(), l.line()));
+        tracing::error!(target: "panic", %message, location = ?location, "process panicked");
+    }));
+
     let database_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite:xansfer.db?mode=rwc".into());
     let pool = db::init_db(&database_url).await?;
     let chains = ChainRegistry::new();
