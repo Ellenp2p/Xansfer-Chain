@@ -80,6 +80,8 @@ impl AttestationPoller {
                     warn!("Error checking attestation for {}: {e:#}", tx.source_tx_hash);
                 }
             }
+            // Small delay between transactions to avoid hammering Circle API.
+            tokio::time::sleep(Duration::from_millis(300)).await;
         }
 
         Ok(())
@@ -117,6 +119,9 @@ impl AttestationPoller {
         // Check forwarding state
         let forward_complete = msg.forward_state.as_deref() == Some("COMPLETE");
 
+        // Standard transfers only need the attestation; once available they are complete.
+        // Forward transfers stay attested until Circle marks the forward as complete.
+        // Relay transfers become attested so the relay worker can pick them up.
         let new_status = if forward_complete {
             "complete"
         } else if tx.transfer_type == "forward" {
@@ -124,7 +129,7 @@ impl AttestationPoller {
         } else if tx.transfer_type == "relay" && tx.status == "pending" {
             "attested"
         } else {
-            "attested"
+            "complete"
         };
 
         let dest_tx = if forward_complete {
