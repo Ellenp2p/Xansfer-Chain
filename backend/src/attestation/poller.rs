@@ -147,9 +147,9 @@ impl AttestationPoller {
         // Relay transfers become attested so the relay worker can pick them up.
         let new_status = if forward_complete {
             "complete"
-        } else if tx.transfer_type == "forward" {
-            "attested"
-        } else if tx.transfer_type == "relay" && tx.status == "pending" {
+        } else if tx.transfer_type == "forward"
+            || (tx.transfer_type == "relay" && tx.status == "pending")
+        {
             "attested"
         } else {
             "complete"

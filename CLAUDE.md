@@ -38,7 +38,7 @@ VITE_BACKEND_URL=https://api.xansfer.example.com bun run build
 - `attestation/poller.rs`: polls Circle Iris API; checks `isMessageReceived` on destination chain.
 - `chains/registry.rs`: loads `config/chains.json` and provides chain/domain/CCTP metadata.
 - `db/`: SQLite schema init + migration column backfill + models.
-- `relay/`: optional auto-claim worker (currently simulated in `execute_relay`).
+- `relay/`: optional auto-claim worker. EVM relay is implemented with raw JSON-RPC signing; Solana, Stellar, Sui, Aptos, and Starknet are wired through the worker but currently return "not yet implemented" until their chain-specific transaction builders are added.
 
 ### Frontend (`frontend/`)
 
@@ -84,8 +84,20 @@ Backend:
 - `PORT` (default `3001`)
 - `CORS_ALLOWED_ORIGINS` (optional, comma-separated)
 - `CHAIN_CONFIG` (default `config/chains.json`)
-- `RELAY_KEY_<DOMAIN>` for EVM domains
-- `RELAY_KEY_STELLAR` for domain 27
+- `RELAY_KEY_<DOMAIN>` for EVM domains (hex private key)
+- `RELAY_KEY_STELLAR` for Stellar (domain 27)
+- `RELAY_KEY_5` for Solana devnet (base58 keypair)
+- `RELAY_KEY_8` for Sui testnet (hex private key)
+- `RELAY_KEY_14` for Aptos testnet (hex private key)
+- `RELAY_MAX_GAS_PRICE_GWEI` (optional): cap on EVM legacy gas price
+- `RELAY_MAX_PRIORITY_FEE_GWEI` (optional): cap on EVM EIP-1559 priority fee
+- `RELAY_TX_TIMEOUT_SECS` (default `300`): max wait for a destination receipt
+- `RELAY_EVM_GAS_LIMIT` (default `200000`): fallback gas limit for EVM `receiveMessage`
+- `SOLANA_MESSAGE_TRANSMITTER_V2` (optional, default devnet)
+- `SOLANA_TOKEN_MESSENGER_MINTER_V2` (optional, default devnet)
+- `APTOS_MESSAGE_TRANSMITTER` (optional, default testnet)
+- `APTOS_TOKEN_MESSENGER_MINTER` (optional, default testnet)
+- `SUI_MESSAGE_TRANSMITTER_PACKAGE`, `SUI_TOKEN_MESSENGER_MINTER_PACKAGE`, `SUI_MESSAGE_TRANSMITTER_STATE`, `SUI_TOKEN_MESSENGER_MINTER_STATE` (required for Sui)
 
 ## Common Tasks
 
@@ -122,7 +134,7 @@ Backend:
 - Stellar source uses Soroban RPC + USDC SAC allowance + `deposit_for_burn` with 7-decimal subunits.
 - Stellar destination: EVM → Stellar uses `depositForBurnWithHook` + CCTP Forwarder contract; claims call `CctpForwarder.mint_and_forward`.
 - Stellar uses SAC (`usdc_sac`) as the burn token, while EVM uses `usdc_address`.
-- Relay transfers are currently simulated; the UI shows "Waiting for relay…" while the backend does not submit a real destination transaction yet.
+- Relay transfers on EVM now submit a real `receiveMessage` transaction when `RELAY_KEY_<DOMAIN>` is configured. Non-EVM relay destinations are routed to chain-specific submitters but currently return a clear "not yet implemented" error and mark the relay job `failed`.
 - `config/chains.json` is embedded at compile time as a fallback, but runtime `CHAIN_CONFIG` takes precedence.
 
 ## Files to Read for Context

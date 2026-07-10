@@ -15,7 +15,7 @@ use api::transfer::{self, AppState};
 use api::{relay_handler, ws};
 use attestation::poller::AttestationPoller;
 use chains::registry::ChainRegistry;
-use relay::worker::RelayWorker;
+use relay::{signer::RelaySigner, worker::RelayWorker};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -51,15 +51,17 @@ async fn main() -> anyhow::Result<()> {
 
     let state = AppState {
         pool: pool.clone(),
-        chains,
+        chains: chains.clone(),
         poller,
         tx_notify: tx_notify.clone(),
     };
 
     // Spawn relay worker
+    let signer = RelaySigner::new(pool.clone());
     let relay_rx = tx_notify.subscribe();
+    let chains_for_relay = chains.clone();
     tokio::spawn(async move {
-        let mut worker = RelayWorker::new(pool.clone(), relay_rx);
+        let mut worker = RelayWorker::new(pool.clone(), signer, chains_for_relay, relay_rx);
         worker.run().await;
     });
 
