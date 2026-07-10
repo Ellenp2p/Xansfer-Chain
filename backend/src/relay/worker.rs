@@ -195,10 +195,22 @@ impl RelayWorker {
                     .chains
                     .get_rpc_url(tx.dest_domain, &tx.network_mode)
                     .ok_or_else(|| anyhow::anyhow!("No RPC URL for Solana domain {}", tx.dest_domain))?;
+
+                let (mt_default, tmm_default) = if tx.network_mode == "testnet" {
+                    (
+                        "CCTPV2Sm4AdWt5296sk4P66VBZ7bEhcARwFaaS9YPbeC",
+                        "CCTPV2vPZJS2u2BBsUoscuikbYjnpFmbFsvVuJdgUMQe",
+                    )
+                } else {
+                    (
+                        "CCTPmbSD7gX1bxKPAmg77w8oFzNFpaQiQUWD43TKaecd",
+                        "CCTPiPYPc6AsJuwueEnWgSgucamXDZwBd53dQ11YiKX3",
+                    )
+                };
                 let message_transmitter = std::env::var("SOLANA_MESSAGE_TRANSMITTER_V2")
-                    .unwrap_or_else(|_| "CCTPV2Sm4AdWt5296sk4P66VBZ7bEhcARwFaaS9YPbeC".into());
+                    .unwrap_or_else(|_| mt_default.into());
                 let token_messenger_minter = std::env::var("SOLANA_TOKEN_MESSENGER_MINTER_V2")
-                    .unwrap_or_else(|_| "CCTPV2vPZJS2u2BBsUoscuikbYjnpFmbFsvVuJdgUMQe".into());
+                    .unwrap_or_else(|_| tmm_default.into());
                 let key = self
                     .signer
                     .solana_key(tx.dest_domain)
@@ -238,6 +250,7 @@ impl RelayWorker {
                     key,
                     message,
                     attestation,
+                    &tx.network_mode,
                 )
                 .await?
             }
@@ -246,14 +259,52 @@ impl RelayWorker {
                     .chains
                     .get_rpc_url(tx.dest_domain, &tx.network_mode)
                     .ok_or_else(|| anyhow::anyhow!("No RPC URL for Sui domain {}", tx.dest_domain))?;
+
+                // Provide sensible testnet/mainnet defaults for the shared CCTP objects
+                // if the operator has not overridden them via environment variables.
+                let (mt_pkg_default, tmm_pkg_default, mt_state_default, tmm_state_default, usdc_default) =
+                    if tx.network_mode == "testnet" {
+                        (
+                            "0x08d87d37ba49e785dde270a83f8e979605b03dc552b5548f26fdf2f49bf7ed1b",
+                            "0x2aa6c5d56376c371f88a6cc42e852824994993cb9bab8d3e6450cbe3cb32b94e",
+                            "0xf68268c3d9b1df3215f2439400c1c4ea08ac4ef4bb7d6f3ca6a2a239e17510af",
+                            "0x45993eecc0382f37419864992c12faee2238f5cfe22b98ad3bf455baf65c8a2f",
+                            "0x3a915322be45c414508712322acdf4f4d5c94ac2c262f635f037e2a26f364dd3::usdc::USDC",
+                        )
+                    } else {
+                        (
+                            "0x4931e06dce648b3931f890035bd196920770e913e43e45990b383f6486fdd0a5",
+                            "0x31cc14d80c175ae39777c0238f20594c6d4869cfab199f40b69f3319956b8beb",
+                            "0x98234bd0fa9ac12cc0a20a144a22e36d6a32f7e0a97baaeaf9c76cdc6d122d2e",
+                            "0x5252abd1137094ed1db3e0d75bc36abcd287aee4bc310f8e047727ef5682e7c2",
+                            "0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb845e24ff689::usdc::USDC",
+                        )
+                    };
                 let message_transmitter_package = std::env::var("SUI_MESSAGE_TRANSMITTER_PACKAGE")
-                    .map_err(|_| anyhow::anyhow!("SUI_MESSAGE_TRANSMITTER_PACKAGE not set"))?;
+                    .unwrap_or_else(|_| mt_pkg_default.into());
                 let token_messenger_minter_package = std::env::var("SUI_TOKEN_MESSENGER_MINTER_PACKAGE")
-                    .map_err(|_| anyhow::anyhow!("SUI_TOKEN_MESSENGER_MINTER_PACKAGE not set"))?;
+                    .unwrap_or_else(|_| tmm_pkg_default.into());
                 let message_transmitter_state = std::env::var("SUI_MESSAGE_TRANSMITTER_STATE")
-                    .map_err(|_| anyhow::anyhow!("SUI_MESSAGE_TRANSMITTER_STATE not set"))?;
+                    .unwrap_or_else(|_| mt_state_default.into());
                 let token_messenger_minter_state = std::env::var("SUI_TOKEN_MESSENGER_MINTER_STATE")
-                    .map_err(|_| anyhow::anyhow!("SUI_TOKEN_MESSENGER_MINTER_STATE not set"))?;
+                    .unwrap_or_else(|_| tmm_state_default.into());
+                if std::env::var("SUI_USDC_TYPE_TAG").is_err() {
+                    std::env::set_var("SUI_USDC_TYPE_TAG", usdc_default);
+                }
+                if std::env::var("SUI_DENY_LIST").is_err() {
+                    std::env::set_var("SUI_DENY_LIST", "0x403");
+                }
+                if std::env::var("SUI_TREASURY").is_err() {
+                    std::env::set_var(
+                        "SUI_TREASURY",
+                        if tx.network_mode == "testnet" {
+                            "0x57d6725e7a8b49a7b2a612f6bd66ab5f39fc95332ca48be421c3229d514a6de7"
+                        } else {
+                            "0x7170137d4a6431bf83351ac025baf462909bffe2877d87716374fb42b9629ebe"
+                        },
+                    );
+                }
+
                 let key = self
                     .signer
                     .sui_key(tx.dest_domain)
@@ -277,9 +328,13 @@ impl RelayWorker {
                     .get_rpc_url(tx.dest_domain, &tx.network_mode)
                     .ok_or_else(|| anyhow::anyhow!("No RPC URL for Aptos domain {}", tx.dest_domain))?;
                 let message_transmitter = std::env::var("APTOS_MESSAGE_TRANSMITTER")
-                    .unwrap_or_else(|_| "0x081e86cebf457a0c6004f35bd648a2794698f52e0dde09a48619dcd3d4cc23d9".into());
+                    .ok()
+                    .or_else(|| self.chains.get_message_transmitter(tx.dest_domain, &tx.network_mode, tx.cctp_version))
+                    .unwrap_or_else(|| "0x081e86cebf457a0c6004f35bd648a2794698f52e0dde09a48619dcd3d4cc23d9".into());
                 let token_messenger_minter = std::env::var("APTOS_TOKEN_MESSENGER_MINTER")
-                    .unwrap_or_else(|_| "0x5f9b937419dda90aa06c1836b7847f65bbbe3f1217567758dc2488be31a477b9".into());
+                    .ok()
+                    .or_else(|| self.chains.get_token_messenger(tx.dest_domain, &tx.network_mode, tx.cctp_version))
+                    .unwrap_or_else(|| "0x5f9b937419dda90aa06c1836b7847f65bbbe3f1217567758dc2488be31a477b9".into());
                 let key = self
                     .signer
                     .aptos_key(tx.dest_domain)

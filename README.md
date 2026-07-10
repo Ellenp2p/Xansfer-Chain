@@ -25,7 +25,7 @@
 ```
 
 - **frontend/**：React 单页应用，负责钱包连接、构造并签名源链 burn 交易、展示状态、在目标链 claim。
-- **backend/**：Rust 服务，管理链配置与交易记录，轮询 Circle attestation，提供 WebSocket 状态推送，可选 relay worker 代为 claim。
+- **backend/**：Rust 服务，管理链配置与交易记录，轮询 Circle attestation，提供 WebSocket 状态推送，可选 relay worker 代为在 EVM / Solana / Stellar / Sui / Aptos 上自动 claim。
 - **config/**：链配置（RPC、CCTP 合约地址、domain ID 等），支持 mainnet / testnet。
 
 ## 核心流程
@@ -83,7 +83,7 @@
 │       │   ├── mod.rs                  # 数据库初始化与迁移列补齐
 │       │   └── models.rs               # Transaction / RelayJob 数据模型
 │       └── relay/
-│           ├── worker.rs               # 自动 claim 的 relay worker（当前 execute_relay 为 MVP 模拟实现）
+│           ├── worker.rs               # 自动 claim 的 relay worker（支持 EVM / Solana / Stellar / Sui / Aptos；Starknet 待实现）
 │           └── signer.rs               # relay 签名者配置（EVM 私钥 / Stellar）
 ├── config/
 │   ├── chains.json                     # 运行时链配置（默认提交在仓库中）
@@ -133,7 +133,19 @@ cargo run
 | `CORS_ALLOWED_ORIGINS` | 允许的 CORS origin，逗号分隔；不设置则完全开放 | 无（完全开放） |
 | `CHAIN_CONFIG` | 链配置文件路径 | `config/chains.json` |
 | `RELAY_KEY_<DOMAIN>` | EVM relay 私钥（按 domain） | 无 |
-| `RELAY_KEY_STELLAR` | Stellar relay key（domain 27） | 无 |
+| `RELAY_KEY_STELLAR` | Stellar relay secret key（domain 27） | 无 |
+| `RELAY_KEY_5` | Solana devnet relay keypair（base58） | 无 |
+| `RELAY_KEY_8` | Sui testnet relay key（hex） | 无 |
+| `RELAY_KEY_14` | Aptos testnet relay key（hex） | 无 |
+| `RELAY_MAX_GAS_PRICE_GWEI` | EVM legacy gas price 上限 | 无 |
+| `RELAY_MAX_PRIORITY_FEE_GWEI` | EVM EIP-1559 priority fee 上限 | 无 |
+| `RELAY_TX_TIMEOUT_SECS` | 等待目标链回执的最长时间 | `300` |
+| `RELAY_EVM_GAS_LIMIT` | EVM `receiveMessage` fallback gas limit | `200000` |
+| `SOLANA_MESSAGE_TRANSMITTER_V2` | Solana MessageTransmitterV2 program ID | devnet/testnet 默认 |
+| `SOLANA_TOKEN_MESSENGER_MINTER_V2` | Solana TokenMessengerMinterV2 program ID | devnet/testnet 默认 |
+| `APTOS_MESSAGE_TRANSMITTER` | Aptos MessageTransmitter 地址 | 链配置 / testnet / mainnet 默认 |
+| `APTOS_TOKEN_MESSENGER_MINTER` | Aptos TokenMessengerMinter 地址 | 链配置 / testnet / mainnet 默认 |
+| `SUI_MESSAGE_TRANSMITTER_PACKAGE` 等 | Sui 共享对象地址覆盖 | testnet/mainnet 默认 |
 | `RUST_LOG` | 日志级别 | `xansfer=debug` |
 
 链配置默认读取项目根目录 `config/chains.json`。若该文件不存在，会回退到编译时嵌入的默认配置（仅包含少量链）并输出警告。也可通过环境变量 `CHAIN_CONFIG` 指定其他路径。
@@ -174,7 +186,13 @@ VITE_BACKEND_URL=https://api.xansfer.example.com bun run build
 | `CHAIN_CONFIG` | 链配置文件路径 |
 | `SEPOLIA_RPC_URL` / `ALCHEMY_KEY` | 可在 `config/chains.json` 的 `rpc_url` 模板中引用 |
 | `RELAY_KEY_<DOMAIN>` | 按 domain 的 EVM relay 私钥 |
-| `RELAY_KEY_STELLAR` | Stellar relay key（domain 27） |
+| `RELAY_KEY_STELLAR` | Stellar relay secret key（domain 27） |
+| `RELAY_KEY_5` | Solana devnet relay keypair（base58） |
+| `RELAY_KEY_8` | Sui testnet relay key（hex） |
+| `RELAY_KEY_14` | Aptos testnet relay key（hex） |
+| `SOLANA_MESSAGE_TRANSMITTER_V2` / `SOLANA_TOKEN_MESSENGER_MINTER_V2` | Solana CCTP program ID 覆盖 |
+| `APTOS_MESSAGE_TRANSMITTER` / `APTOS_TOKEN_MESSENGER_MINTER` | Aptos CCTP 合约地址覆盖 |
+| `SUI_MESSAGE_TRANSMITTER_PACKAGE` 等 | Sui 共享对象地址覆盖 |
 
 ## CI / 部署
 
@@ -195,6 +213,41 @@ cd backend
 cargo build --release
 # 运行
 PORT=3001 DATABASE_URL=sqlite:xansfer.db?mode=rwc ./target/release/xansfer-chain-backend
+```
+
+#### Windows 本地编译依赖
+
+在 Windows 上完整编译后端需要以下原生库（Solana/Sui/Stellar SDK 依赖）：
+
+- **NASM**：`aws-lc-sys` 需要。安装后把目录加入 `PATH`，例如 `C:\nasm\nasm-2.16.03`。
+- **OpenSSL-Win64-Dev**：`openssl-sys` 需要。建议指向 VC 动态库目录：
+  - `OPENSSL_DIR=C:\Program Files\OpenSSL-Win64-Dev`
+  - `OPENSSL_LIB_DIR=C:\Program Files\OpenSSL-Win64-Dev\lib\VC\x64\MD`
+  - `OPENSSL_INCLUDE_DIR=C:\Program Files\OpenSSL-Win64-Dev\include`
+- **libsodium**：`soroban-client` 需要。
+  - `SODIUM_LIB_DIR=C:\libsodium\libsodium\x64\Release\v143\dynamic`
+
+PowerShell 示例：
+
+```powershell
+$env:PATH = "C:\nasm\nasm-2.16.03;$env:PATH"
+$env:OPENSSL_DIR = "C:\Program Files\OpenSSL-Win64-Dev"
+$env:OPENSSL_LIB_DIR = "C:\Program Files\OpenSSL-Win64-Dev\lib\VC\x64\MD"
+$env:OPENSSL_INCLUDE_DIR = "C:\Program Files\OpenSSL-Win64-Dev\include"
+$env:SODIUM_LIB_DIR = "C:\libsodium\libsodium\x64\Release\v143\dynamic"
+cargo build --release --manifest-path backend/Cargo.toml
+```
+
+#### Linux 编译
+
+Linux 上通常只需安装系统开发包即可：
+
+```bash
+# Debian / Ubuntu
+sudo apt-get install -y libssl-dev libsodium-dev nasm
+
+# 然后直接编译
+cargo build --release --manifest-path backend/Cargo.toml
 ```
 
 注意：
@@ -260,6 +313,7 @@ pending → attested → minting → complete
 - 前端 `useBackendPoller` 会检测后端连通性；后端离线时 Header 会显示红色 Offline 提示并支持手动重试。
 - 钱包拒绝签名时，`useCctpTransfer` 会把状态置为 `error`，不会错误显示 `complete`。
 - 切换 mainnet/testnet 会强制重新挂载 wagmi provider，清空当前 EVM 钱包状态。
+- Relay worker 已实现 EVM、Solana、Stellar、Sui、Aptos 的自动 claim；Starknet 已占位但未实现。
 
 ## 许可证
 

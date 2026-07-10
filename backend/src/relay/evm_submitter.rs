@@ -450,8 +450,8 @@ fn sign_hash(hash: &[u8; 32], secret: &[u8; 32]) -> Result<Sig> {
 
     let mut r_bytes = [0u8; 32];
     let mut s_bytes = [0u8; 32];
-    r_bytes.copy_from_slice(r.to_bytes().as_slice());
-    s_bytes.copy_from_slice(s.to_bytes().as_slice());
+    r_bytes.copy_from_slice(r.to_bytes().as_ref());
+    s_bytes.copy_from_slice(s.to_bytes().as_ref());
 
     Ok(Sig {
         v: recid.to_byte() as u64,

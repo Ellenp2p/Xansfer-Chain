@@ -481,13 +481,13 @@
           "message_transmitter": "0x81D40F21F12A8F0E3252Bccb954D720d9770512A",
           "attestation_api": "https://iris-api.circle.com",
           "token_messenger_domains": {
-            "8": "0x63686576726f6e73000000000000000000000000000000000000000000000001",
-            "14": "0x63686576726f6e73000000000000000000000000000000000000000000000001",
+            "8": "0x31cc14d80c175ae39777c0238f20594c6d4869cfab199f40b69f3319956b8beb",
+            "14": "0x9bce6734f7b63e835108e3bd8c36743d4709fe435f44791918801d0989640a9d",
             "27": "CAE2G5Z77UP7GYPYGFOWFGW7C7J6I4YP2AFGSADRKQY62SYUFLPNFTXL"
           },
           "message_transmitter_domains": {
-            "8": "0x63686576726f6e73000000000000000000000000000000000000000000000002",
-            "14": "0x63686576726f6e73000000000000000000000000000000000000000000000002",
+            "8": "0x4931e06dce648b3931f890035bd196920770e913e43e45990b383f6486fdd0a5",
+            "14": "0x177e17751820e4b4371873ca8c30279be63bdea63b88ed0f2239c2eea10f1772",
             "27": "CACMENFFJPJMSDAJQLX4R7K3SFZIW2LJSE3R2UMLGSWHFHS353FVXAZV"
           }
         },
@@ -780,9 +780,13 @@
           "message_transmitter": "0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275",
           "attestation_api": "https://iris-api-sandbox.circle.com",
           "token_messenger_domains": {
+            "8": "0x2aa6c5d56376c371f88a6cc42e852824994993cb9bab8d3e6450cbe3cb32b94e",
+            "14": "0x5f9b937419dda90aa06c1836b7847f65bbbe3f1217567758dc2488be31a477b9",
             "27": "CDNG7HXAPBWICI2E3AUBP3YZWZELJLYSB6F5CC7WLDTLTHVM74SLRTHP"
           },
           "message_transmitter_domains": {
+            "8": "0x08d87d37ba49e785dde270a83f8e979605b03dc552b5548f26fdf2f49bf7ed1b",
+            "14": "0x081e86cebf457a0c6004f35bd648a2794698f52e0dde09a48619dcd3d4cc23d9",
             "27": "CBJ6MTCKKZG73PMDZCJMSFRD7DQEMI4FKDH7CGDSV4W6FHCRBCQAVVJY"
           }
         },

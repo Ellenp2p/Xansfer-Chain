@@ -1,0 +1,2 @@
+# Treat precompiled Aptos Move scripts as binary so Git does not attempt text diffs.
+backend/src/relay/aptos_scripts/*.mv binary

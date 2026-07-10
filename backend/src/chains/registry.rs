@@ -73,6 +73,30 @@ impl ChainRegistry {
         }
     }
 
+    pub fn get_token_messenger(
+        &self,
+        domain: i64,
+        network_mode: &str,
+        cctp_version: i64,
+    ) -> Option<String> {
+        let mode = normalize_mode(network_mode);
+        if cctp_version == 2 {
+            let cctp = self.cctp.get(mode)?;
+            let domain_key = domain.to_string();
+            cctp.v2
+                .token_messenger_domains
+                .get(&domain_key)
+                .cloned()
+                .or_else(|| Some(cctp.v2.token_messenger.clone()))
+        } else if cctp_version == 1 {
+            let cctp = self.cctp.get(mode)?;
+            let v1 = cctp.v1.as_ref()?;
+            v1.token_messenger.get(&domain.to_string()).cloned()
+        } else {
+            None
+        }
+    }
+
     pub fn get_attestation_api(&self,
         network_mode: &str,
         cctp_version: i64,

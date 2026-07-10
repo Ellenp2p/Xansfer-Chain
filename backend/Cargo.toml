@@ -28,8 +28,14 @@ sha2 = "0.10"
 ed25519-dalek = { version = "2.1", features = ["rand_core"] }
 bs58 = "0.5"
 
-# Stellar (testnet key handling)
-stellar-strkey = "0.0.13"
+# Non-EVM chain SDKs
+aptos-sdk = "0.6"
+soroban-client = "0.5"
+sui-sdk-types = { version = "0.3", features = ["serde", "hash"] }
+sui-transaction-builder = "0.3"
+sui-rpc = "0.3"
+solana-sdk = "2.1"
+solana-client = "2.1"
 
 [profile.release]
 lto = true
