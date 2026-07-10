@@ -8,7 +8,7 @@ mod relay;
 use axum::{routing::{get, post}, Router};
 use std::sync::Arc;
 use tokio::sync::broadcast;
-use tower_http::cors::CorsLayer;
+use tower_http::cors::{Any, CorsLayer};
 use tracing_subscriber::EnvFilter;
 
 use api::transfer::{self, AppState};
@@ -63,6 +63,25 @@ async fn main() -> anyhow::Result<()> {
         worker.run().await;
     });
 
+    let cors = if let Ok(origins) = std::env::var("CORS_ALLOWED_ORIGINS") {
+        let origins: Vec<axum::http::HeaderValue> = origins
+            .split(',')
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty())
+            .map(|s| s.parse().expect("invalid CORS_ALLOWED_ORIGINS value"))
+            .collect();
+        if origins.is_empty() {
+            CorsLayer::permissive()
+        } else {
+            CorsLayer::new()
+                .allow_origin(origins)
+                .allow_methods(Any)
+                .allow_headers(Any)
+        }
+    } else {
+        CorsLayer::permissive()
+    };
+
     let app = Router::new()
         .route("/api/chains", get(transfer::list_chains))
         .route("/api/transfer-types/{source}/{dest}", get(transfer::transfer_types))
@@ -74,7 +93,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/lookup", get(transfer::lookup_transaction))
         .route("/api/relay/claim", post(relay_handler::claim_transaction))
         .route("/ws", get(ws::ws_handler))
-        .layer(CorsLayer::permissive())
+        .layer(cors)
         .with_state(state);
 
     let port = std::env::var("PORT").unwrap_or_else(|_| "3001".into());
