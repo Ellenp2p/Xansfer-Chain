@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import type { TransactionStatusResponse } from '../types'
+import { useBackendStore } from '../stores/backendStore'
 
 const BASE = '/api'
 
@@ -110,6 +111,8 @@ export function useAttestationStatus(
 
   const fetchStatus = useCallback(async () => {
     if (!transactionId) return null
+    // Skip while backend is known offline; keeps the timer alive but avoids spamming the proxy.
+    if (!useBackendStore.getState().online) return null
     try {
       const res = await fetch(`${BASE}/transactions/${transactionId}/status`, {
         headers: { 'Content-Type': 'application/json' },

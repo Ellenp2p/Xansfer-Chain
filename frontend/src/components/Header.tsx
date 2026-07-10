@@ -1,59 +1,27 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeftRight, History, Layers, Search, Server } from 'lucide-react'
+import { ArrowLeftRight, History, Layers, Search, Server, RefreshCw } from 'lucide-react'
 import WalletButton from './WalletButton'
 import WalletPanel from './WalletPanel'
 import NetworkToggle from './NetworkToggle'
-
-function useBackendOnline() {
-  const [online, setOnline] = useState(true)
-  const onlineRef = useRef(online)
-
-  useEffect(() => {
-    onlineRef.current = online
-  }, [online])
-
-  useEffect(() => {
-    let cancelled = false
-    let timeoutId: ReturnType<typeof setTimeout>
-
-    const check = async () => {
-      try {
-        const controller = new AbortController()
-        const timer = setTimeout(() => controller.abort(), 5000)
-        const res = await fetch('/api/chains', {
-          method: 'GET',
-          signal: controller.signal,
-        })
-        clearTimeout(timer)
-        if (!cancelled) setOnline(res.ok)
-      } catch {
-        if (!cancelled) setOnline(false)
-      }
-    }
-
-    const schedule = () => {
-      timeoutId = setTimeout(async () => {
-        await check()
-        if (!cancelled) schedule()
-      }, onlineRef.current ? 10_000 : 30_000)
-    }
-
-    check()
-    schedule()
-
-    return () => {
-      cancelled = true
-      clearTimeout(timeoutId)
-    }
-  }, [])
-
-  return online
-}
+import { useBackendStore } from '../stores/backendStore'
 
 export default function Header() {
   const [walletOpen, setWalletOpen] = useState(false)
-  const backendOnline = useBackendOnline()
+  const backendOnline = useBackendStore((s) => s.online)
+  const checking = useBackendStore((s) => s.checking)
+  const triggerCheck = async () => {
+    useBackendStore.setState({ checking: true })
+    try {
+      const controller = new AbortController()
+      const timer = setTimeout(() => controller.abort(), 5000)
+      const res = await fetch('/api/chains', { signal: controller.signal })
+      clearTimeout(timer)
+      useBackendStore.getState().markCheck(res.ok)
+    } catch {
+      useBackendStore.getState().markCheck(false)
+    }
+  }
 
   return (
     <>
@@ -88,7 +56,7 @@ export default function Header() {
           </nav>
           <div className="flex items-center gap-2 shrink-0">
             <NetworkToggle />
-            <BackendStatus online={backendOnline} />
+            <BackendStatus online={backendOnline} checking={checking} onRecheck={triggerCheck} />
             <WalletButton onClick={() => setWalletOpen(true)} />
           </div>
         </div>
@@ -98,33 +66,51 @@ export default function Header() {
   )
 }
 
-function BackendStatus({ online }: { online: boolean }) {
+function BackendStatus({
+  online,
+  checking,
+  onRecheck,
+}: {
+  online: boolean
+  checking: boolean
+  onRecheck: () => void
+}) {
   if (online) return null
 
   return (
     <>
       {/* Header badge with hover tooltip */}
-      <span
-        title="后端没连上"
-        className="group relative flex items-center gap-1 rounded-full border border-red-500/40 bg-red-500/10 px-2 py-1 text-[11px] font-medium text-red-400 transition hover:bg-red-500/20"
+      <button
+        type="button"
+        onClick={onRecheck}
+        disabled={checking}
+        title="点击重新检测后端连接"
+        className="group relative flex items-center gap-1.5 rounded-full border border-red-500/40 bg-red-500/10 px-2 py-1 text-[11px] font-medium text-red-400 transition hover:bg-red-500/20 disabled:opacity-60"
       >
         <Server className="h-3 w-3" />
-        <span className="hidden sm:inline">Offline</span>
+        <span className="hidden sm:inline">{checking ? 'Checking…' : 'Offline'}</span>
+        {checking && <RefreshCw className="h-3 w-3 animate-spin" />}
         <span className="pointer-events-none absolute left-1/2 top-full mt-2 -translate-x-1/2 whitespace-nowrap rounded-md border border-red-500/40 bg-gray-900 px-2 py-1 text-[11px] text-red-400 opacity-0 shadow-lg transition group-hover:opacity-100">
-          后端没连上
+          后端没连上 · 点击重试
         </span>
-      </span>
+      </button>
 
       {/* Edge indicator */}
       <div className="fixed right-0 top-1/2 z-50 -translate-y-1/2">
-        <div className="group cursor-help">
+        <button
+          type="button"
+          onClick={onRecheck}
+          disabled={checking}
+          title="后端没连上，点击重新检测"
+          className="group cursor-pointer disabled:cursor-not-allowed"
+        >
           <div className="h-20 w-2 rounded-l-full bg-red-500 shadow-[0_0_16px_rgba(239,68,68,0.7)] animate-pulse" />
           <div className="absolute right-2 top-1/2 -translate-y-1/2 translate-x-2 opacity-0 transition-all duration-200 group-hover:translate-x-0 group-hover:opacity-100">
             <div className="whitespace-nowrap rounded-lg border border-red-500/40 bg-gray-900/95 px-3 py-2 text-sm font-medium text-red-400 shadow-xl backdrop-blur-sm">
               后端没连上
             </div>
           </div>
-        </div>
+        </button>
       </div>
     </>
   )
