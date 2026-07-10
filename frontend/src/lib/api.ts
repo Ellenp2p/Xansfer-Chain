@@ -5,11 +5,10 @@ import type {
   CreateTransactionRequest,
   LookupResponse,
 } from '../types'
-
-const BASE = '/api'
+import { API_BASE } from '../config/backend'
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${url}`, {
+  const res = await fetch(`${API_BASE}${url}`, {
     headers: { 'Content-Type': 'application/json' },
     ...init,
   })

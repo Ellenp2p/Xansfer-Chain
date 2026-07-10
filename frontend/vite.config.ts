@@ -1,4 +1,4 @@
-import { defineConfig, createLogger } from 'vite'
+import { defineConfig, createLogger, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import { nodePolyfills } from 'vite-plugin-node-polyfills'
 
@@ -14,29 +14,34 @@ logger.warn = (msg, options) => {
   originalWarn(msg, options)
 }
 
-export default defineConfig({
-  customLogger: logger,
-  plugins: [
-    react(),
-    nodePolyfills({
-      include: ['buffer'],
-      globals: { Buffer: true },
-    }),
-  ],
-  server: {
-    port: 5173,
-    proxy: {
-      '/api': 'http://localhost:3001',
-      '/ws': {
-        target: 'ws://localhost:3001',
-        ws: true,
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '')
+  const backendUrl = env.VITE_BACKEND_URL || 'http://localhost:3001'
+
+  return {
+    customLogger: logger,
+    plugins: [
+      react(),
+      nodePolyfills({
+        include: ['buffer'],
+        globals: { Buffer: true },
+      }),
+    ],
+    server: {
+      port: 5173,
+      proxy: {
+        '/api': backendUrl,
+        '/ws': {
+          target: backendUrl.replace(/^http/, 'ws'),
+          ws: true,
+        },
       },
     },
-  },
-  build: {
-    // Wallet adapter libraries (RainbowKit, wagmi, Torus, etc.) produce a large
-    // single chunk. This is expected for the current bundle; code-splitting
-    // individual adapters would require larger refactoring.
-    chunkSizeWarningLimit: 2000,
-  },
+    build: {
+      // Wallet adapter libraries (RainbowKit, wagmi, Torus, etc.) produce a large
+      // single chunk. This is expected for the current bundle; code-splitting
+      // individual adapters would require larger refactoring.
+      chunkSizeWarningLimit: 2000,
+    },
+  }
 })

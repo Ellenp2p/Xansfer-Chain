@@ -5,6 +5,7 @@ import WalletButton from './WalletButton'
 import WalletPanel from './WalletPanel'
 import NetworkToggle from './NetworkToggle'
 import { useBackendStore } from '../stores/backendStore'
+import { API_BASE } from '../config/backend'
 
 export default function Header() {
   const [walletOpen, setWalletOpen] = useState(false)
@@ -15,7 +16,7 @@ export default function Header() {
     try {
       const controller = new AbortController()
       const timer = setTimeout(() => controller.abort(), 5000)
-      const res = await fetch('/api/chains', { signal: controller.signal })
+      const res = await fetch(`${API_BASE}/chains`, { signal: controller.signal })
       clearTimeout(timer)
       useBackendStore.getState().markCheck(res.ok)
     } catch {

@@ -6,6 +6,7 @@ import type { ChainAdapter } from './cctp/types'
 import { getChainByDomain } from '../config/chains'
 import { useNetworkMode } from '../stores/networkMode'
 import { useWalletStore } from '../stores/walletStore'
+import { API_BASE } from '../config/backend'
 import type { TransferType } from '../types'
 
 function formatWalletError(err: unknown, fallback: string): string {
@@ -191,7 +192,7 @@ export function useCctpTransfer() {
 
         // Step 5: Register with backend
         setStep('registering')
-        const res = await fetch('/api/transactions', {
+        const res = await fetch(`${API_BASE}/transactions`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

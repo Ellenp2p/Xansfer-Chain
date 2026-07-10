@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react'
 import { useBackendStore } from '../stores/backendStore'
+import { API_BASE } from '../config/backend'
 
-const CHECK_URL = '/api/chains'
+const CHECK_URL = `${API_BASE}/chains`
 const TIMEOUT_MS = 5000
 const ONLINE_INTERVAL_MS = 10_000
 const OFFLINE_BASE_MS = 5_000
