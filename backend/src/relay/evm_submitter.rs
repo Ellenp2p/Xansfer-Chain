@@ -39,7 +39,10 @@ impl EvmKey {
 pub struct EvmSubmitter {
     rpc_url: String,
     chain_id: u64,
-    message_transmitter: String,
+    /// Contract address the transaction is sent to (MessageTransmitter or Forwarder).
+    to: String,
+    /// Optional MessageTransmitter address used for `isMessageReceived` checks.
+    message_transmitter: Option<String>,
     key: EvmKey,
     client: Client,
     gas_limit: u64,
@@ -52,12 +55,14 @@ impl EvmSubmitter {
     pub fn new(
         rpc_url: String,
         chain_id: u64,
-        message_transmitter: String,
+        to: String,
+        message_transmitter: Option<String>,
         key: EvmKey,
     ) -> Self {
         Self {
             rpc_url,
             chain_id,
+            to,
             message_transmitter,
             key,
             client: Client::builder()
@@ -81,7 +86,8 @@ impl EvmSubmitter {
         }
     }
 
-    /// Submit CCTP receiveMessage(bytes,bytes) and return the destination tx hash.
+    /// Submit CCTP `receiveMessage(bytes,bytes)` directly to MessageTransmitter
+    /// and return the destination tx hash.
     pub async fn submit_receive_message(
         &self,
         message_hex: &str,
@@ -92,8 +98,10 @@ impl EvmSubmitter {
         let attestation = decode_hex(attestation_hex)?;
 
         let msg_hash = keccak256(&message);
-        if self.is_message_received(&msg_hash).await? {
-            return Err(anyhow!("Message already claimed on destination chain"));
+        if let Some(mt) = self.message_transmitter.as_ref() {
+            if self.is_message_received(&msg_hash, mt).await? {
+                return Err(anyhow!("Message already claimed on destination chain"));
+            }
         }
 
         let calldata = build_receive_message_calldata(&message, &attestation);
@@ -116,6 +124,58 @@ impl EvmSubmitter {
             if status_hex == "0" {
                 return Err(anyhow!(
                     "receiveMessage transaction reverted: {}",
+                    dest_hash
+                ));
+            }
+        }
+
+        Ok(dest_hash)
+    }
+
+    /// Submit a CCTP v2 Forwarder `mintAndForward(bytes,bytes,address,uint256)`
+    /// call and return the destination tx hash.
+    pub async fn submit_mint_and_forward(
+        &self,
+        message_hex: &str,
+        attestation_hex: &str,
+        recipient: &str,
+        min_amount_out: u128,
+        block_time_ms: u64,
+    ) -> Result<String> {
+        let message = decode_hex(message_hex)?;
+        let attestation = decode_hex(attestation_hex)?;
+
+        let recipient_address = decode_hex(recipient)?;
+        if recipient_address.len() != 20 {
+            return Err(anyhow!("Invalid recipient EVM address: {}", recipient));
+        }
+
+        let calldata = build_mint_and_forward_calldata(
+            &message,
+            &attestation,
+            &recipient_address,
+            min_amount_out,
+        );
+        let nonce = self.get_nonce().await?;
+        let (raw_tx, tx_hash) = self.build_and_sign_tx(nonce, calldata).await?;
+
+        info!(
+            "Submitting mintAndForward from {}, recipient {}, tx hash: 0x{}",
+            self.key.address_hex(),
+            recipient,
+            hex::encode(tx_hash)
+        );
+
+        self.send_raw_transaction(&raw_tx).await?;
+        let receipt = self.wait_for_receipt(&tx_hash, block_time_ms).await?;
+
+        let dest_hash = format!("0x{}", hex::encode(tx_hash));
+
+        if let Some(status) = receipt.get("status").and_then(|s| s.as_str()) {
+            let status_hex = status.strip_prefix("0x").unwrap_or(status);
+            if status_hex == "0" {
+                return Err(anyhow!(
+                    "mintAndForward transaction reverted: {}",
                     dest_hash
                 ));
             }
@@ -148,14 +208,17 @@ impl EvmSubmitter {
         Ok(result["result"].clone())
     }
 
-    async fn is_message_received(&self, message_hash: &[u8; 32]) -> Result<bool> {
+    async fn is_message_received(&self,
+        message_hash: &[u8; 32],
+        mt_address: &str,
+    ) -> Result<bool> {
         let selector = keccak256_selector(b"isMessageReceived(bytes32)");
         let mut calldata = Vec::with_capacity(36);
         calldata.extend_from_slice(&selector);
         calldata.extend_from_slice(message_hash);
 
         let params = json!([{
-            "to": self.message_transmitter,
+            "to": mt_address,
             "data": format!("0x{}", hex::encode(&calldata)),
         }, "latest"]);
 
@@ -181,9 +244,9 @@ impl EvmSubmitter {
         nonce: u64,
         data: Vec<u8>,
     ) -> Result<(Vec<u8>, [u8; 32])> {
-        let to = decode_hex(&self.message_transmitter)?;
+        let to = decode_hex(&self.to)?;
         if to.len() != 20 {
-            return Err(anyhow!("Invalid message transmitter address"));
+            return Err(anyhow!("Invalid destination contract address"));
         }
         let to_arr: [u8; 20] = to.try_into().unwrap();
 
@@ -365,6 +428,29 @@ impl EvmSubmitter {
     }
 }
 
+/// Parse the USDC amount from a CCTP v2 message.
+/// The amount field is located at byte offset 216 (148-byte header + 68-byte
+/// body offset) and is encoded as a 32-byte big-endian uint256.
+pub fn parse_cctp_v2_amount(message_hex: &str) -> Result<u128> {
+    let bytes = decode_hex(message_hex)?;
+    const AMOUNT_OFFSET: usize = 216;
+    const AMOUNT_LEN: usize = 32;
+    if bytes.len() < AMOUNT_OFFSET + AMOUNT_LEN {
+        return Err(anyhow!(
+            "CCTP v2 message too short to parse amount: {} bytes",
+            bytes.len()
+        ));
+    }
+    let amount_bytes: [u8; AMOUNT_LEN] = bytes[AMOUNT_OFFSET..AMOUNT_OFFSET + AMOUNT_LEN]
+        .try_into()
+        .map_err(|_| anyhow!("Failed to extract amount bytes"))?;
+    // USDC amounts fit comfortably in u128; reject if high 16 bytes are non-zero.
+    if amount_bytes[..16] != [0u8; 16] {
+        return Err(anyhow!("CCTP v2 amount exceeds u128 range"));
+    }
+    Ok(u128::from_be_bytes(amount_bytes[16..].try_into().unwrap()))
+}
+
 fn build_receive_message_calldata(message: &[u8], attestation: &[u8]) -> Vec<u8> {
     let selector = keccak256_selector(b"receiveMessage(bytes,bytes)");
     let mut encoded = Vec::new();
@@ -380,6 +466,55 @@ fn build_receive_message_calldata(message: &[u8], attestation: &[u8]) -> Vec<u8>
     encoded.extend_from_slice(&u256_bytes(message.len() as u64));
     encoded.extend_from_slice(message);
     encoded.extend_from_slice(&padding(message.len()));
+    encoded.extend_from_slice(&u256_bytes(attestation.len() as u64));
+    encoded.extend_from_slice(attestation);
+    encoded.extend_from_slice(&padding(attestation.len()));
+
+    encoded
+}
+
+fn build_mint_and_forward_calldata(
+    message: &[u8],
+    attestation: &[u8],
+    recipient: &[u8],
+    min_amount_out: u128,
+) -> Vec<u8> {
+    // mintAndForward(bytes,bytes,address,uint256)
+    let selector = keccak256_selector(b"mintAndForward(bytes,bytes,address,uint256)");
+    let mut encoded = Vec::new();
+    encoded.extend_from_slice(&selector);
+
+    // ABI encoding for (bytes, bytes, address, uint256):
+    // offset to first bytes  (32)
+    // offset to second bytes (32)
+    // recipient address      (32)
+    // minAmountOut           (32)
+    // first bytes length     (32)
+    // first bytes data       (padded)
+    // second bytes length    (32)
+    // second bytes data      (padded)
+    let offset1 = 128u64; // 4 static args * 32
+    let offset2 = offset1 + 32 + padded_len(message.len()) as u64;
+
+    encoded.extend_from_slice(&u256_bytes(offset1));
+    encoded.extend_from_slice(&u256_bytes(offset2));
+
+    // recipient address (20 bytes zero-padded to 32)
+    let mut recipient_padded = [0u8; 32];
+    recipient_padded[12..].copy_from_slice(recipient);
+    encoded.extend_from_slice(&recipient_padded);
+
+    // minAmountOut as uint256
+    let mut min_amount_bytes = [0u8; 32];
+    min_amount_bytes[16..].copy_from_slice(&min_amount_out.to_be_bytes());
+    encoded.extend_from_slice(&min_amount_bytes);
+
+    // message bytes
+    encoded.extend_from_slice(&u256_bytes(message.len() as u64));
+    encoded.extend_from_slice(message);
+    encoded.extend_from_slice(&padding(message.len()));
+
+    // attestation bytes
     encoded.extend_from_slice(&u256_bytes(attestation.len() as u64));
     encoded.extend_from_slice(attestation);
     encoded.extend_from_slice(&padding(attestation.len()));
@@ -468,6 +603,41 @@ mod tests {
     fn test_receive_message_selector() {
         let sel = keccak256_selector(b"receiveMessage(bytes,bytes)");
         assert_eq!(hex::encode(sel), "57ecfd28");
+    }
+
+    #[test]
+    fn test_mint_and_forward_selector() {
+        let sel = keccak256_selector(b"mintAndForward(bytes,bytes,address,uint256)");
+        assert_eq!(hex::encode(sel), "adc33b96");
+    }
+
+    #[test]
+    fn test_build_mint_and_forward_calldata_encoding() {
+        let message = vec![0xab; 33];
+        let attestation = vec![0xcd; 65];
+        let recipient = vec![0x12, 0x34, 0x56, 0x78, 0x90, 0xab, 0xcd, 0xef, 0x12, 0x34,
+                             0x56, 0x78, 0x90, 0xab, 0xcd, 0xef, 0x12, 0x34, 0x56, 0x78];
+        let min_amount_out = 1_000_000u128;
+        let calldata = build_mint_and_forward_calldata(
+            &message, &attestation, &recipient, min_amount_out,
+        );
+
+        assert_eq!(
+            &calldata[0..4],
+            keccak256_selector(b"mintAndForward(bytes,bytes,address,uint256)")
+        );
+        // offset1 = 128
+        assert_eq!(&calldata[4..36], u256_bytes(128));
+        let offset2 = 128 + 32 + padded_len(message.len());
+        assert_eq!(&calldata[36..68], u256_bytes(offset2 as u64));
+        // recipient at index 68..100, last 20 bytes should match
+        assert_eq!(&calldata[80..100],
+            &[0x12u8, 0x34, 0x56, 0x78, 0x90, 0xab, 0xcd, 0xef, 0x12, 0x34,
+                0x56, 0x78, 0x90, 0xab, 0xcd, 0xef, 0x12, 0x34, 0x56, 0x78]
+        );
+        // minAmountOut is at index 100..132; high 16 bytes are zero, low 16 bytes hold the value
+        let low_bytes: [u8; 16] = calldata[116..132].try_into().unwrap();
+        assert_eq!(u128::from_be_bytes(low_bytes), min_amount_out);
     }
 
     #[test]

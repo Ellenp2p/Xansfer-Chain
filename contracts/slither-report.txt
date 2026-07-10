@@ -1,0 +1,4 @@
+'forge clean' running (wd: C:\Users\bujih\Documents\Xansfer-Chain\contracts)
+'forge config --json' running
+'forge build --build-info src\CctpV2Forwarder.sol' running (wd: C:\Users\bujih\Documents\Xansfer-Chain\contracts)
+INFO:Slither:src/CctpV2Forwarder.sol analyzed (12 contracts with 94 detectors), 0 result(s) found

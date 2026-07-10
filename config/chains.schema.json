@@ -57,6 +57,7 @@
         },
         "supports_fast_transfer": { "type": "boolean" },
         "supports_forwarding": { "type": "boolean" },
+        "forwarder": { "type": "string" },
         "block_time_ms": { "type": "integer", "minimum": 1 },
         "finality_blocks": { "type": "integer", "minimum": 1 }
       },

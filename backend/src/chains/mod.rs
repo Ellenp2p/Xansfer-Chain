@@ -16,6 +16,8 @@ pub struct ChainConfig {
     pub chain_type: ChainType,
     pub supports_fast_transfer: bool,
     pub supports_forwarding: bool,
+    #[serde(default)]
+    pub forwarder: Option<String>,
     pub block_time_ms: u64,
     pub finality_blocks: u32,
 }

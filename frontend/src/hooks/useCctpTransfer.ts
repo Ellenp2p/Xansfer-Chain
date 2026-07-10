@@ -170,6 +170,7 @@ export function useCctpTransfer() {
             amount,
             destDomain,
             destAddress,
+            destChainConfig: destChain,
             destChainType: destChain?.chain_type,
             cctpVersion,
             transferType,

@@ -80,6 +80,8 @@ pub struct RawChainConfig {
     pub chain_type: ChainType,
     pub supports_fast_transfer: bool,
     pub supports_forwarding: bool,
+    #[serde(default)]
+    pub forwarder: Option<String>,
     pub block_time_ms: u64,
     pub finality_blocks: u32,
 }
@@ -198,6 +200,7 @@ pub fn resolve_mode_chains(mode_config: &ModeConfig) -> Result<Vec<ChainConfig>,
             chain_type: raw.chain_type.clone(),
             supports_fast_transfer: raw.supports_fast_transfer,
             supports_forwarding: raw.supports_forwarding,
+            forwarder: raw.forwarder.clone(),
             block_time_ms: raw.block_time_ms,
             finality_blocks: raw.finality_blocks,
         });

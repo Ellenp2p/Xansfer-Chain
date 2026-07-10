@@ -2,6 +2,8 @@
 
 跨链 USDC 传输工具，基于 Circle CCTP（Cross-Chain Transfer Protocol）。用户可以在一条链上 burn USDC，通过 Circle 的 attestation 服务在另一条链上 claim/mint。
 
+本项目额外包含一个 **CCTP v2 Forwarder** 合约（`contracts/`），用于 relay 模式：USDC 先 mint 到 Forwarder，合约扣除手续费后再转发给用户。
+
 ## 架构概览
 
 ```
@@ -26,14 +28,15 @@
 
 - **frontend/**：React 单页应用，负责钱包连接、构造并签名源链 burn 交易、展示状态、在目标链 claim。
 - **backend/**：Rust 服务，管理链配置与交易记录，轮询 Circle attestation，提供 WebSocket 状态推送，可选 relay worker 代为在 EVM / Solana / Stellar / Sui / Aptos 上自动 claim。
-- **config/**：链配置（RPC、CCTP 合约地址、domain ID 等），支持 mainnet / testnet。
+- **config/**：链配置（RPC、CCTP 合约地址、domain ID、可选 Forwarder 地址等），支持 mainnet / testnet。
+- **contracts/**：Foundry 项目，实现 `CctpV2Forwarder.sol` 等非升级合约，用于 relay 手续费收取。
 
 ## 核心流程
 
 1. 用户在源链发起 burn（EVM/Aptos 调用 `depositForBurn`，Stellar 调用 `deposit_for_burn`）。
 2. 前端将交易哈希注册到后端，`/api/transactions`。
 3. 后端 poller 每 10 秒查询 Circle Iris API，获取 attestation 与 message。
-4. 状态变为 `attested` 后，用户在目标链调用 `receiveMessage` 完成 claim；或交给 relay worker 自动执行。
+4. 状态变为 `attested` 后，用户在目标链调用 `receiveMessage` 完成 claim；或交给 relay worker 自动执行。EVM relay 若配置了 Forwarder 地址，会走 `mintAndForward` 路径，由合约扣除手续费后再将 USDC 转发给用户。
 5. 前端 `/tx/:hash` 页面展示实时状态，支持手动 claim。
 
 ## 技术栈
@@ -89,6 +92,11 @@
 │   ├── chains.json                     # 运行时链配置（默认提交在仓库中）
 │   ├── chains.example.json             # 配置示例
 │   └── chains.schema.json              # JSON Schema
+├── contracts/                          # Foundry 合约项目
+│   ├── src/
+│   │   └── CctpV2Forwarder.sol         # CCTP v2 Forwarder：接收 USDC 并扣除手续费后转发
+│   └── test/
+│       └── CctpV2Forwarder.t.sol       # 单元 / fuzz / invariant 测试
 ├── frontend/
 │   ├── package.json
 │   ├── vite.config.ts
@@ -137,6 +145,8 @@ cargo run
 | `RELAY_KEY_5` | Solana devnet relay keypair（base58） | 无 |
 | `RELAY_KEY_8` | Sui testnet relay key（hex） | 无 |
 | `RELAY_KEY_14` | Aptos testnet relay key（hex） | 无 |
+| `EVM_FORWARDER_<DOMAIN>` | 覆盖指定 domain 的 CCTP v2 Forwarder 地址 | 无 |
+| `RELAY_MAX_FORWARDER_FEE_BPS` | Forwarder 最大手续费（基点，默认 500 = 5%） | `500` |
 | `RELAY_MAX_GAS_PRICE_GWEI` | EVM legacy gas price 上限 | 无 |
 | `RELAY_MAX_PRIORITY_FEE_GWEI` | EVM EIP-1559 priority fee 上限 | 无 |
 | `RELAY_TX_TIMEOUT_SECS` | 等待目标链回执的最长时间 | `300` |
@@ -175,6 +185,7 @@ VITE_BACKEND_URL=https://api.xansfer.example.com bun run build
 
 | `VITE_BACKEND_URL` | 后端 API 根地址，如 `https://api.xansfer.example.com`；为空时使用 Vite dev proxy |
 | `VITE_SOLANA_RPC` | Solana RPC 端点（devnet/mainnet），未设置时使用链配置里的 RPC |
+| `VITE_EVM_FORWARDER_<DOMAIN>` | 覆盖指定 EVM domain 的 CCTP v2 Forwarder 地址；优先级高于 `config/chains.json` |
 
 ### 后端
 
@@ -190,6 +201,8 @@ VITE_BACKEND_URL=https://api.xansfer.example.com bun run build
 | `RELAY_KEY_5` | Solana devnet relay keypair（base58） |
 | `RELAY_KEY_8` | Sui testnet relay key（hex） |
 | `RELAY_KEY_14` | Aptos testnet relay key（hex） |
+| `EVM_FORWARDER_<DOMAIN>` | 覆盖指定 domain 的 CCTP v2 Forwarder 地址 |
+| `RELAY_MAX_FORWARDER_FEE_BPS` | Forwarder 最大手续费（基点） |
 | `SOLANA_MESSAGE_TRANSMITTER_V2` / `SOLANA_TOKEN_MESSENGER_MINTER_V2` | Solana CCTP program ID 覆盖 |
 | `APTOS_MESSAGE_TRANSMITTER` / `APTOS_TOKEN_MESSENGER_MINTER` | Aptos CCTP 合约地址覆盖 |
 | `SUI_MESSAGE_TRANSMITTER_PACKAGE` 等 | Sui 共享对象地址覆盖 |
@@ -220,10 +233,10 @@ PORT=3001 DATABASE_URL=sqlite:xansfer.db?mode=rwc ./target/release/xansfer-chain
 在 Windows 上完整编译后端需要以下原生库（Solana/Sui/Stellar SDK 依赖）：
 
 - **NASM**：`aws-lc-sys` 需要。安装后把目录加入 `PATH`，例如 `C:\nasm\nasm-2.16.03`。
-- **OpenSSL-Win64-Dev**：`openssl-sys` 需要。建议指向 VC 动态库目录：
-  - `OPENSSL_DIR=C:\Program Files\OpenSSL-Win64-Dev`
-  - `OPENSSL_LIB_DIR=C:\Program Files\OpenSSL-Win64-Dev\lib\VC\x64\MD`
-  - `OPENSSL_INCLUDE_DIR=C:\Program Files\OpenSSL-Win64-Dev\include`
+- **OpenSSL-Win64**：`openssl-sys` 需要。建议指向 VC 动态库目录：
+  - `OPENSSL_DIR=C:\Program Files\OpenSSL-Win64`
+  - `OPENSSL_LIB_DIR=C:\Program Files\OpenSSL-Win64\lib\VC\x64\MD`
+  - `OPENSSL_INCLUDE_DIR=C:\Program Files\OpenSSL-Win64\include`
 - **libsodium**：`soroban-client` 需要。
   - `SODIUM_LIB_DIR=C:\libsodium\libsodium\x64\Release\v143\dynamic`
 
@@ -231,9 +244,9 @@ PowerShell 示例：
 
 ```powershell
 $env:PATH = "C:\nasm\nasm-2.16.03;$env:PATH"
-$env:OPENSSL_DIR = "C:\Program Files\OpenSSL-Win64-Dev"
-$env:OPENSSL_LIB_DIR = "C:\Program Files\OpenSSL-Win64-Dev\lib\VC\x64\MD"
-$env:OPENSSL_INCLUDE_DIR = "C:\Program Files\OpenSSL-Win64-Dev\include"
+$env:OPENSSL_DIR = "C:\Program Files\OpenSSL-Win64"
+$env:OPENSSL_LIB_DIR = "C:\Program Files\OpenSSL-Win64\lib\VC\x64\MD"
+$env:OPENSSL_INCLUDE_DIR = "C:\Program Files\OpenSSL-Win64\include"
 $env:SODIUM_LIB_DIR = "C:\libsodium\libsodium\x64\Release\v143\dynamic"
 cargo build --release --manifest-path backend/Cargo.toml
 ```
@@ -314,6 +327,7 @@ pending → attested → minting → complete
 - 钱包拒绝签名时，`useCctpTransfer` 会把状态置为 `error`，不会错误显示 `complete`。
 - 切换 mainnet/testnet 会强制重新挂载 wagmi provider，清空当前 EVM 钱包状态。
 - Relay worker 已实现 EVM、Solana、Stellar、Sui、Aptos 的自动 claim；Starknet 已占位但未实现。
+- EVM relay 如配置了 `EVM_FORWARDER_<DOMAIN>`（或 `config/chains.json` 中的 `forwarder`），会走 Forwarder 合约路径：合约扣除手续费后将 USDC 转发给用户。
 
 ## 许可证
 

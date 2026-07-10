@@ -44,6 +44,10 @@ function resolveString(value: ResolvableString): string {
 }
 
 function resolveChainConfig(raw: any): ChainConfig {
+  const envForwarderKey = `VITE_EVM_FORWARDER_${raw.domain}`
+  const envForwarder = import.meta.env[envForwarderKey]
+  const configForwarder = raw.forwarder ? resolveString(raw.forwarder) : undefined
+
   return {
     domain: raw.domain,
     name: raw.name,
@@ -56,6 +60,8 @@ function resolveChainConfig(raw: any): ChainConfig {
     chain_type: raw.chain_type,
     supports_fast_transfer: raw.supports_fast_transfer ?? false,
     supports_forwarding: raw.supports_forwarding ?? false,
+    forwarder:
+      envForwarder ? String(envForwarder) : (configForwarder || undefined),
     block_time_ms: raw.block_time_ms ?? 2000,
     finality_blocks: raw.finality_blocks ?? 1,
   }

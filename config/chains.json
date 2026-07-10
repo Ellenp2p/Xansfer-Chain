@@ -18,7 +18,8 @@
           "supports_fast_transfer": true,
           "supports_forwarding": true,
           "block_time_ms": 12000,
-          "finality_blocks": 12
+          "finality_blocks": 12,
+          "forwarder": ""
         },
         {
           "domain": 1,
@@ -35,7 +36,8 @@
           "supports_fast_transfer": false,
           "supports_forwarding": true,
           "block_time_ms": 2000,
-          "finality_blocks": 1
+          "finality_blocks": 1,
+          "forwarder": ""
         },
         {
           "domain": 2,
@@ -52,7 +54,8 @@
           "supports_fast_transfer": true,
           "supports_forwarding": true,
           "block_time_ms": 2000,
-          "finality_blocks": 1
+          "finality_blocks": 1,
+          "forwarder": ""
         },
         {
           "domain": 3,
@@ -69,7 +72,8 @@
           "supports_fast_transfer": true,
           "supports_forwarding": true,
           "block_time_ms": 250,
-          "finality_blocks": 1
+          "finality_blocks": 1,
+          "forwarder": ""
         },
         {
           "domain": 5,
@@ -102,7 +106,8 @@
           "supports_fast_transfer": true,
           "supports_forwarding": true,
           "block_time_ms": 2000,
-          "finality_blocks": 1
+          "finality_blocks": 1,
+          "forwarder": ""
         },
         {
           "domain": 7,
@@ -119,7 +124,8 @@
           "supports_fast_transfer": false,
           "supports_forwarding": true,
           "block_time_ms": 2000,
-          "finality_blocks": 128
+          "finality_blocks": 128,
+          "forwarder": ""
         },
         {
           "domain": 8,
@@ -151,7 +157,8 @@
           "supports_fast_transfer": true,
           "supports_forwarding": true,
           "block_time_ms": 1000,
-          "finality_blocks": 1
+          "finality_blocks": 1,
+          "forwarder": ""
         },
         {
           "domain": 11,
@@ -167,7 +174,8 @@
           "supports_fast_transfer": true,
           "supports_forwarding": true,
           "block_time_ms": 12000,
-          "finality_blocks": 1
+          "finality_blocks": 1,
+          "forwarder": ""
         },
         {
           "domain": 12,
@@ -183,7 +191,8 @@
           "supports_fast_transfer": true,
           "supports_forwarding": true,
           "block_time_ms": 1000,
-          "finality_blocks": 1
+          "finality_blocks": 1,
+          "forwarder": ""
         },
         {
           "domain": 13,
@@ -199,7 +208,8 @@
           "supports_fast_transfer": false,
           "supports_forwarding": true,
           "block_time_ms": 1000,
-          "finality_blocks": 1
+          "finality_blocks": 1,
+          "forwarder": ""
         },
         {
           "domain": 14,
@@ -231,7 +241,8 @@
           "supports_fast_transfer": false,
           "supports_forwarding": true,
           "block_time_ms": 1000,
-          "finality_blocks": 1
+          "finality_blocks": 1,
+          "forwarder": ""
         },
         {
           "domain": 16,
@@ -247,7 +258,8 @@
           "supports_fast_transfer": false,
           "supports_forwarding": true,
           "block_time_ms": 400,
-          "finality_blocks": 1
+          "finality_blocks": 1,
+          "forwarder": ""
         },
         {
           "domain": 17,
@@ -263,7 +275,8 @@
           "supports_fast_transfer": false,
           "supports_forwarding": false,
           "block_time_ms": 3000,
-          "finality_blocks": 15
+          "finality_blocks": 15,
+          "forwarder": ""
         },
         {
           "domain": 18,
@@ -279,7 +292,8 @@
           "supports_fast_transfer": false,
           "supports_forwarding": true,
           "block_time_ms": 2000,
-          "finality_blocks": 1
+          "finality_blocks": 1,
+          "forwarder": ""
         },
         {
           "domain": 19,
@@ -295,7 +309,8 @@
           "supports_fast_transfer": false,
           "supports_forwarding": true,
           "block_time_ms": 1000,
-          "finality_blocks": 1
+          "finality_blocks": 1,
+          "forwarder": ""
         },
         {
           "domain": 21,
@@ -311,7 +326,8 @@
           "supports_fast_transfer": true,
           "supports_forwarding": true,
           "block_time_ms": 1000,
-          "finality_blocks": 1
+          "finality_blocks": 1,
+          "forwarder": ""
         },
         {
           "domain": 22,
@@ -327,7 +343,8 @@
           "supports_fast_transfer": true,
           "supports_forwarding": true,
           "block_time_ms": 1000,
-          "finality_blocks": 1
+          "finality_blocks": 1,
+          "forwarder": ""
         },
         {
           "domain": 25,
@@ -359,7 +376,8 @@
           "supports_fast_transfer": false,
           "supports_forwarding": true,
           "block_time_ms": 1000,
-          "finality_blocks": 1
+          "finality_blocks": 1,
+          "forwarder": ""
         },
         {
           "domain": 27,
@@ -392,7 +410,8 @@
           "supports_fast_transfer": true,
           "supports_forwarding": true,
           "block_time_ms": 1000,
-          "finality_blocks": 1
+          "finality_blocks": 1,
+          "forwarder": ""
         },
         {
           "domain": 29,
@@ -408,7 +427,8 @@
           "supports_fast_transfer": false,
           "supports_forwarding": false,
           "block_time_ms": 1200,
-          "finality_blocks": 1
+          "finality_blocks": 1,
+          "forwarder": ""
         },
         {
           "domain": 30,
@@ -424,7 +444,8 @@
           "supports_fast_transfer": true,
           "supports_forwarding": false,
           "block_time_ms": 2000,
-          "finality_blocks": 1
+          "finality_blocks": 1,
+          "forwarder": ""
         },
         {
           "domain": 31,
@@ -440,7 +461,8 @@
           "supports_fast_transfer": false,
           "supports_forwarding": false,
           "block_time_ms": 2000,
-          "finality_blocks": 1
+          "finality_blocks": 1,
+          "forwarder": ""
         },
         {
           "domain": 32,
@@ -456,7 +478,8 @@
           "supports_fast_transfer": false,
           "supports_forwarding": true,
           "block_time_ms": 6000,
-          "finality_blocks": 1
+          "finality_blocks": 1,
+          "forwarder": ""
         },
         {
           "domain": 33,
@@ -472,7 +495,8 @@
           "supports_fast_transfer": true,
           "supports_forwarding": true,
           "block_time_ms": 2000,
-          "finality_blocks": 1
+          "finality_blocks": 1,
+          "forwarder": ""
         }
       ],
       "cctp": {
@@ -529,7 +553,8 @@
           "supports_fast_transfer": true,
           "supports_forwarding": true,
           "block_time_ms": 12000,
-          "finality_blocks": 12
+          "finality_blocks": 12,
+          "forwarder": ""
         },
         {
           "domain": 1,
@@ -546,7 +571,8 @@
           "supports_fast_transfer": false,
           "supports_forwarding": true,
           "block_time_ms": 2000,
-          "finality_blocks": 1
+          "finality_blocks": 1,
+          "forwarder": ""
         },
         {
           "domain": 2,
@@ -562,7 +588,8 @@
           "supports_fast_transfer": true,
           "supports_forwarding": true,
           "block_time_ms": 2000,
-          "finality_blocks": 1
+          "finality_blocks": 1,
+          "forwarder": ""
         },
         {
           "domain": 3,
@@ -578,7 +605,8 @@
           "supports_fast_transfer": true,
           "supports_forwarding": true,
           "block_time_ms": 250,
-          "finality_blocks": 1
+          "finality_blocks": 1,
+          "forwarder": ""
         },
         {
           "domain": 5,
@@ -610,7 +638,8 @@
           "supports_fast_transfer": true,
           "supports_forwarding": true,
           "block_time_ms": 2000,
-          "finality_blocks": 1
+          "finality_blocks": 1,
+          "forwarder": ""
         },
         {
           "domain": 7,
@@ -626,7 +655,8 @@
           "supports_fast_transfer": false,
           "supports_forwarding": true,
           "block_time_ms": 2000,
-          "finality_blocks": 128
+          "finality_blocks": 128,
+          "forwarder": ""
         },
         {
           "domain": 10,
@@ -642,7 +672,8 @@
           "supports_fast_transfer": true,
           "supports_forwarding": true,
           "block_time_ms": 1000,
-          "finality_blocks": 1
+          "finality_blocks": 1,
+          "forwarder": ""
         },
         {
           "domain": 11,
@@ -658,7 +689,8 @@
           "supports_fast_transfer": true,
           "supports_forwarding": true,
           "block_time_ms": 12000,
-          "finality_blocks": 1
+          "finality_blocks": 1,
+          "forwarder": ""
         },
         {
           "domain": 13,
@@ -674,7 +706,8 @@
           "supports_fast_transfer": false,
           "supports_forwarding": true,
           "block_time_ms": 1000,
-          "finality_blocks": 1
+          "finality_blocks": 1,
+          "forwarder": ""
         },
         {
           "domain": 25,
@@ -706,7 +739,8 @@
           "supports_fast_transfer": true,
           "supports_forwarding": true,
           "block_time_ms": 1000,
-          "finality_blocks": 1
+          "finality_blocks": 1,
+          "forwarder": ""
         },
         {
           "domain": 27,
@@ -739,7 +773,8 @@
           "supports_fast_transfer": false,
           "supports_forwarding": true,
           "block_time_ms": 6000,
-          "finality_blocks": 1
+          "finality_blocks": 1,
+          "forwarder": ""
         },
         {
           "domain": 8,

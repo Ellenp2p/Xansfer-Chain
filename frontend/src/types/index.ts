@@ -13,6 +13,8 @@ export interface ChainConfig {
   chain_type: ChainType
   supports_fast_transfer: boolean
   supports_forwarding: boolean
+  /** Optional CCTP v2 Forwarder contract address used for relay + fee on this chain. */
+  forwarder?: string
   block_time_ms: number
   finality_blocks: number
 }

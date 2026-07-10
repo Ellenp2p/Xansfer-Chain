@@ -97,6 +97,26 @@ impl ChainRegistry {
         }
     }
 
+    pub fn get_forwarder(
+        &self,
+        domain: i64,
+        _network_mode: &str,
+    ) -> Option<String> {
+        // Environment override takes precedence: EVM_FORWARDER_<DOMAIN>
+        let env_key = format!("EVM_FORWARDER_{}", domain);
+        if let Ok(addr) = std::env::var(&env_key) {
+            if !addr.trim().is_empty() {
+                return Some(addr.trim().to_string());
+            }
+        }
+
+        // Fall back to chain config, treating empty strings as unset.
+        self.chains
+            .get(&domain)
+            .and_then(|c| c.forwarder.clone())
+            .filter(|addr| !addr.trim().is_empty())
+    }
+
     pub fn get_attestation_api(&self,
         network_mode: &str,
         cctp_version: i64,

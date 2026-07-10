@@ -9,6 +9,7 @@ A cross-chain USDC transfer dApp built on Circle CCTP.
 - **Backend**: Rust (Axum) + SQLite + async pollers.
 - **Frontend**: React 19 + Vite 8 + TypeScript + Tailwind CSS 4 + Bun.
 - **Wallets**: RainbowKit/wagmi (EVM), Solana, Aptos, Sui, Stellar (Freighter).
+- **Contracts**: Foundry project in `contracts/` implementing the CCTP v2 Forwarder used for relay fee collection.
 
 ## Quick Commands
 
@@ -38,7 +39,7 @@ VITE_BACKEND_URL=https://api.xansfer.example.com bun run build
 - `attestation/poller.rs`: polls Circle Iris API; checks `isMessageReceived` on destination chain.
 - `chains/registry.rs`: loads `config/chains.json` and provides chain/domain/CCTP metadata.
 - `db/`: SQLite schema init + migration column backfill + models.
-- `relay/`: optional auto-claim worker. EVM, Solana, Stellar, Sui, and Aptos relay submitters are implemented; Starknet is wired but not yet implemented. Each submitter signs and sends the destination-chain `receiveMessage` equivalent transaction.
+- `relay/`: optional auto-claim worker. EVM, Solana, Stellar, Sui, and Aptos relay submitters are implemented; Starknet is wired but not yet implemented. For EVM destinations, if a `forwarder` address is configured the relay routes through the CCTP v2 Forwarder contract, deducts a fee, and forwards the net USDC to the user; otherwise it calls `receiveMessage` directly.
 
 ### Frontend (`frontend/`)
 
@@ -77,6 +78,7 @@ Frontend (Vite, must start with `VITE_`):
 
 - `VITE_BACKEND_URL`: deployed backend root, e.g. `https://api.xansfer.example.com`.
 - `VITE_SOLANA_RPC`: Solana RPC endpoint; falls back to chain config RPC.
+- `VITE_EVM_FORWARDER_<DOMAIN>` (optional): overrides the CCTP v2 Forwarder address shown to the frontend for relay transfers to an EVM domain. Takes precedence over `forwarder` in `config/chains.json`.
 
 Backend:
 
@@ -89,6 +91,8 @@ Backend:
 - `RELAY_KEY_5` for Solana devnet (base58-encoded keypair)
 - `RELAY_KEY_8` for Sui testnet (hex private key)
 - `RELAY_KEY_14` for Aptos testnet (hex private key)
+- `EVM_FORWARDER_<DOMAIN>` (optional): overrides the CCTP v2 Forwarder address for an EVM destination domain.
+- `RELAY_MAX_FORWARDER_FEE_BPS` (default `500`): maximum fee the Forwarder contract may charge, in basis points. The backend uses this to compute `minAmountOut`.
 - `RELAY_MAX_GAS_PRICE_GWEI` (optional): cap on EVM legacy gas price
 - `RELAY_MAX_PRIORITY_FEE_GWEI` (optional): cap on EVM EIP-1559 priority fee
 - `RELAY_TX_TIMEOUT_SECS` (default `300`): max wait for a destination receipt
@@ -111,19 +115,19 @@ Backend:
 Compiling the backend on Windows requires native libraries used by `solana-client` / `sui-rpc` / `openssl-sys`:
 
 - **NASM** (required by `aws-lc-sys`): install and add to `PATH`, e.g. `C:\nasm\nasm-2.16.03`.
-- **OpenSSL Dev** (required by `openssl-sys`): install OpenSSL-Win64-Dev and point to the VC libs:
-  - `OPENSSL_DIR=C:\Program Files\OpenSSL-Win64-Dev`
-  - `OPENSSL_LIB_DIR=C:\Program Files\OpenSSL-Win64-Dev\lib\VC\x64\MD`
-  - `OPENSSL_INCLUDE_DIR=C:\Program Files\OpenSSL-Win64-Dev\include`
+- **OpenSSL Dev** (required by `openssl-sys`): install OpenSSL-Win64 (the non-Light package) and point to the VC libs:
+  - `OPENSSL_DIR=C:\Program Files\OpenSSL-Win64`
+  - `OPENSSL_LIB_DIR=C:\Program Files\OpenSSL-Win64\lib\VC\x64\MD`
+  - `OPENSSL_INCLUDE_DIR=C:\Program Files\OpenSSL-Win64\include`
 - **libsodium** (required by `soroban-client`): `SODIUM_LIB_DIR=C:\libsodium\libsodium\x64\Release\v143\dynamic`.
 
 Example Windows test command:
 
 ```powershell
 $env:PATH = "C:\nasm\nasm-2.16.03;$env:PATH"
-$env:OPENSSL_DIR = "C:\Program Files\OpenSSL-Win64-Dev"
-$env:OPENSSL_LIB_DIR = "C:\Program Files\OpenSSL-Win64-Dev\lib\VC\x64\MD"
-$env:OPENSSL_INCLUDE_DIR = "C:\Program Files\OpenSSL-Win64-Dev\include"
+$env:OPENSSL_DIR = "C:\Program Files\OpenSSL-Win64"
+$env:OPENSSL_LIB_DIR = "C:\Program Files\OpenSSL-Win64\lib\VC\x64\MD"
+$env:OPENSSL_INCLUDE_DIR = "C:\Program Files\OpenSSL-Win64\include"
 $env:SODIUM_LIB_DIR = "C:\libsodium\libsodium\x64\Release\v143\dynamic"
 cargo test --manifest-path backend/Cargo.toml
 ```
@@ -165,7 +169,8 @@ On Linux the equivalent libraries can usually be installed via the system packag
 - Stellar source uses Soroban RPC + USDC SAC allowance + `deposit_for_burn` with 7-decimal subunits.
 - Stellar destination: EVM → Stellar uses `depositForBurnWithHook` + CCTP Forwarder contract; claims call `CctpForwarder.mint_and_forward`.
 - Stellar uses SAC (`usdc_sac`) as the burn token, while EVM uses `usdc_address`.
-- Relay transfers submit real destination-chain `receiveMessage` transactions for EVM, Solana, Stellar, Sui, and Aptos when the corresponding `RELAY_KEY_*` is configured. Starknet relay is wired but not yet implemented and will mark the job `failed`.
+- Relay transfers submit real destination-chain `receiveMessage` transactions for EVM, Solana, Stellar, Sui, and Aptos when the corresponding `RELAY_KEY_*` is configured. For EVM destinations, if `EVM_FORWARDER_<DOMAIN>` (or `forwarder` in `config/chains.json`) is set, the relay calls `CctpV2Forwarder.mintAndForward`, deducts the configured fee, and forwards the remainder to the user's `dest_address`; otherwise it calls `receiveMessage` directly.
+- Starknet relay is wired but not yet implemented and will mark the job `failed`.
 - Aptos relay uses precompiled Move scripts committed under `backend/src/relay/aptos_scripts/*.mv` to atomically call `receive_message` → `handle_receive_message` → `complete_receive_message`.
 - `config/chains.json` is embedded at compile time as a fallback, but runtime `CHAIN_CONFIG` takes precedence.
 

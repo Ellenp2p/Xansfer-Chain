@@ -9,7 +9,7 @@ use crate::chains::registry::ChainRegistry;
 use crate::chains::ChainType;
 use crate::db::models::{RelayJob, Transaction};
 use crate::relay::{
-    aptos_submitter, evm_submitter::{EvmKey, EvmSubmitter},
+    aptos_submitter, evm_submitter::{EvmKey, EvmSubmitter, parse_cctp_v2_amount},
     signer::RelaySigner, solana_submitter, stellar_submitter, sui_submitter,
 };
 
@@ -185,10 +185,53 @@ impl RelayWorker {
                     .evm_key(tx.dest_domain)
                     .ok_or_else(|| anyhow::anyhow!("No EVM relay key for domain {}", tx.dest_domain))?;
 
-                let submitter = EvmSubmitter::new(rpc_url, chain_id, message_transmitter, key.clone());
-                submitter
-                    .submit_receive_message(message, attestation, dest_chain.block_time_ms)
-                    .await?
+                // If a Forwarder is configured for this domain, route the relay
+                // through it so the contract can deduct a fee before forwarding
+                // USDC to the user. Otherwise fall back to direct receiveMessage.
+                if let Some(forwarder) = self.chains.get_forwarder(tx.dest_domain, &tx.network_mode) {
+                    info!(
+                        "Using Forwarder {} for relay on domain {}",
+                        forwarder, tx.dest_domain
+                    );
+
+                    let max_forwarder_fee_bps: u128 = std::env::var("RELAY_MAX_FORWARDER_FEE_BPS")
+                        .ok()
+                        .and_then(|s| s.parse().ok())
+                        .unwrap_or(500);
+
+                    let gross_amount = parse_cctp_v2_amount(message)?;
+                    let min_amount_out = gross_amount
+                        .saturating_mul(10_000 - max_forwarder_fee_bps)
+                        .saturating_div(10_000);
+
+                    let submitter = EvmSubmitter::new(
+                        rpc_url,
+                        chain_id,
+                        forwarder,
+                        Some(message_transmitter),
+                        key.clone(),
+                    );
+                    submitter
+                        .submit_mint_and_forward(
+                            message,
+                            attestation,
+                            &tx.dest_address,
+                            min_amount_out,
+                            dest_chain.block_time_ms,
+                        )
+                        .await?
+                } else {
+                    let submitter = EvmSubmitter::new(
+                        rpc_url,
+                        chain_id,
+                        message_transmitter.clone(),
+                        Some(message_transmitter),
+                        key.clone(),
+                    );
+                    submitter
+                        .submit_receive_message(message, attestation, dest_chain.block_time_ms)
+                        .await?
+                }
             }
             ChainType::Solana => {
                 let rpc_url = self

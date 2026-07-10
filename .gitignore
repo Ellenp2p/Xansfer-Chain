@@ -8,3 +8,6 @@ target/
 *.log
 *.tsbuildinfo
 .claude/
+contracts/cache/
+contracts/out/
+contracts/broadcast/
