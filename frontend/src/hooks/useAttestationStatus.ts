@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import type { TransactionStatusResponse } from '../types'
+import { useBackendStore } from '../stores/backendStore'
+import { API_BASE } from '../config/backend'
 
-const BASE = '/api'
+const BASE = API_BASE
 
 /**
  * Estimated attestation wait times in seconds, by source chain + CCTP version + speed.
@@ -110,6 +112,8 @@ export function useAttestationStatus(
 
   const fetchStatus = useCallback(async () => {
     if (!transactionId) return null
+    // Skip while backend is known offline; keeps the timer alive but avoids spamming the proxy.
+    if (!useBackendStore.getState().online) return null
     try {
       const res = await fetch(`${BASE}/transactions/${transactionId}/status`, {
         headers: { 'Content-Type': 'application/json' },

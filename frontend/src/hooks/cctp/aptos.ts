@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
 import { useWallet, type InputTransactionData } from '../../providers/AptosWalletProvider'
-import { getChainByDomain } from '../../config/chains'
+import { getChainByDomain, getCctpContracts } from '../../config/chains'
 import { useNetworkMode } from '../../stores/networkMode'
 import type { ChainAdapter, SourceBurnParams, ClaimParams } from './types'
 import type { ChainConfig } from '../../types'
@@ -34,9 +34,12 @@ export function useAptosAdapter(): ChainAdapter {
 
       const amountRaw = Math.floor(parseFloat(amount) * 1_000_000)
 
+      const contracts = getCctpContracts(chainConfig.domain, 2, mode)
+      if (!contracts) throw new Error('CCTP v2 contracts not found for source chain')
+
       const payload: InputTransactionData = {
         data: {
-          function: `${chainConfig.token_messenger_v2}::token_messenger::deposit_for_burn`,
+          function: `${contracts.tokenMessenger}::token_messenger::deposit_for_burn`,
           typeArguments: [chainConfig.usdc_address],
           functionArguments: [
             amountRaw.toString(),
@@ -84,9 +87,12 @@ export function useAptosAdapter(): ChainAdapter {
       const destChain = getChainByDomain(destDomain, mode)
       if (!destChain) throw new Error('Invalid destination chain')
 
+      const contracts = getCctpContracts(destDomain, 2, mode)
+      if (!contracts) throw new Error('CCTP v2 contracts not found for destination chain')
+
       const payload: InputTransactionData = {
         data: {
-          function: `${destChain.message_transmitter_v2}::message_transmitter::receive_message`,
+          function: `${contracts.messageTransmitter}::message_transmitter::receive_message`,
           typeArguments: [],
           functionArguments: [
             hexToBytes(message),

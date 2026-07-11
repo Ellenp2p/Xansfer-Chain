@@ -115,7 +115,7 @@ export function useEvmAdapter(): ChainAdapter {
   )
 
   const burnUsdc = useCallback(
-    async ({ chainConfig, amount, destDomain, destAddress, destChainType, cctpVersion, transferType }: SourceBurnParams): Promise<string> => {
+    async ({ chainConfig, amount, destDomain, destAddress, destChainConfig, destChainType, cctpVersion, transferType }: SourceBurnParams): Promise<string> => {
       const contracts = getCctpContracts(chainConfig.domain, cctpVersion, mode)
       if (!contracts) throw new Error(`CCTP v${cctpVersion} not available for ${chainConfig.name}`)
 
@@ -174,7 +174,41 @@ export function useEvmAdapter(): ChainAdapter {
 
       // Standard EVM → EVM transfer
       const zeroPad = '000000000000000000000000'
-      const mintRecipient = (`0x${zeroPad}${destAddress.slice(2).toLowerCase()}`) as Hex
+      function padEvmAddress(addr: string): Hex {
+        return (`0x${zeroPad}${addr.slice(2).toLowerCase()}`) as Hex
+      }
+
+      // Relay through a CCTP v2 Forwarder: mint to the forwarder and restrict
+      // receiveMessage so only the forwarder can complete the claim. The
+      // backend then calls forwarder.mintAndForward(recipient=userAddress).
+      const relayForwarder =
+        transferType === 'relay' &&
+        destChainConfig?.chain_type === 'evm' &&
+        destChainConfig.forwarder
+          ? destChainConfig.forwarder
+          : null
+
+      if (relayForwarder) {
+        const mintRecipient = padEvmAddress(relayForwarder)
+        const destinationCaller = mintRecipient
+
+        return await writeContractAsync({
+          address: contracts.tokenMessenger as Hex,
+          abi: TOKEN_MESSENGER_V2_ABI,
+          functionName: 'depositForBurn',
+          args: [
+            amountBigInt,
+            destDomain,
+            mintRecipient,
+            chainConfig.usdc_address as Hex,
+            destinationCaller,
+            maxFee,
+            minFinalityThreshold,
+          ],
+        })
+      }
+
+      const mintRecipient = padEvmAddress(destAddress)
       const destinationCaller = '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex
 
       return await writeContractAsync({

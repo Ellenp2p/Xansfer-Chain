@@ -5,6 +5,7 @@ export interface SourceBurnParams {
   amount: string
   destDomain: number
   destAddress: string
+  destChainConfig?: ChainConfig
   destChainType?: string
   cctpVersion: number
   transferType: string

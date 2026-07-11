@@ -8,6 +8,11 @@ use crate::chains::{ChainConfig, ChainType};
 const DEFAULT_CONFIG_PATH: &str = "config/chains.json";
 const CONFIG_PATH_ENV: &str = "CHAIN_CONFIG";
 
+// Embed the project-root config so the built-in defaults are exactly the
+// contents of config/chains.json. At runtime CHAIN_CONFIG or a local
+// config/chains.json can override this.
+const EMBEDDED_CONFIG: &str = include_str!("../../../config/chains.json");
+
 #[derive(Debug, Error)]
 pub enum ConfigError {
     #[error("io error reading config: {0}")]
@@ -49,6 +54,10 @@ pub struct CctpVersionConfig {
     pub token_messenger: String,
     pub message_transmitter: String,
     pub attestation_api: String,
+    #[serde(default)]
+    pub token_messenger_domains: HashMap<String, String>,
+    #[serde(default)]
+    pub message_transmitter_domains: HashMap<String, String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -67,14 +76,12 @@ pub struct RawChainConfig {
     pub explorer_url: String,
     pub usdc_address: String,
     pub usdc_sac: Option<String>,
-    pub token_messenger_v2: String,
-    pub message_transmitter_v2: String,
-    pub token_messenger_v1: Option<String>,
-    pub message_transmitter_v1: Option<String>,
     pub cctp_versions: Vec<u32>,
     pub chain_type: ChainType,
     pub supports_fast_transfer: bool,
     pub supports_forwarding: bool,
+    #[serde(default)]
+    pub forwarder: Option<String>,
     pub block_time_ms: u64,
     pub finality_blocks: u32,
 }
@@ -128,8 +135,13 @@ fn interpolate(template: &str) -> Result<String, ConfigError> {
 }
 
 pub fn load_config() -> Result<ChainsConfig, ConfigError> {
-    let path = std::env::var(CONFIG_PATH_ENV).unwrap_or_else(|_| DEFAULT_CONFIG_PATH.to_string());
-    let contents = std::fs::read_to_string(&path)?;
+    let contents = if let Ok(path) = std::env::var(CONFIG_PATH_ENV) {
+        std::fs::read_to_string(&path)?
+    } else if let Ok(contents) = std::fs::read_to_string(DEFAULT_CONFIG_PATH) {
+        contents
+    } else {
+        EMBEDDED_CONFIG.to_string()
+    };
     let config: ChainsConfig = serde_json::from_str(&contents)?;
     validate(&config)?;
     Ok(config)
@@ -183,14 +195,12 @@ pub fn resolve_mode_chains(mode_config: &ModeConfig) -> Result<Vec<ChainConfig>,
             rpc_url,
             explorer_url: raw.explorer_url.clone(),
             usdc_address: raw.usdc_address.clone(),
-            token_messenger_v2: raw.token_messenger_v2.clone(),
-            message_transmitter_v2: raw.message_transmitter_v2.clone(),
-            token_messenger_v1: raw.token_messenger_v1.clone(),
-            message_transmitter_v1: raw.message_transmitter_v1.clone(),
+            usdc_sac: raw.usdc_sac.clone(),
             cctp_versions: raw.cctp_versions.clone(),
             chain_type: raw.chain_type.clone(),
             supports_fast_transfer: raw.supports_fast_transfer,
             supports_forwarding: raw.supports_forwarding,
+            forwarder: raw.forwarder.clone(),
             block_time_ms: raw.block_time_ms,
             finality_blocks: raw.finality_blocks,
         });

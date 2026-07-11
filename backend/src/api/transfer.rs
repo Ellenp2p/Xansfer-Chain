@@ -173,7 +173,10 @@ pub async fn get_transaction_status(
                 match state.poller.check_message_received(&rpc, &mt, message).await {
                     Ok(true) => {
                         let now = Utc::now().to_rfc3339();
-                        tracing::info!("Message {} already claimed on-chain, marking complete", tx.source_tx_hash);
+                        tracing::info!(
+                            "Message {} already claimed on-chain (dest_domain={}), marking complete",
+                            tx.source_tx_hash, tx.dest_domain
+                        );
                         sqlx::query(
                             "UPDATE transactions SET status = 'complete', claimed_at = ?, updated_at = ? WHERE source_tx_hash = ?"
                         )
@@ -302,26 +305,28 @@ pub async fn lookup_transaction(
         .execute(&state.pool)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("DB insert error: {}", e)))?;
-    } else if let Some(ref msg) = circle_status {
-        // Existing record — update attestation/message if Circle has new data.
-        if let Some(ref attestation) = msg.attestation {
-            if attestation != "PENDING" && !attestation.is_empty() {
-                let now = Utc::now().to_rfc3339();
-                let forward_complete = msg.forward_state.as_deref() == Some("COMPLETE");
-                let new_status = if forward_complete { "complete" } else { "attested" };
-                let dest_tx = if forward_complete { msg.forward_tx_hash.clone() } else { None };
+    } else if let Some(ref tx) = tx {
+        if let Some(ref msg) = circle_status {
+            // Existing record — update attestation/message if Circle has new data.
+            if let Some(ref attestation) = msg.attestation {
+                if attestation != "PENDING" && !attestation.is_empty() {
+                    let now = Utc::now().to_rfc3339();
+                    let forward_complete = msg.forward_state.as_deref() == Some("COMPLETE");
+                    let new_status = if forward_complete { "complete" } else { "attested" };
+                    let dest_tx = if forward_complete { msg.forward_tx_hash.clone() } else { None };
 
-                let _ = sqlx::query(
-                    "UPDATE transactions SET status = ?, attestation = ?, message = ?, dest_tx_hash = ?, updated_at = ? WHERE id = ?"
-                )
-                .bind(new_status)
-                .bind(attestation)
-                .bind(&msg.message)
-                .bind(&dest_tx)
-                .bind(&now)
-                .bind(&tx.as_ref().unwrap().id)
-                .execute(&state.pool)
-                .await;
+                    let _ = sqlx::query(
+                        "UPDATE transactions SET status = ?, attestation = ?, message = ?, dest_tx_hash = ?, updated_at = ? WHERE id = ?"
+                    )
+                    .bind(new_status)
+                    .bind(attestation)
+                    .bind(&msg.message)
+                    .bind(&dest_tx)
+                    .bind(&now)
+                    .bind(&tx.id)
+                    .execute(&state.pool)
+                    .await;
+                }
             }
         }
     }
@@ -344,31 +349,28 @@ pub async fn lookup_transaction(
                     state.chains.get_rpc_url(t.dest_domain, &t.network_mode),
                     state.chains.get_message_transmitter(t.dest_domain, &t.network_mode, t.cctp_version),
                 ) {
-                    match state.poller.check_message_received(&rpc, &mt, message).await {
-                        Ok(true) => {
-                            let now = Utc::now().to_rfc3339();
-                            tracing::info!("Message {} already claimed on-chain (lookup)", t.source_tx_hash);
-                            sqlx::query(
-                                "UPDATE transactions SET status = 'complete', claimed_at = ?, updated_at = ? WHERE id = ?"
-                            )
-                            .bind(&now)
-                            .bind(&now)
-                            .bind(&t.id)
-                            .execute(&state.pool)
-                            .await
-                            .ok();
+                    if let Ok(true) = state.poller.check_message_received(&rpc, &mt, message).await {
+                        let now = Utc::now().to_rfc3339();
+                        tracing::info!("Message {} already claimed on-chain (lookup)", t.source_tx_hash);
+                        sqlx::query(
+                            "UPDATE transactions SET status = 'complete', claimed_at = ?, updated_at = ? WHERE id = ?"
+                        )
+                        .bind(&now)
+                        .bind(&now)
+                        .bind(&t.id)
+                        .execute(&state.pool)
+                        .await
+                        .ok();
 
-                            tx = sqlx::query_as(
-                                "SELECT * FROM transactions WHERE source_tx_hash = ? AND source_domain = ?",
-                            )
-                            .bind(&params.source_tx_hash)
-                            .bind(params.source_domain)
-                            .fetch_optional(&state.pool)
-                            .await
-                            .ok()
-                            .flatten();
-                        }
-                        _ => {}
+                        tx = sqlx::query_as(
+                            "SELECT * FROM transactions WHERE source_tx_hash = ? AND source_domain = ?",
+                        )
+                        .bind(&params.source_tx_hash)
+                        .bind(params.source_domain)
+                        .fetch_optional(&state.pool)
+                        .await
+                        .ok()
+                        .flatten();
                     }
                 }
             }
@@ -394,13 +396,16 @@ pub async fn list_transactions(
     let txs: Vec<Transaction> = if addresses.is_empty() {
         Vec::new()
     } else {
-        // Build IN clause placeholders
-        let placeholders: String = addresses.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
-        let sql = format!(
-            "SELECT * FROM transactions WHERE source_address IN ({}) ORDER BY created_at DESC LIMIT 50",
-            placeholders
-        );
-        let mut query = sqlx::query_as(&sql);
+        // Build IN clause safely with QueryBuilder
+        let mut builder: sqlx::QueryBuilder<sqlx::Sqlite> =
+            sqlx::QueryBuilder::new("SELECT * FROM transactions WHERE source_address IN (");
+        let mut separated = builder.separated(", ");
+        for _ in &addresses {
+            separated.push("?");
+        }
+        separated.push_unseparated(") ORDER BY created_at DESC LIMIT 50");
+
+        let mut query = builder.build_query_as();
         for addr in &addresses {
             query = query.bind(*addr);
         }

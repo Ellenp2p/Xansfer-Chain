@@ -36,8 +36,7 @@
       "type": "object",
       "required": [
         "domain", "name", "chain_id", "rpc_url", "explorer_url",
-        "usdc_address", "token_messenger_v2", "message_transmitter_v2",
-        "cctp_versions", "chain_type", "supports_fast_transfer",
+        "usdc_address", "cctp_versions", "chain_type", "supports_fast_transfer",
         "supports_forwarding", "block_time_ms", "finality_blocks"
       ],
       "properties": {
@@ -48,10 +47,6 @@
         "explorer_url": { "type": "string", "minLength": 1 },
         "usdc_address": { "type": "string" },
         "usdc_sac": { "type": "string" },
-        "token_messenger_v2": { "type": "string" },
-        "message_transmitter_v2": { "type": "string" },
-        "token_messenger_v1": { "type": "string" },
-        "message_transmitter_v1": { "type": "string" },
         "cctp_versions": {
           "type": "array",
           "items": { "type": "integer", "enum": [1, 2] }
@@ -62,6 +57,7 @@
         },
         "supports_fast_transfer": { "type": "boolean" },
         "supports_forwarding": { "type": "boolean" },
+        "forwarder": { "type": "string" },
         "block_time_ms": { "type": "integer", "minimum": 1 },
         "finality_blocks": { "type": "integer", "minimum": 1 }
       },
@@ -82,7 +78,15 @@
       "properties": {
         "token_messenger": { "type": "string", "minLength": 1 },
         "message_transmitter": { "type": "string", "minLength": 1 },
-        "attestation_api": { "type": "string", "minLength": 1 }
+        "attestation_api": { "type": "string", "minLength": 1 },
+        "token_messenger_domains": {
+          "type": "object",
+          "additionalProperties": { "type": "string", "minLength": 1 }
+        },
+        "message_transmitter_domains": {
+          "type": "object",
+          "additionalProperties": { "type": "string", "minLength": 1 }
+        }
       },
       "additionalProperties": false
     },

@@ -1,3 +1,5 @@
+import { getWsUrl } from '../config/backend'
+
 type TxUpdate = { type: 'tx_update'; tx_id: string }
 
 let ws: WebSocket | null = null
@@ -6,8 +8,7 @@ const listeners = new Map<string, Set<(txId: string) => void>>()
 function connect() {
   if (ws && ws.readyState === WebSocket.OPEN) return
 
-  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
-  ws = new WebSocket(`${protocol}//${location.host}/ws`)
+  ws = new WebSocket(getWsUrl())
 
   ws.onmessage = (event) => {
     try {

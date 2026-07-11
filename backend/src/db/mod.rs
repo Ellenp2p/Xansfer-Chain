@@ -1,7 +1,7 @@
 pub mod models;
 
 use sqlx::sqlite::SqlitePoolOptions;
-use sqlx::{SqlitePool, Row};
+use sqlx::{QueryBuilder, SqlitePool, Row};
 use anyhow::Result;
 
 pub async fn init_db(database_url: &str) -> Result<SqlitePool> {
@@ -26,8 +26,8 @@ pub async fn init_db(database_url: &str) -> Result<SqlitePool> {
         ("transactions", "network_mode", "TEXT NOT NULL DEFAULT 'testnet'"),
     ];
 
-    for &(table, col, typedef) in desired_cols {
-        let existing: Vec<String> = sqlx::query(&format!("PRAGMA table_info({})", table))
+    for &(_table, col, typedef) in desired_cols {
+        let existing: Vec<String> = sqlx::query("PRAGMA table_info(transactions)")
             .fetch_all(&pool)
             .await
             .unwrap_or_default()
@@ -36,9 +36,14 @@ pub async fn init_db(database_url: &str) -> Result<SqlitePool> {
             .collect();
 
         if !existing.iter().any(|c| c == col) {
-            let sql = format!("ALTER TABLE {} ADD COLUMN {} {}", table, col, typedef);
-            if let Err(e) = sqlx::query(&sql).execute(&pool).await {
-                tracing::warn!("Failed to add {}.{}: {}", table, col, e);
+            let mut builder: QueryBuilder<sqlx::Sqlite> = QueryBuilder::new("ALTER TABLE ");
+            builder.push("transactions");
+            builder.push(" ADD COLUMN ");
+            builder.push(col);
+            builder.push(" ");
+            builder.push(typedef);
+            if let Err(e) = builder.build().execute(&pool).await {
+                tracing::warn!("Failed to add transactions.{}: {}", col, e);
             }
         }
     }

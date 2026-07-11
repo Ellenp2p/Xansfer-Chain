@@ -6,7 +6,52 @@ import type { ChainAdapter } from './cctp/types'
 import { getChainByDomain } from '../config/chains'
 import { useNetworkMode } from '../stores/networkMode'
 import { useWalletStore } from '../stores/walletStore'
+import { API_BASE } from '../config/backend'
 import type { TransferType } from '../types'
+
+function formatWalletError(err: unknown, fallback: string): string {
+  const raw = err instanceof Error ? err.message : String(err)
+  const lower = raw.toLowerCase()
+
+  // User rejection patterns across wallets
+  if (
+    lower.includes('user rejected') ||
+    lower.includes('user denied') ||
+    lower.includes('rejected the request') ||
+    lower.includes('request rejected') ||
+    lower.includes('user cancelled') ||
+    lower.includes('user canceled') ||
+    lower.includes('transaction was cancelled') ||
+    lower.includes('transaction was canceled') ||
+    lower.includes('user dismissed') ||
+    lower.includes('action rejected')
+  ) {
+    return `${fallback}: User rejected the request`
+  }
+
+  // Chain switch / network errors
+  if (
+    lower.includes('unrecognized chain') ||
+    lower.includes('chain not configured') ||
+    lower.includes('invalid chain') ||
+    lower.includes('wallet_network_error') ||
+    lower.includes('user rejected the request') === false && lower.includes('switch chain')
+  ) {
+    return `${fallback}: Network error — please switch chain manually in your wallet`
+  }
+
+  // Insufficient funds
+  if (
+    lower.includes('insufficient funds') ||
+    lower.includes('insufficient balance')
+  ) {
+    return `${fallback}: Insufficient funds for gas`
+  }
+
+  // Fallback: keep first line or truncate to avoid dumping full viem object
+  const short = raw.split('\n')[0].slice(0, 160)
+  return short.length < raw.length ? `${fallback}: ${short}…` : `${fallback}: ${short}`
+}
 
 export type TransferStep =
   | 'idle'
@@ -109,9 +154,8 @@ export function useCctpTransfer() {
         try {
           await adapter.approveUsdc(srcChain, amount, cctpVersion)
         } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e)
-          console.error('[approveUsdc]', msg)
-          setError(`Approve failed: ${msg}`)
+          console.error('[approveUsdc]', e)
+          setError(formatWalletError(e, 'Approve failed'))
           setStep('error')
           return
         }
@@ -126,14 +170,14 @@ export function useCctpTransfer() {
             amount,
             destDomain,
             destAddress,
+            destChainConfig: destChain,
             destChainType: destChain?.chain_type,
             cctpVersion,
             transferType,
           })
         } catch (burnErr) {
-          const msg = burnErr instanceof Error ? burnErr.message : String(burnErr)
-          console.error('[burnUsdc]', msg)
-          setError(`Burn failed: ${msg}`)
+          console.error('[burnUsdc]', burnErr)
+          setError(formatWalletError(burnErr, 'Burn failed'))
           setStep('error')
           return
         }
@@ -149,7 +193,7 @@ export function useCctpTransfer() {
 
         // Step 5: Register with backend
         setStep('registering')
-        const res = await fetch('/api/transactions', {
+        const res = await fetch(`${API_BASE}/transactions`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -223,9 +267,16 @@ export function useCctpTransfer() {
             destChainType: destChain.chain_type,
           })
         } catch (claimErr) {
-          const msg = claimErr instanceof Error ? claimErr.message : String(claimErr)
-          console.error('[claimOnDest]', msg)
-          setError(`Claim failed: ${msg}`)
+          console.error('[claimOnDest]', claimErr)
+          setError(formatWalletError(claimErr, 'Claim failed'))
+          setStep('error')
+          return
+        }
+
+        // Some wallet connectors resolve instead of throwing on rejection.
+        // Treat a missing/empty hash as a failure so the UI never shows "complete".
+        if (!claimTxHash || typeof claimTxHash !== 'string') {
+          setError('Claim failed: wallet did not return a transaction hash')
           setStep('error')
           return
         }

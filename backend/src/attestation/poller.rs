@@ -44,6 +44,7 @@ impl AttestationPoller {
             pool,
             http: Client::builder()
                 .timeout(Duration::from_secs(30))
+                .no_hickory_dns()
                 .build()
                 .expect("HTTP client"),
             tx_notify,
@@ -79,12 +80,37 @@ impl AttestationPoller {
                     warn!("Error checking attestation for {}: {e:#}", tx.source_tx_hash);
                 }
             }
+            // Small delay between transactions to avoid hammering Circle API.
+            tokio::time::sleep(Duration::from_millis(300)).await;
         }
 
         Ok(())
     }
 
     async fn check_attestation(&self, tx: &Transaction) -> Result<bool> {
+        // Short-circuit: if we already have a valid attestation locally and this is not a
+        // forward transfer (which still needs to wait for Circle's forward completion),
+        // there is no need to hit the Circle API again.
+        let already_attested = tx
+            .attestation
+            .as_deref()
+            .is_some_and(|a| a != "PENDING" && !a.is_empty());
+        if already_attested && tx.transfer_type != "forward" {
+            if tx.status == "pending" || tx.status == "attested" {
+                let new_status = if tx.transfer_type == "relay" { "attested" } else { "complete" };
+                let now = Utc::now().to_rfc3339();
+                sqlx::query(
+                    "UPDATE transactions SET status = ?, updated_at = ? WHERE id = ?"
+                )
+                .bind(new_status)
+                .bind(&now)
+                .bind(&tx.id)
+                .execute(&self.pool)
+                .await?;
+            }
+            return Ok(true);
+        }
+
         let version = tx.cctp_version;
         let api_base = self.iris_api_base(version, &tx.network_mode);
 
@@ -116,14 +142,17 @@ impl AttestationPoller {
         // Check forwarding state
         let forward_complete = msg.forward_state.as_deref() == Some("COMPLETE");
 
+        // Standard transfers only need the attestation; once available they are complete.
+        // Forward transfers stay attested until Circle marks the forward as complete.
+        // Relay transfers become attested so the relay worker can pick them up.
         let new_status = if forward_complete {
             "complete"
-        } else if tx.transfer_type == "forward" {
-            "attested"
-        } else if tx.transfer_type == "relay" && tx.status == "pending" {
+        } else if tx.transfer_type == "forward"
+            || (tx.transfer_type == "relay" && tx.status == "pending")
+        {
             "attested"
         } else {
-            "attested"
+            "complete"
         };
 
         let dest_tx = if forward_complete {

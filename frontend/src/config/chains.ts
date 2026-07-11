@@ -44,6 +44,10 @@ function resolveString(value: ResolvableString): string {
 }
 
 function resolveChainConfig(raw: any): ChainConfig {
+  const envForwarderKey = `VITE_EVM_FORWARDER_${raw.domain}`
+  const envForwarder = import.meta.env[envForwarderKey]
+  const configForwarder = raw.forwarder ? resolveString(raw.forwarder) : undefined
+
   return {
     domain: raw.domain,
     name: raw.name,
@@ -52,14 +56,12 @@ function resolveChainConfig(raw: any): ChainConfig {
     explorer_url: resolveString(raw.explorer_url),
     usdc_address: resolveString(raw.usdc_address),
     usdc_sac: raw.usdc_sac ? resolveString(raw.usdc_sac) : undefined,
-    token_messenger_v2: resolveString(raw.token_messenger_v2),
-    message_transmitter_v2: resolveString(raw.message_transmitter_v2),
-    token_messenger_v1: raw.token_messenger_v1 ? resolveString(raw.token_messenger_v1) : undefined,
-    message_transmitter_v1: raw.message_transmitter_v1 ? resolveString(raw.message_transmitter_v1) : undefined,
     cctp_versions: raw.cctp_versions ?? [2],
     chain_type: raw.chain_type,
     supports_fast_transfer: raw.supports_fast_transfer ?? false,
     supports_forwarding: raw.supports_forwarding ?? false,
+    forwarder:
+      envForwarder ? String(envForwarder) : (configForwarder || undefined),
     block_time_ms: raw.block_time_ms ?? 2000,
     finality_blocks: raw.finality_blocks ?? 1,
   }
@@ -142,9 +144,14 @@ export function getSupportedVersions(domain: number, mode: Mode = 'mainnet'): nu
 export function getCctpContracts(domain: number, version: number, mode: Mode) {
   const cctp = getCctpForMode(mode)
   if (version === 2) {
+    const domainKey = String(domain)
+    const tokenMessenger = cctp.v2.token_messenger_domains?.[domainKey]
+      ?? cctp.v2.token_messenger
+    const messageTransmitter = cctp.v2.message_transmitter_domains?.[domainKey]
+      ?? cctp.v2.message_transmitter
     return {
-      tokenMessenger: resolveString(cctp.v2.token_messenger),
-      messageTransmitter: resolveString(cctp.v2.message_transmitter),
+      tokenMessenger: resolveString(tokenMessenger),
+      messageTransmitter: resolveString(messageTransmitter),
     }
   }
   if (version === 1 && cctp.v1) {

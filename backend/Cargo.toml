@@ -4,24 +4,38 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-axum = { version = "0.7", features = ["ws", "macros"] }
+axum = { version = "0.8", features = ["ws", "macros"] }
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "chrono"] }
+sqlx = { version = "0.9", features = ["runtime-tokio", "sqlite", "chrono"] }
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1", features = ["v4"] }
-reqwest = { version = "0.12", features = ["json"] }
-tower-http = { version = "0.6", features = ["cors"] }
+reqwest = { version = "0.13", features = ["json"] }
+tower-http = { version = "0.7", features = ["cors"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 anyhow = "1"
 thiserror = "2"
 hex = "0.4"
 futures-util = "0.3"
-dashmap = "6"
 rand = "0.8"
 tiny-keccak = { version = "2.0", features = ["keccak"] }
+k256 = { version = "0.13", features = ["ecdsa", "sha256"] }
+rlp = "0.5"
+base64 = "0.22"
+sha2 = "0.10"
+ed25519-dalek = { version = "2.1", features = ["rand_core"] }
+bs58 = "0.5"
+
+# Non-EVM chain SDKs
+aptos-sdk = "0.6"
+soroban-client = "0.5"
+sui-sdk-types = { version = "0.3", features = ["serde", "hash"] }
+sui-transaction-builder = "0.3"
+sui-rpc = "0.3"
+solana-sdk = "2.1"
+solana-client = "2.1"
 
 [profile.release]
 lto = true

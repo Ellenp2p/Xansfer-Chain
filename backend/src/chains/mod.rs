@@ -10,14 +10,14 @@ pub struct ChainConfig {
     pub rpc_url: String,
     pub explorer_url: String,
     pub usdc_address: String,
-    pub token_messenger_v2: String,
-    pub message_transmitter_v2: String,
-    pub token_messenger_v1: Option<String>,
-    pub message_transmitter_v1: Option<String>,
+    #[serde(default)]
+    pub usdc_sac: Option<String>,
     pub cctp_versions: Vec<u32>,
     pub chain_type: ChainType,
     pub supports_fast_transfer: bool,
     pub supports_forwarding: bool,
+    #[serde(default)]
+    pub forwarder: Option<String>,
     pub block_time_ms: u64,
     pub finality_blocks: u32,
 }
@@ -34,10 +34,6 @@ pub enum ChainType {
 }
 
 impl ChainConfig {
-    pub fn explorer_tx_url(&self, tx_hash: &str) -> String {
-        format!("{}/tx/{}", self.explorer_url, tx_hash)
-    }
-
     pub fn supported_transfer_types(&self, dest: &ChainConfig) -> Vec<String> {
         let mut types = vec!["standard".to_string()];
 
