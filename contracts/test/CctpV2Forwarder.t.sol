@@ -20,6 +20,7 @@ contract CctpV2ForwarderTest is Test {
 
     uint256 public constant FEE_BPS = 50; // 0.5%
     uint256 public constant MAX_FEE_BPS = 500; // 5%
+    uint256 public constant MAX_FEE_AMOUNT = 100e6; // 100 USDC cap
 
     event MintAndForward(
         bytes32 indexed messageHash,
@@ -36,8 +37,10 @@ contract CctpV2ForwarderTest is Test {
             address(usdc),
             address(transmitter),
             feeRecipient,
+            CctpV2Forwarder.FeeMode.PercentageBps,
             FEE_BPS,
             MAX_FEE_BPS,
+            MAX_FEE_AMOUNT,
             owner,
             operator
         );
@@ -94,40 +97,115 @@ contract CctpV2ForwarderTest is Test {
         assertEq(address(forwarder.usdc()), address(usdc));
         assertEq(address(forwarder.messageTransmitter()), address(transmitter));
         assertEq(forwarder.feeRecipient(), feeRecipient);
-        assertEq(forwarder.feeBps(), FEE_BPS);
+        assertEq(uint256(forwarder.feeMode()), uint256(CctpV2Forwarder.FeeMode.PercentageBps));
+        assertEq(forwarder.feeValue(), FEE_BPS);
         assertEq(forwarder.maxFeeBps(), MAX_FEE_BPS);
+        assertEq(forwarder.maxFeeAmount(), MAX_FEE_AMOUNT);
         assertEq(forwarder.operator(), operator);
         assertEq(forwarder.owner(), owner);
     }
 
     function test_ConstructorRevertsZeroUsdc() public {
         vm.expectRevert(CctpV2Forwarder.ZeroAddress.selector);
-        new CctpV2Forwarder(address(0), address(transmitter), feeRecipient, FEE_BPS, MAX_FEE_BPS, owner, operator);
+        new CctpV2Forwarder(
+            address(0),
+            address(transmitter),
+            feeRecipient,
+            CctpV2Forwarder.FeeMode.PercentageBps,
+            FEE_BPS,
+            MAX_FEE_BPS,
+            MAX_FEE_AMOUNT,
+            owner,
+            operator
+        );
     }
 
     function test_ConstructorRevertsZeroMessageTransmitter() public {
         vm.expectRevert(CctpV2Forwarder.ZeroAddress.selector);
-        new CctpV2Forwarder(address(usdc), address(0), feeRecipient, FEE_BPS, MAX_FEE_BPS, owner, operator);
+        new CctpV2Forwarder(
+            address(usdc),
+            address(0),
+            feeRecipient,
+            CctpV2Forwarder.FeeMode.PercentageBps,
+            FEE_BPS,
+            MAX_FEE_BPS,
+            MAX_FEE_AMOUNT,
+            owner,
+            operator
+        );
     }
 
     function test_ConstructorRevertsZeroFeeRecipient() public {
         vm.expectRevert(CctpV2Forwarder.ZeroAddress.selector);
-        new CctpV2Forwarder(address(usdc), address(transmitter), address(0), FEE_BPS, MAX_FEE_BPS, owner, operator);
+        new CctpV2Forwarder(
+            address(usdc),
+            address(transmitter),
+            address(0),
+            CctpV2Forwarder.FeeMode.PercentageBps,
+            FEE_BPS,
+            MAX_FEE_BPS,
+            MAX_FEE_AMOUNT,
+            owner,
+            operator
+        );
     }
 
     function test_ConstructorRevertsZeroOperator() public {
         vm.expectRevert(CctpV2Forwarder.ZeroAddress.selector);
-        new CctpV2Forwarder(address(usdc), address(transmitter), feeRecipient, FEE_BPS, MAX_FEE_BPS, owner, address(0));
+        new CctpV2Forwarder(
+            address(usdc),
+            address(transmitter),
+            feeRecipient,
+            CctpV2Forwarder.FeeMode.PercentageBps,
+            FEE_BPS,
+            MAX_FEE_BPS,
+            MAX_FEE_AMOUNT,
+            owner,
+            address(0)
+        );
     }
 
-    function test_ConstructorRevertsFeeAboveMax() public {
+    function test_ConstructorRevertsMaxFeeBpsAbove100Percent() public {
+        vm.expectRevert(abi.encodeWithSelector(CctpV2Forwarder.FeeExceedsMax.selector, BPS_DENOMINATOR + 1, BPS_DENOMINATOR));
+        new CctpV2Forwarder(
+            address(usdc),
+            address(transmitter),
+            feeRecipient,
+            CctpV2Forwarder.FeeMode.PercentageBps,
+            FEE_BPS,
+            BPS_DENOMINATOR + 1,
+            MAX_FEE_AMOUNT,
+            owner,
+            operator
+        );
+    }
+
+    function test_ConstructorRevertsPercentageAboveMax() public {
         vm.expectRevert(abi.encodeWithSelector(CctpV2Forwarder.FeeExceedsMax.selector, MAX_FEE_BPS + 1, MAX_FEE_BPS));
         new CctpV2Forwarder(
             address(usdc),
             address(transmitter),
             feeRecipient,
+            CctpV2Forwarder.FeeMode.PercentageBps,
             MAX_FEE_BPS + 1,
             MAX_FEE_BPS,
+            MAX_FEE_AMOUNT,
+            owner,
+            operator
+        );
+    }
+
+    function test_ConstructorRevertsFixedAboveMax() public {
+        uint256 fixedFee = MAX_FEE_AMOUNT + 1;
+        vm.expectRevert(abi.encodeWithSelector(CctpV2Forwarder.FeeExceedsMax.selector, fixedFee, MAX_FEE_AMOUNT));
+        new CctpV2Forwarder(
+            address(usdc),
+            address(transmitter),
+            feeRecipient,
+            CctpV2Forwarder.FeeMode.FixedAmount,
+            fixedFee,
+            MAX_FEE_BPS,
+            MAX_FEE_AMOUNT,
             owner,
             operator
         );
@@ -167,6 +245,53 @@ contract CctpV2ForwarderTest is Test {
 
         uint256 expectedFee = (amount * FEE_BPS) / 10_000;
         assertEq(usdc.balanceOf(recipient), amount - expectedFee);
+    }
+
+    function test_MintAndForwardPercentageCappedByMaxFeeAmount() public {
+        // Amount large enough that 0.5% exceeds the 100 USDC cap.
+        uint256 amount = 50_000e6;
+        bytes memory message = _buildV2Message(address(forwarder), amount);
+
+        transmitter.setMintAmount(amount);
+
+        vm.prank(operator);
+        forwarder.mintAndForward(message, hex"", recipient, 0);
+
+        assertEq(usdc.balanceOf(feeRecipient), MAX_FEE_AMOUNT);
+        assertEq(usdc.balanceOf(recipient), amount - MAX_FEE_AMOUNT);
+    }
+
+    function test_MintAndForwardFixedFeeMode() public {
+        uint256 fixedFee = 5e6; // 5 USDC
+        vm.prank(owner);
+        forwarder.setFeeMode(CctpV2Forwarder.FeeMode.FixedAmount, fixedFee);
+
+        uint256 amount = 1_000e6;
+        bytes memory message = _buildV2Message(address(forwarder), amount);
+        transmitter.setMintAmount(amount);
+
+        vm.prank(operator);
+        forwarder.mintAndForward(message, hex"", recipient, 0);
+
+        assertEq(usdc.balanceOf(feeRecipient), fixedFee);
+        assertEq(usdc.balanceOf(recipient), amount - fixedFee);
+    }
+
+    function test_MintAndForwardFixedFeeCappedByGrossAmount() public {
+        // Fixed fee larger than gross amount should be clamped to grossAmount.
+        uint256 fixedFee = MAX_FEE_AMOUNT;
+        vm.prank(owner);
+        forwarder.setFeeMode(CctpV2Forwarder.FeeMode.FixedAmount, fixedFee);
+
+        uint256 amount = fixedFee - 1;
+        bytes memory message = _buildV2Message(address(forwarder), amount);
+        transmitter.setMintAmount(amount);
+
+        vm.prank(operator);
+        forwarder.mintAndForward(message, hex"", recipient, 0);
+
+        assertEq(usdc.balanceOf(feeRecipient), amount);
+        assertEq(usdc.balanceOf(recipient), 0);
     }
 
     function test_MintAndForwardRevertsWhenPaused() public {
@@ -256,9 +381,9 @@ contract CctpV2ForwarderTest is Test {
         forwarder.mintAndForward(message, hex"", recipient, 0);
     }
 
-    function test_MintAndForwardZeroFeeWhenFeeBpsZero() public {
+    function test_MintAndForwardZeroFeeWhenFeeValueZero() public {
         vm.prank(owner);
-        forwarder.setFeeBps(0);
+        forwarder.setFeeMode(CctpV2Forwarder.FeeMode.PercentageBps, 0);
 
         uint256 amount = 100e6;
         bytes memory message = _buildV2Message(address(forwarder), amount);
@@ -273,25 +398,46 @@ contract CctpV2ForwarderTest is Test {
 
     // ============ Fee Management ============
 
-    function test_SetFeeBps() public {
-        uint256 newFee = 100;
+    function test_SetFeeMode() public {
+        uint256 newValue = 100;
         vm.prank(owner);
         vm.expectEmit(false, false, false, true);
-        emit CctpV2Forwarder.FeeUpdated(FEE_BPS, newFee);
-        forwarder.setFeeBps(newFee);
-        assertEq(forwarder.feeBps(), newFee);
+        emit CctpV2Forwarder.FeeModeUpdated(
+            CctpV2Forwarder.FeeMode.PercentageBps,
+            CctpV2Forwarder.FeeMode.PercentageBps,
+            FEE_BPS,
+            newValue
+        );
+        forwarder.setFeeMode(CctpV2Forwarder.FeeMode.PercentageBps, newValue);
+        assertEq(forwarder.feeValue(), newValue);
     }
 
-    function test_SetFeeBpsRevertsAboveMax() public {
+    function test_SetFeeModeSwitchToFixed() public {
+        uint256 fixedFee = 10e6;
+        vm.prank(owner);
+        forwarder.setFeeMode(CctpV2Forwarder.FeeMode.FixedAmount, fixedFee);
+
+        assertEq(uint256(forwarder.feeMode()), uint256(CctpV2Forwarder.FeeMode.FixedAmount));
+        assertEq(forwarder.feeValue(), fixedFee);
+    }
+
+    function test_SetFeeModeRevertsPercentageAboveMax() public {
         vm.prank(owner);
         vm.expectRevert(abi.encodeWithSelector(CctpV2Forwarder.FeeExceedsMax.selector, MAX_FEE_BPS + 1, MAX_FEE_BPS));
-        forwarder.setFeeBps(MAX_FEE_BPS + 1);
+        forwarder.setFeeMode(CctpV2Forwarder.FeeMode.PercentageBps, MAX_FEE_BPS + 1);
     }
 
-    function test_SetFeeBpsRevertsNonOwner() public {
+    function test_SetFeeModeRevertsFixedAboveMax() public {
+        uint256 fixedFee = MAX_FEE_AMOUNT + 1;
+        vm.prank(owner);
+        vm.expectRevert(abi.encodeWithSelector(CctpV2Forwarder.FeeExceedsMax.selector, fixedFee, MAX_FEE_AMOUNT));
+        forwarder.setFeeMode(CctpV2Forwarder.FeeMode.FixedAmount, fixedFee);
+    }
+
+    function test_SetFeeModeRevertsNonOwner() public {
         vm.prank(user);
         vm.expectRevert();
-        forwarder.setFeeBps(100);
+        forwarder.setFeeMode(CctpV2Forwarder.FeeMode.PercentageBps, 100);
     }
 
     function test_SetFeeRecipient() public {
@@ -314,11 +460,30 @@ contract CctpV2ForwarderTest is Test {
         assertEq(forwarder.operator(), newOperator);
     }
 
-    function test_PreviewForward() public view {
+    function test_PreviewForwardPercentage() public view {
         uint256 amount = 10_000e6;
         (uint256 fee, uint256 net) = forwarder.previewForward(amount);
-        assertEq(fee, (amount * FEE_BPS) / 10_000);
-        assertEq(net, amount - fee);
+        uint256 expectedFee = (amount * FEE_BPS) / 10_000;
+        assertEq(fee, expectedFee);
+        assertEq(net, amount - expectedFee);
+    }
+
+    function test_PreviewForwardPercentageCapped() public view {
+        uint256 amount = 50_000e6;
+        (uint256 fee, uint256 net) = forwarder.previewForward(amount);
+        assertEq(fee, MAX_FEE_AMOUNT);
+        assertEq(net, amount - MAX_FEE_AMOUNT);
+    }
+
+    function test_PreviewForwardFixed() public {
+        uint256 fixedFee = 7e6;
+        vm.prank(owner);
+        forwarder.setFeeMode(CctpV2Forwarder.FeeMode.FixedAmount, fixedFee);
+
+        uint256 amount = 1_000e6;
+        (uint256 fee, uint256 net) = forwarder.previewForward(amount);
+        assertEq(fee, fixedFee);
+        assertEq(net, amount - fixedFee);
     }
 
     // ============ Pause ============
@@ -423,16 +588,31 @@ contract CctpV2ForwarderTest is Test {
 
     // ============ Fuzz ============
 
-    function testFuzz_FeeAlwaysBounded(uint256 amount, uint256 feeBps_) public {
+    function testFuzz_FeeAlwaysBoundedPercentage(uint256 amount, uint256 feeBps_) public {
         // Bound to realistic USDC amounts and fee ranges.
         amount = bound(amount, 1, type(uint128).max);
         feeBps_ = bound(feeBps_, 0, MAX_FEE_BPS);
 
         vm.prank(owner);
-        forwarder.setFeeBps(feeBps_);
+        forwarder.setFeeMode(CctpV2Forwarder.FeeMode.PercentageBps, feeBps_);
 
         (uint256 fee, uint256 net) = forwarder.previewForward(amount);
         assertLe(fee, (amount * MAX_FEE_BPS) / 10_000);
+        assertLe(fee, MAX_FEE_AMOUNT);
+        assertEq(fee + net, amount);
+    }
+
+    function testFuzz_FeeAlwaysBoundedFixed(uint256 amount, uint256 fixedFee) public {
+        amount = bound(amount, 1, type(uint128).max);
+        fixedFee = bound(fixedFee, 0, MAX_FEE_AMOUNT);
+
+        vm.prank(owner);
+        forwarder.setFeeMode(CctpV2Forwarder.FeeMode.FixedAmount, fixedFee);
+
+        (uint256 fee, uint256 net) = forwarder.previewForward(amount);
+        assertLe(fee, fixedFee);
+        assertLe(fee, amount);
+        assertLe(fee, MAX_FEE_AMOUNT);
         assertEq(fee + net, amount);
     }
 }

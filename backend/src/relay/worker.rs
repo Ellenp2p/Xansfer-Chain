@@ -194,15 +194,7 @@ impl RelayWorker {
                         forwarder, tx.dest_domain
                     );
 
-                    let max_forwarder_fee_bps: u128 = std::env::var("RELAY_MAX_FORWARDER_FEE_BPS")
-                        .ok()
-                        .and_then(|s| s.parse().ok())
-                        .unwrap_or(500);
-
                     let gross_amount = parse_cctp_v2_amount(message)?;
-                    let min_amount_out = gross_amount
-                        .saturating_mul(10_000 - max_forwarder_fee_bps)
-                        .saturating_div(10_000);
 
                     let submitter = EvmSubmitter::new(
                         rpc_url,
@@ -211,6 +203,11 @@ impl RelayWorker {
                         Some(message_transmitter),
                         key.clone(),
                     );
+
+                    // Ask the Forwarder what the net amount will be so we can
+                    // set minAmountOut exactly, regardless of its fee model.
+                    let (_fee, min_amount_out) = submitter.preview_forward(gross_amount).await?;
+
                     submitter
                         .submit_mint_and_forward(
                             message,

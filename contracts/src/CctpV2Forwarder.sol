@@ -17,9 +17,16 @@ import {BurnMessageParser} from "./libraries/BurnMessageParser.sol";
  * @notice Receives CCTP v2 mints on behalf of users, deducts a configurable
  *         fee, and forwards the net USDC amount to the intended recipient.
  *
- * @dev    Security properties:
+ * @dev    Fee model:
+ *         - Percentage: fee = (grossAmount * feeValue) / 10_000.
+ *         - Fixed:      fee = feeValue (raw USDC units).
+ *         In both cases the final fee is capped by `maxFeeAmount`, and the
+ *         owner can switch between the two models via `setFeeMode`.
+ *
+ *         Security properties:
  *         - Non-upgradeable to eliminate proxy admin risk.
- *         - `maxFeeBps` is immutable; mutable `feeBps` can never exceed it.
+ *         - `maxFeeBps` and `maxFeeAmount` are immutable; mutable `feeValue`
+ *           can never exceed the corresponding cap.
  *         - `minAmountOut` lets users enforce a minimum received amount
  *           (slippage/fee protection).
  *         - `processedMessages` prevents the same message from being forwarded
@@ -34,6 +41,12 @@ contract CctpV2Forwarder is Ownable2Step, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using BurnMessageParser for bytes;
 
+    /// @notice Supported fee charging models.
+    enum FeeMode {
+        PercentageBps,
+        FixedAmount
+    }
+
     // ============ Immutables ============
 
     /// @notice The USDC token contract on this chain.
@@ -42,13 +55,21 @@ contract CctpV2Forwarder is Ownable2Step, Pausable, ReentrancyGuard {
     /// @notice The Circle CCTP v2 MessageTransmitter contract on this chain.
     ICCTPV2MessageTransmitter public immutable messageTransmitter;
 
-    /// @notice The maximum fee that can ever be charged, in basis points.
+    /// @notice Maximum percentage fee that can be configured, in basis points.
     uint256 public immutable maxFeeBps;
+
+    /// @notice Hard cap on the absolute fee charged for any single transfer.
+    uint256 public immutable maxFeeAmount;
 
     // ============ State ============
 
-    /// @notice Current fee in basis points (e.g. 50 = 0.5%).
-    uint256 public feeBps;
+    /// @notice Current fee model.
+    FeeMode public feeMode;
+
+    /// @notice Current fee parameter. Interpretation depends on `feeMode`:
+    ///         - PercentageBps: basis points (e.g. 50 = 0.5%).
+    ///         - FixedAmount: raw USDC amount.
+    uint256 public feeValue;
 
     /// @notice Address that receives fee earnings.
     address public feeRecipient;
@@ -73,7 +94,12 @@ contract CctpV2Forwarder is Ownable2Step, Pausable, ReentrancyGuard {
         uint256 netAmount
     );
 
-    event FeeUpdated(uint256 oldFeeBps, uint256 newFeeBps);
+    event FeeModeUpdated(
+        FeeMode indexed oldMode,
+        FeeMode indexed newMode,
+        uint256 oldValue,
+        uint256 newValue
+    );
     event FeeRecipientUpdated(address indexed oldRecipient, address indexed newRecipient);
     event OperatorUpdated(address indexed oldOperator, address indexed newOperator);
 
@@ -81,6 +107,7 @@ contract CctpV2Forwarder is Ownable2Step, Pausable, ReentrancyGuard {
 
     error ZeroAddress();
     error FeeExceedsMax(uint256 requested, uint256 max);
+    error InvalidFeeMode();
     error NotOperator(address caller);
     error AlreadyProcessed(bytes32 messageHash);
     error InvalidMintRecipient();
@@ -104,8 +131,10 @@ contract CctpV2Forwarder is Ownable2Step, Pausable, ReentrancyGuard {
      * @param _usdc               USDC token contract address.
      * @param _messageTransmitter CCTP v2 MessageTransmitter address.
      * @param _feeRecipient       Address that receives fees.
-     * @param _feeBps             Initial fee in basis points.
-     * @param _maxFeeBps          Hard cap on fee in basis points.
+     * @param _feeMode            Initial fee model.
+     * @param _feeValue           Initial fee value (bps or raw USDC units).
+     * @param _maxFeeBps          Hard cap on percentage fee in basis points.
+     * @param _maxFeeAmount       Hard cap on absolute fee per transfer.
      * @param _owner              Initial owner (should be a multisig/timelock).
      * @param _operator           Initial operator (relay hot wallet).
      */
@@ -113,8 +142,10 @@ contract CctpV2Forwarder is Ownable2Step, Pausable, ReentrancyGuard {
         address _usdc,
         address _messageTransmitter,
         address _feeRecipient,
-        uint256 _feeBps,
+        FeeMode _feeMode,
+        uint256 _feeValue,
         uint256 _maxFeeBps,
+        uint256 _maxFeeAmount,
         address _owner,
         address _operator
     ) Ownable(_owner) {
@@ -122,15 +153,19 @@ contract CctpV2Forwarder is Ownable2Step, Pausable, ReentrancyGuard {
         if (_messageTransmitter == address(0)) revert ZeroAddress();
         if (_feeRecipient == address(0)) revert ZeroAddress();
         if (_operator == address(0)) revert ZeroAddress();
-        if (_feeBps > _maxFeeBps) {
-            revert FeeExceedsMax(_feeBps, _maxFeeBps);
+        if (_maxFeeBps > BPS_DENOMINATOR) {
+            revert FeeExceedsMax(_maxFeeBps, BPS_DENOMINATOR);
         }
+
+        _validateFeeValue(_feeMode, _feeValue);
 
         usdc = IERC20(_usdc);
         messageTransmitter = ICCTPV2MessageTransmitter(_messageTransmitter);
         feeRecipient = _feeRecipient;
-        feeBps = _feeBps;
+        feeMode = _feeMode;
+        feeValue = _feeValue;
         maxFeeBps = _maxFeeBps;
+        maxFeeAmount = _maxFeeAmount;
         operator = _operator;
     }
 
@@ -168,8 +203,7 @@ contract CctpV2Forwarder is Ownable2Step, Pausable, ReentrancyGuard {
         uint256 grossAmount = message.parseV2AndValidate(address(this));
         if (grossAmount == 0) revert ZeroAmount();
 
-        uint256 fee = (grossAmount * feeBps) / BPS_DENOMINATOR;
-        uint256 netAmount = grossAmount - fee;
+        (uint256 fee, uint256 netAmount) = _calculateFee(grossAmount);
         if (netAmount < minAmountOut) {
             revert SlippageExceeded(netAmount, minAmountOut);
         }
@@ -196,15 +230,21 @@ contract CctpV2Forwarder is Ownable2Step, Pausable, ReentrancyGuard {
     // ============ Admin Functions ============
 
     /**
-     * @notice Update the fee rate. Cannot exceed maxFeeBps.
+     * @notice Switch fee model and/or update the fee value.
+     * @param newMode   New fee model.
+     * @param newValue  New fee value (capped by maxFeeBps or maxFeeAmount
+     *                  depending on the mode).
      */
-    function setFeeBps(uint256 newFeeBps) external onlyOwner {
-        if (newFeeBps > maxFeeBps) {
-            revert FeeExceedsMax(newFeeBps, maxFeeBps);
-        }
-        uint256 oldFeeBps = feeBps;
-        feeBps = newFeeBps;
-        emit FeeUpdated(oldFeeBps, newFeeBps);
+    function setFeeMode(FeeMode newMode, uint256 newValue) external onlyOwner {
+        _validateFeeValue(newMode, newValue);
+
+        FeeMode oldMode = feeMode;
+        uint256 oldValue = feeValue;
+
+        feeMode = newMode;
+        feeValue = newValue;
+
+        emit FeeModeUpdated(oldMode, newMode, oldValue, newValue);
     }
 
     /**
@@ -283,8 +323,7 @@ contract CctpV2Forwarder is Ownable2Step, Pausable, ReentrancyGuard {
         view
         returns (uint256 fee, uint256 netAmount)
     {
-        fee = (grossAmount * feeBps) / BPS_DENOMINATOR;
-        netAmount = grossAmount - fee;
+        return _calculateFee(grossAmount);
     }
 
     /**
@@ -292,6 +331,52 @@ contract CctpV2Forwarder is Ownable2Step, Pausable, ReentrancyGuard {
      */
     function isProcessed(bytes32 messageHash) external view returns (bool) {
         return processedMessages[messageHash];
+    }
+
+    // ============ Internal Helpers ============
+
+    /**
+     * @notice Calculate fee and net amount for a gross amount, honoring the
+     *         configured fee model and the absolute `maxFeeAmount` cap.
+     */
+    function _calculateFee(uint256 grossAmount)
+        internal
+        view
+        returns (uint256 fee, uint256 netAmount)
+    {
+        if (feeMode == FeeMode.PercentageBps) {
+            fee = (grossAmount * feeValue) / BPS_DENOMINATOR;
+        } else if (feeMode == FeeMode.FixedAmount) {
+            fee = feeValue;
+        } else {
+            revert InvalidFeeMode();
+        }
+
+        if (maxFeeAmount > 0 && fee > maxFeeAmount) {
+            fee = maxFeeAmount;
+        }
+        if (fee > grossAmount) {
+            fee = grossAmount;
+        }
+
+        netAmount = grossAmount - fee;
+    }
+
+    /**
+     * @notice Validate that a fee value respects the immutable caps for its mode.
+     */
+    function _validateFeeValue(FeeMode mode, uint256 value) internal view {
+        if (mode == FeeMode.PercentageBps) {
+            if (value > maxFeeBps) {
+                revert FeeExceedsMax(value, maxFeeBps);
+            }
+        } else if (mode == FeeMode.FixedAmount) {
+            if (value > maxFeeAmount) {
+                revert FeeExceedsMax(value, maxFeeAmount);
+            }
+        } else {
+            revert InvalidFeeMode();
+        }
     }
 
     /**

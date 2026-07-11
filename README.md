@@ -36,7 +36,7 @@
 1. 用户在源链发起 burn（EVM/Aptos 调用 `depositForBurn`，Stellar 调用 `deposit_for_burn`）。
 2. 前端将交易哈希注册到后端，`/api/transactions`。
 3. 后端 poller 每 10 秒查询 Circle Iris API，获取 attestation 与 message。
-4. 状态变为 `attested` 后，用户在目标链调用 `receiveMessage` 完成 claim；或交给 relay worker 自动执行。EVM relay 若配置了 Forwarder 地址，会走 `mintAndForward` 路径，由合约扣除手续费后再将 USDC 转发给用户。
+4. 状态变为 `attested` 后，用户在目标链调用 `receiveMessage` 完成 claim；或交给 relay worker 自动执行。EVM relay 若配置了 Forwarder 地址，会走 `mintAndForward` 路径，由合约扣除手续费后再将 USDC 转发给用户。合约支持百分比（basis points）或固定额两种收费模式，并通过 `maxFeeAmount` 设置单笔上限。
 5. 前端 `/tx/:hash` 页面展示实时状态，支持手动 claim。
 
 ## 技术栈
@@ -146,7 +146,6 @@ cargo run
 | `RELAY_KEY_8` | Sui testnet relay key（hex） | 无 |
 | `RELAY_KEY_14` | Aptos testnet relay key（hex） | 无 |
 | `EVM_FORWARDER_<DOMAIN>` | 覆盖指定 domain 的 CCTP v2 Forwarder 地址 | 无 |
-| `RELAY_MAX_FORWARDER_FEE_BPS` | Forwarder 最大手续费（基点，默认 500 = 5%） | `500` |
 | `RELAY_MAX_GAS_PRICE_GWEI` | EVM legacy gas price 上限 | 无 |
 | `RELAY_MAX_PRIORITY_FEE_GWEI` | EVM EIP-1559 priority fee 上限 | 无 |
 | `RELAY_TX_TIMEOUT_SECS` | 等待目标链回执的最长时间 | `300` |
@@ -202,7 +201,6 @@ VITE_BACKEND_URL=https://api.xansfer.example.com bun run build
 | `RELAY_KEY_8` | Sui testnet relay key（hex） |
 | `RELAY_KEY_14` | Aptos testnet relay key（hex） |
 | `EVM_FORWARDER_<DOMAIN>` | 覆盖指定 domain 的 CCTP v2 Forwarder 地址 |
-| `RELAY_MAX_FORWARDER_FEE_BPS` | Forwarder 最大手续费（基点） |
 | `SOLANA_MESSAGE_TRANSMITTER_V2` / `SOLANA_TOKEN_MESSENGER_MINTER_V2` | Solana CCTP program ID 覆盖 |
 | `APTOS_MESSAGE_TRANSMITTER` / `APTOS_TOKEN_MESSENGER_MINTER` | Aptos CCTP 合约地址覆盖 |
 | `SUI_MESSAGE_TRANSMITTER_PACKAGE` 等 | Sui 共享对象地址覆盖 |
@@ -227,6 +225,40 @@ cargo build --release
 # 运行
 PORT=3001 DATABASE_URL=sqlite:xansfer.db?mode=rwc ./target/release/xansfer-chain-backend
 ```
+
+#### Forwarder 合约部署
+
+`contracts/script/Deploy.s.sol` 用于部署 `CctpV2Forwarder`。部署前设置环境变量：
+
+| 变量 | 说明 |
+|---|---|
+| `USDC_ADDRESS` | 该链 USDC 合约地址 |
+| `MESSAGE_TRANSMITTER_ADDRESS` | CCTP v2 MessageTransmitter 地址 |
+| `FEE_RECIPIENT` | 手续费收款地址 |
+| `FEE_MODE` | `0` = 百分比（basis points），`1` = 固定额 |
+| `FEE_VALUE` | 百分比模式下为基点（如 `50` = 0.5%），固定额模式下为 raw USDC 数量 |
+| `MAX_FEE_BPS` | 百分比模式最高可设基点（如 `500` = 5%） |
+| `MAX_FEE_AMOUNT` | 单笔手续费绝对上限（raw USDC，如 `100e6`），两种模式都生效 |
+| `OWNER` | 合约 owner（建议多签/ timelock） |
+| `OPERATOR` | relay 热钱包地址 |
+
+示例（测试网 Base Sepolia，百分比 0.5%，上限 100 USDC）：
+
+```bash
+cd contracts
+USDC_ADDRESS=0x036CbD53842c5426634e7929541eC2318f3dCF7e \
+MESSAGE_TRANSMITTER_ADDRESS=0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275 \
+FEE_RECIPIENT=0x... \
+FEE_MODE=0 \
+FEE_VALUE=50 \
+MAX_FEE_BPS=500 \
+MAX_FEE_AMOUNT=100000000 \
+OWNER=0x... \
+OPERATOR=0x... \
+forge script script/Deploy.s.sol --rpc-url $BASE_SEPOLIA_RPC --broadcast
+```
+
+部署后可通过 `setFeeMode(mode, value)` 切换收费模式，但 `feeValue` 始终受 `maxFeeBps` / `maxFeeAmount` 限制。
 
 #### Windows 本地编译依赖
 
@@ -327,7 +359,7 @@ pending → attested → minting → complete
 - 钱包拒绝签名时，`useCctpTransfer` 会把状态置为 `error`，不会错误显示 `complete`。
 - 切换 mainnet/testnet 会强制重新挂载 wagmi provider，清空当前 EVM 钱包状态。
 - Relay worker 已实现 EVM、Solana、Stellar、Sui、Aptos 的自动 claim；Starknet 已占位但未实现。
-- EVM relay 如配置了 `EVM_FORWARDER_<DOMAIN>`（或 `config/chains.json` 中的 `forwarder`），会走 Forwarder 合约路径：合约扣除手续费后将 USDC 转发给用户。
+- EVM relay 如配置了 `EVM_FORWARDER_<DOMAIN>`（或 `config/chains.json` 中的 `forwarder`），会走 Forwarder 合约路径。合约支持百分比（basis points）或固定额两种收费模式，并通过不可变的 `maxFeeAmount` 限制单笔最高手续费，扣除后自动将 USDC 转发给用户。
 
 ## 许可证
 

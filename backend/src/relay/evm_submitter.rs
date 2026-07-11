@@ -184,7 +184,27 @@ impl EvmSubmitter {
         Ok(dest_hash)
     }
 
-    async fn rpc_call(&self, method: &str, params: Value) -> Result<Value> {
+    /// Query the Forwarder contract's `previewForward(uint256)` view to obtain
+    /// the fee and net amount for a given gross USDC amount. This lets the
+    /// backend set an exact `minAmountOut` without knowing the on-chain fee
+    /// model (percentage vs fixed) or caps.
+    pub async fn preview_forward(&self, gross_amount: u128) -> Result<(u128, u128)> {
+        let calldata = build_preview_forward_calldata(gross_amount);
+
+        let params = json!([{
+            "to": self.to,
+            "data": format!("0x{}", hex::encode(&calldata)),
+        }, "latest"]);
+
+        let result = self.rpc_call("eth_call", params).await?;
+        let result_str = result.as_str().ok_or_else(|| anyhow!("previewForward result not a string"))?;
+        decode_u256_pair(result_str)
+    }
+
+    async fn rpc_call(&self,
+        method: &str,
+        params: Value,
+    ) -> Result<Value> {
         let body = json!({
             "jsonrpc": "2.0",
             "method": method,
@@ -522,6 +542,15 @@ fn build_mint_and_forward_calldata(
     encoded
 }
 
+fn build_preview_forward_calldata(gross_amount: u128) -> Vec<u8> {
+    // previewForward(uint256)
+    let selector = keccak256_selector(b"previewForward(uint256)");
+    let mut encoded = Vec::with_capacity(36);
+    encoded.extend_from_slice(&selector);
+    encoded.extend_from_slice(&u256_from_u128(gross_amount));
+    encoded
+}
+
 fn padded_len(len: usize) -> usize {
     len.div_ceil(32) * 32
 }
@@ -536,6 +565,12 @@ fn u256_bytes(v: u64) -> [u8; 32] {
     b
 }
 
+fn u256_from_u128(v: u128) -> [u8; 32] {
+    let mut b = [0u8; 32];
+    b[16..].copy_from_slice(&v.to_be_bytes());
+    b
+}
+
 fn decode_hex(s: &str) -> Result<Vec<u8>> {
     let hex = s.strip_prefix("0x").unwrap_or(s);
     hex::decode(hex).map_err(|e| anyhow!("hex decode error: {e}"))
@@ -545,6 +580,28 @@ fn parse_hex_u64(s: &str) -> Result<u64> {
     let hex = s.strip_prefix("0x").unwrap_or(s);
     u64::from_str_radix(hex, 16)
         .map_err(|e| anyhow!("Failed to parse hex u64 '{}': {}", s, e))
+}
+
+/// Decode a pair of uint256 values returned by an ABI view function.
+fn decode_u256_pair(result_hex: &str) -> Result<(u128, u128)> {
+    let bytes = decode_hex(result_hex)?;
+    if bytes.len() < 64 {
+        return Err(anyhow!("decode_u256_pair: result too short ({} bytes)", bytes.len()));
+    }
+
+    let fee = u256_to_u128(&bytes[0..32])?;
+    let net = u256_to_u128(&bytes[32..64])?;
+    Ok((fee, net))
+}
+
+fn u256_to_u128(bytes: &[u8]) -> Result<u128> {
+    if bytes.len() != 32 {
+        return Err(anyhow!("u256_to_u128 expected 32 bytes, got {}", bytes.len()));
+    }
+    if bytes[..16] != [0u8; 16] {
+        return Err(anyhow!("u256 value exceeds u128 range"));
+    }
+    Ok(u128::from_be_bytes(bytes[16..32].try_into().unwrap()))
 }
 
 fn keccak256(data: &[u8]) -> [u8; 32] {

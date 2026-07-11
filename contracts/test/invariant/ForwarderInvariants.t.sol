@@ -30,6 +30,7 @@ contract ForwarderInvariants is StdInvariant, Test {
 
     uint256 public constant FEE_BPS = 50;
     uint256 public constant MAX_FEE_BPS = 500;
+    uint256 public constant MAX_FEE_AMOUNT = 100e6;
 
     function setUp() public {
         usdc = new MockUSDC();
@@ -38,8 +39,10 @@ contract ForwarderInvariants is StdInvariant, Test {
             address(usdc),
             address(transmitter),
             feeRecipient,
+            CctpV2Forwarder.FeeMode.PercentageBps,
             FEE_BPS,
             MAX_FEE_BPS,
+            MAX_FEE_AMOUNT,
             owner,
             operator
         );
@@ -58,6 +61,7 @@ contract ForwarderInvariants is StdInvariant, Test {
     function invariant_FeeNeverExceedsMax() public view {
         (uint256 fee, uint256 net) = forwarder.previewForward(10_000e6);
         assertLe(fee, (10_000e6 * MAX_FEE_BPS) / 10_000);
+        assertLe(fee, MAX_FEE_AMOUNT);
         assertEq(fee + net, 10_000e6);
     }
 }
@@ -113,8 +117,7 @@ contract ForwarderHandler is Test {
 
         transmitter.setMintAmount(amount);
 
-        uint256 fee = (amount * forwarder.feeBps()) / 10_000;
-        uint256 net = amount - fee;
+        (uint256 fee, uint256 net) = forwarder.previewForward(amount);
         minAmountOut = bound(minAmountOut, 0, net);
 
         vm.prank(operator);

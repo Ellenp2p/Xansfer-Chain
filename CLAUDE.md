@@ -39,7 +39,7 @@ VITE_BACKEND_URL=https://api.xansfer.example.com bun run build
 - `attestation/poller.rs`: polls Circle Iris API; checks `isMessageReceived` on destination chain.
 - `chains/registry.rs`: loads `config/chains.json` and provides chain/domain/CCTP metadata.
 - `db/`: SQLite schema init + migration column backfill + models.
-- `relay/`: optional auto-claim worker. EVM, Solana, Stellar, Sui, and Aptos relay submitters are implemented; Starknet is wired but not yet implemented. For EVM destinations, if a `forwarder` address is configured the relay routes through the CCTP v2 Forwarder contract, deducts a fee, and forwards the net USDC to the user; otherwise it calls `receiveMessage` directly.
+- `relay/`: optional auto-claim worker. EVM, Solana, Stellar, Sui, and Aptos relay submitters are implemented; Starknet is wired but not yet implemented. For EVM destinations, if a `forwarder` address is configured the relay routes through the CCTP v2 Forwarder contract. The Forwarder supports percentage (basis points) or fixed fees, capped by an immutable `maxFeeAmount`, and forwards the net USDC to the user; otherwise the relay calls `receiveMessage` directly. The backend reads the expected net amount from the Forwarder's `previewForward` view before submitting.
 
 ### Frontend (`frontend/`)
 
@@ -92,7 +92,6 @@ Backend:
 - `RELAY_KEY_8` for Sui testnet (hex private key)
 - `RELAY_KEY_14` for Aptos testnet (hex private key)
 - `EVM_FORWARDER_<DOMAIN>` (optional): overrides the CCTP v2 Forwarder address for an EVM destination domain.
-- `RELAY_MAX_FORWARDER_FEE_BPS` (default `500`): maximum fee the Forwarder contract may charge, in basis points. The backend uses this to compute `minAmountOut`.
 - `RELAY_MAX_GAS_PRICE_GWEI` (optional): cap on EVM legacy gas price
 - `RELAY_MAX_PRIORITY_FEE_GWEI` (optional): cap on EVM EIP-1559 priority fee
 - `RELAY_TX_TIMEOUT_SECS` (default `300`): max wait for a destination receipt
@@ -169,7 +168,7 @@ On Linux the equivalent libraries can usually be installed via the system packag
 - Stellar source uses Soroban RPC + USDC SAC allowance + `deposit_for_burn` with 7-decimal subunits.
 - Stellar destination: EVM → Stellar uses `depositForBurnWithHook` + CCTP Forwarder contract; claims call `CctpForwarder.mint_and_forward`.
 - Stellar uses SAC (`usdc_sac`) as the burn token, while EVM uses `usdc_address`.
-- Relay transfers submit real destination-chain `receiveMessage` transactions for EVM, Solana, Stellar, Sui, and Aptos when the corresponding `RELAY_KEY_*` is configured. For EVM destinations, if `EVM_FORWARDER_<DOMAIN>` (or `forwarder` in `config/chains.json`) is set, the relay calls `CctpV2Forwarder.mintAndForward`, deducts the configured fee, and forwards the remainder to the user's `dest_address`; otherwise it calls `receiveMessage` directly.
+- Relay transfers submit real destination-chain `receiveMessage` transactions for EVM, Solana, Stellar, Sui, and Aptos when the corresponding `RELAY_KEY_*` is configured. For EVM destinations, if `EVM_FORWARDER_<DOMAIN>` (or `forwarder` in `config/chains.json`) is set, the relay calls `CctpV2Forwarder.mintAndForward`. The contract supports percentage (basis points) or fixed fees, capped by `maxFeeAmount`, and forwards the net USDC to the user's `dest_address`; otherwise it calls `receiveMessage` directly.
 - Starknet relay is wired but not yet implemented and will mark the job `failed`.
 - Aptos relay uses precompiled Move scripts committed under `backend/src/relay/aptos_scripts/*.mv` to atomically call `receive_message` → `handle_receive_message` → `complete_receive_message`.
 - `config/chains.json` is embedded at compile time as a fallback, but runtime `CHAIN_CONFIG` takes precedence.
