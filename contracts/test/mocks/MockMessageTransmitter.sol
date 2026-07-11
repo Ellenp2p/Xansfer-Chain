@@ -32,7 +32,10 @@ contract MockMessageTransmitter is ICCTPV2MessageTransmitter {
         shouldFail = _shouldFail;
     }
 
-    function receiveMessage(bytes calldata message, bytes calldata /* attestation */)
+    function receiveMessage(
+        bytes calldata message,
+        bytes calldata /* attestation */
+    )
         external
         override
         returns (bool)

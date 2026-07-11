@@ -100,10 +100,7 @@ contract ForwarderHandler is Test {
 
     function mintAndForward(uint256 amount, address recipient, uint256 minAmountOut) external {
         amount = bound(amount, 1, 1_000_000_000e6);
-        if (
-            recipient == address(0) || recipient == address(forwarder)
-                || recipient == feeRecipient
-        ) {
+        if (recipient == address(0) || recipient == address(forwarder) || recipient == feeRecipient) {
             recipient = makeAddr("recipient");
         }
 
@@ -136,11 +133,7 @@ contract ForwarderHandler is Test {
         }
     }
 
-    function _buildV2Message(address mintRecipient, uint256 amount)
-        internal
-        pure
-        returns (bytes memory)
-    {
+    function _buildV2Message(address mintRecipient, uint256 amount) internal pure returns (bytes memory) {
         bytes memory header = new bytes(148);
         bytes memory body = abi.encodePacked(
             uint32(1),

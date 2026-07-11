@@ -23,11 +23,7 @@ contract CctpV2ForwarderTest is Test {
     uint256 public constant MAX_FEE_AMOUNT = 100e6; // 100 USDC cap
 
     event MintAndForward(
-        bytes32 indexed messageHash,
-        address indexed recipient,
-        uint256 grossAmount,
-        uint256 fee,
-        uint256 netAmount
+        bytes32 indexed messageHash, address indexed recipient, uint256 grossAmount, uint256 fee, uint256 netAmount
     );
 
     function setUp() public {
@@ -48,11 +44,7 @@ contract CctpV2ForwarderTest is Test {
 
     // ============ Helpers ============
 
-    function _buildV2Message(address mintRecipient, uint256 amount)
-        internal
-        pure
-        returns (bytes memory)
-    {
+    function _buildV2Message(address mintRecipient, uint256 amount) internal pure returns (bytes memory) {
         // V2 header: 148 bytes, all zeros for tests.
         bytes memory header = new bytes(148);
 
@@ -166,14 +158,14 @@ contract CctpV2ForwarderTest is Test {
     }
 
     function test_ConstructorRevertsMaxFeeBpsAbove100Percent() public {
-        vm.expectRevert(abi.encodeWithSelector(CctpV2Forwarder.FeeExceedsMax.selector, BPS_DENOMINATOR + 1, BPS_DENOMINATOR));
+        vm.expectRevert(abi.encodeWithSelector(CctpV2Forwarder.FeeExceedsMax.selector, 10_000 + 1, 10_000));
         new CctpV2Forwarder(
             address(usdc),
             address(transmitter),
             feeRecipient,
             CctpV2Forwarder.FeeMode.PercentageBps,
             FEE_BPS,
-            BPS_DENOMINATOR + 1,
+            10_000 + 1,
             MAX_FEE_AMOUNT,
             owner,
             operator
@@ -345,9 +337,7 @@ contract CctpV2ForwarderTest is Test {
         uint256 expectedNet = amount - ((amount * FEE_BPS) / 10_000);
 
         vm.prank(operator);
-        vm.expectRevert(
-            abi.encodeWithSelector(CctpV2Forwarder.SlippageExceeded.selector, expectedNet, expectedNet + 1)
-        );
+        vm.expectRevert(abi.encodeWithSelector(CctpV2Forwarder.SlippageExceeded.selector, expectedNet, expectedNet + 1));
         forwarder.mintAndForward(message, hex"", recipient, expectedNet + 1);
     }
 
@@ -403,10 +393,7 @@ contract CctpV2ForwarderTest is Test {
         vm.prank(owner);
         vm.expectEmit(false, false, false, true);
         emit CctpV2Forwarder.FeeModeUpdated(
-            CctpV2Forwarder.FeeMode.PercentageBps,
-            CctpV2Forwarder.FeeMode.PercentageBps,
-            FEE_BPS,
-            newValue
+            CctpV2Forwarder.FeeMode.PercentageBps, CctpV2Forwarder.FeeMode.PercentageBps, FEE_BPS, newValue
         );
         forwarder.setFeeMode(CctpV2Forwarder.FeeMode.PercentageBps, newValue);
         assertEq(forwarder.feeValue(), newValue);

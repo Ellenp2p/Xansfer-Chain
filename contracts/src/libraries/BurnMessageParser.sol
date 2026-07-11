@@ -47,11 +47,7 @@ library BurnMessageParser {
      *                       to mint USDC to.
      * @return amount        The amount of USDC to be minted.
      */
-    function parseV2(bytes calldata message)
-        internal
-        pure
-        returns (address mintRecipient, uint256 amount)
-    {
+    function parseV2(bytes calldata message) internal pure returns (address mintRecipient, uint256 amount) {
         uint256 minLen = V2_HEADER_LEN + BODY_MIN_LEN;
         if (message.length < minLen) {
             revert MessageTooShort(message.length);
@@ -59,14 +55,11 @@ library BurnMessageParser {
 
         uint256 bodyStart = V2_HEADER_LEN;
 
-        bytes32 mintRecipientBytes = bytes32(
-            message[bodyStart + BODY_MINT_RECIPIENT_OFFSET:bodyStart + BODY_MINT_RECIPIENT_OFFSET + 32]
-        );
+        bytes32 mintRecipientBytes =
+            bytes32(message[bodyStart + BODY_MINT_RECIPIENT_OFFSET:bodyStart + BODY_MINT_RECIPIENT_OFFSET + 32]);
         mintRecipient = address(uint160(uint256(mintRecipientBytes)));
 
-        amount = uint256(
-            bytes32(message[bodyStart + BODY_AMOUNT_OFFSET:bodyStart + BODY_AMOUNT_OFFSET + 32])
-        );
+        amount = uint256(bytes32(message[bodyStart + BODY_AMOUNT_OFFSET:bodyStart + BODY_AMOUNT_OFFSET + 32]));
     }
 
     /**

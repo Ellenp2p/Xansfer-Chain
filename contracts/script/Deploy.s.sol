@@ -33,15 +33,7 @@ contract Deploy is Script {
 
         vm.startBroadcast();
         CctpV2Forwarder forwarder = new CctpV2Forwarder(
-            usdc,
-            messageTransmitter,
-            feeRecipient,
-            feeMode,
-            feeValue,
-            maxFeeBps,
-            maxFeeAmount,
-            owner,
-            operator
+            usdc, messageTransmitter, feeRecipient, feeMode, feeValue, maxFeeBps, maxFeeAmount, owner, operator
         );
         vm.stopBroadcast();
 

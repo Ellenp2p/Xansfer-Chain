@@ -13,9 +13,7 @@ interface ICCTPV2MessageTransmitter {
      * @param attestation   The Circle attestation bytes.
      * @return success      True if the message was received successfully.
      */
-    function receiveMessage(bytes calldata message, bytes calldata attestation)
-        external
-        returns (bool success);
+    function receiveMessage(bytes calldata message, bytes calldata attestation) external returns (bool success);
 
     /**
      * @notice Returns whether a message hash has already been received.

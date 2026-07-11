@@ -17,7 +17,15 @@ contract ReentrancyAttacker {
         forwarder = CctpV2Forwarder(payable(_forwarder));
     }
 
-    function onERC20Received(address /* operator */, address /* from */, uint256 /* amount */, bytes calldata /* data */)
+    function onERC20Received(
+        address,
+        /* operator */
+        address,
+        /* from */
+        uint256,
+        /* amount */
+        bytes calldata /* data */
+    )
         external
         returns (bytes4)
     {
@@ -26,8 +34,9 @@ contract ReentrancyAttacker {
             attackCount++;
             // Re-enter with dummy data; should be blocked by nonReentrant.
             try forwarder.mintAndForward(hex"", hex"", address(this), 0) {
-                // Should never succeed.
-            } catch {}
+            // Should never succeed.
+            }
+                catch {}
         }
         return bytes4(keccak256("onERC20Received(address,address,uint256,bytes)"));
     }

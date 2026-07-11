@@ -87,19 +87,10 @@ contract CctpV2Forwarder is Ownable2Step, Pausable, ReentrancyGuard {
     // ============ Events ============
 
     event MintAndForward(
-        bytes32 indexed messageHash,
-        address indexed recipient,
-        uint256 grossAmount,
-        uint256 fee,
-        uint256 netAmount
+        bytes32 indexed messageHash, address indexed recipient, uint256 grossAmount, uint256 fee, uint256 netAmount
     );
 
-    event FeeModeUpdated(
-        FeeMode indexed oldMode,
-        FeeMode indexed newMode,
-        uint256 oldValue,
-        uint256 newValue
-    );
+    event FeeModeUpdated(FeeMode indexed oldMode, FeeMode indexed newMode, uint256 oldValue, uint256 newValue);
     event FeeRecipientUpdated(address indexed oldRecipient, address indexed newRecipient);
     event OperatorUpdated(address indexed oldOperator, address indexed newOperator);
 
@@ -157,6 +148,9 @@ contract CctpV2Forwarder is Ownable2Step, Pausable, ReentrancyGuard {
             revert FeeExceedsMax(_maxFeeBps, BPS_DENOMINATOR);
         }
 
+        maxFeeBps = _maxFeeBps;
+        maxFeeAmount = _maxFeeAmount;
+
         _validateFeeValue(_feeMode, _feeValue);
 
         usdc = IERC20(_usdc);
@@ -164,8 +158,6 @@ contract CctpV2Forwarder is Ownable2Step, Pausable, ReentrancyGuard {
         feeRecipient = _feeRecipient;
         feeMode = _feeMode;
         feeValue = _feeValue;
-        maxFeeBps = _maxFeeBps;
-        maxFeeAmount = _maxFeeAmount;
         operator = _operator;
     }
 
@@ -180,12 +172,13 @@ contract CctpV2Forwarder is Ownable2Step, Pausable, ReentrancyGuard {
      * @param minAmountOut    Minimum net USDC the recipient must receive.
      * @return success        True if the full flow succeeded.
      */
-    function mintAndForward(
-        bytes calldata message,
-        bytes calldata attestation,
-        address recipient,
-        uint256 minAmountOut
-    ) external nonReentrant whenNotPaused onlyOperator returns (bool success) {
+    function mintAndForward(bytes calldata message, bytes calldata attestation, address recipient, uint256 minAmountOut)
+        external
+        nonReentrant
+        whenNotPaused
+        onlyOperator
+        returns (bool success)
+    {
         if (recipient == address(0)) revert ZeroAddress();
 
         bytes32 messageHash = keccak256(message);
@@ -318,11 +311,7 @@ contract CctpV2Forwarder is Ownable2Step, Pausable, ReentrancyGuard {
      * @notice Convenience helper to preview the fee and net amount for a given
      *         gross amount without mutating state.
      */
-    function previewForward(uint256 grossAmount)
-        external
-        view
-        returns (uint256 fee, uint256 netAmount)
-    {
+    function previewForward(uint256 grossAmount) external view returns (uint256 fee, uint256 netAmount) {
         return _calculateFee(grossAmount);
     }
 
@@ -339,11 +328,7 @@ contract CctpV2Forwarder is Ownable2Step, Pausable, ReentrancyGuard {
      * @notice Calculate fee and net amount for a gross amount, honoring the
      *         configured fee model and the absolute `maxFeeAmount` cap.
      */
-    function _calculateFee(uint256 grossAmount)
-        internal
-        view
-        returns (uint256 fee, uint256 netAmount)
-    {
+    function _calculateFee(uint256 grossAmount) internal view returns (uint256 fee, uint256 netAmount) {
         if (feeMode == FeeMode.PercentageBps) {
             fee = (grossAmount * feeValue) / BPS_DENOMINATOR;
         } else if (feeMode == FeeMode.FixedAmount) {
