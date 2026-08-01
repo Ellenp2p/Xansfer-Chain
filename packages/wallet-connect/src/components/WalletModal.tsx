@@ -68,15 +68,12 @@ export function WalletModal({ open, onClose }: WalletModalProps) {
 }
 
 function ChainTab({ chain }: { chain: ConnectedChainType }) {
-  const { state, slots, actions, walletIcons, connect } = useWallet()
+  const { state, slots, actions, walletIcons, connect, disconnect, resetChain } = useWallet()
   const info: WalletInfo | null = state[chain]
   const slot = slots[chain]
   const wallets = actions[chain].wallets
   const [busyId, setBusyId] = useState<string | null>(null)
-
-  if (info?.address) {
-    return <ConnectedView chain={chain} info={info} />
-  }
+  const busy = busyId !== null || slot.connecting
 
   const handleConnect = async (walletId: string) => {
     setBusyId(walletId)
@@ -89,6 +86,34 @@ function ChainTab({ chain }: { chain: ConnectedChainType }) {
     }
   }
 
+  const handleCancel = async () => {
+    setBusyId(null)
+    resetChain(chain)
+    try {
+      await disconnect(chain)
+    } catch {
+      // ignore — state is already cleared
+    }
+  }
+
+  if (info?.address && !busy) {
+    return <ConnectedView chain={chain} info={info} />
+  }
+
+  // Stuck waiting on a wallet popup → give the user a hard cancel.
+  if (busy) {
+    return (
+      <div className="xw-waiting">
+        <p className="xw-row-muted">
+          Waiting for the wallet to approve… If nothing opened, check your wallet extension.
+        </p>
+        <button className="xw-btn xw-btn-danger xw-cancel" onClick={() => void handleCancel()}>
+          Cancel &amp; disconnect
+        </button>
+      </div>
+    )
+  }
+
   return (
     <div className="xw-wallet-grid">
       {wallets.length === 0 && (
@@ -96,12 +121,11 @@ function ChainTab({ chain }: { chain: ConnectedChainType }) {
       )}
       {wallets.map((w) => {
         const icon = w.icon || walletIcons[w.name] || walletIcons[w.id]
-        const busy = busyId === w.id || slot.connecting
         return (
           <button
             key={w.id}
             className="xw-wallet-card"
-            disabled={busy || w.unavailable}
+            disabled={w.unavailable}
             onClick={() => void handleConnect(w.id)}
           >
             {icon ? (
@@ -110,7 +134,7 @@ function ChainTab({ chain }: { chain: ConnectedChainType }) {
               <span className="xw-wallet-monogram">{w.name.charAt(0).toUpperCase()}</span>
             )}
             <span className="xw-wallet-name">
-              {busy ? 'Confirm in wallet…' : w.unavailable ? 'Not detected' : w.name}
+              {w.unavailable ? 'Not detected' : w.name}
             </span>
           </button>
         )

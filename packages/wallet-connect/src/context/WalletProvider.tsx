@@ -39,6 +39,8 @@ export interface WalletContextValue {
   connect: (chain: ConnectedChainType, walletId?: string) => Promise<WalletInfo | null>
   disconnect: (chain: ConnectedChainType) => Promise<void>
   disconnectAll: () => void
+  /** Force-clear a chain's connecting/error state (used to abort a stuck connect). */
+  resetChain: (chain: ConnectedChainType) => void
   getAddress: (chain: ConnectedChainType) => string | null
 }
 
@@ -76,6 +78,8 @@ export function WalletProvider({
   }))
   const [wagmiConfig, setWagmiConfig] = useState<Config | null>(null)
   const actionsRef = useRef<Partial<WalletActions>>({})
+  // Set when the user cancels a stuck connect; used to suppress late errors.
+  const cancelledRef = useRef<Partial<Record<ConnectedChainType, boolean>>>({})
 
   const setSlot = useCallback((chain: ConnectedChainType, patch: Partial<WalletSlot>) => {
     setSlots((prev) => ({ ...prev, [chain]: { ...prev[chain], ...patch } }))
@@ -88,12 +92,18 @@ export function WalletProvider({
   const connect = useCallback(async (chain: ConnectedChainType, walletId?: string) => {
     const a = actionsRef.current[chain]
     if (!a) throw new Error(`No wallet adapter registered for "${chain}"`)
+    cancelledRef.current[chain] = false
     setSlot(chain, { connecting: true, error: null })
     try {
       return await a.connect(walletId)
     } catch (e) {
-      // Surface connection errors in the UI (slot.error) and re-throw.
-      setSlot(chain, { connecting: false, error: e instanceof Error ? e.message : String(e) })
+      // If the user cancelled, a late rejection (timeout/reject) must not
+      // re-surface an error on an already-reset UI.
+      if (!cancelledRef.current[chain]) {
+        setSlot(chain, { connecting: false, error: e instanceof Error ? e.message : String(e) })
+      } else {
+        setSlot(chain, { connecting: false })
+      }
       throw e
     }
   }, [setSlot])
@@ -107,6 +117,11 @@ export function WalletProvider({
       void actionsRef.current[chain]?.disconnect()
     }
   }, [])
+
+  const resetChain = useCallback((chain: ConnectedChainType) => {
+    cancelledRef.current[chain] = true
+    setSlot(chain, { wallet: null, connecting: false, error: null })
+  }, [setSlot])
 
   const getAddress = useCallback((chain: ConnectedChainType) => {
     return actionsRef.current[chain]?.getAddress() ?? null
@@ -147,8 +162,8 @@ export function WalletProvider({
   }, [slots])
 
   const value = useMemo<WalletContextValue>(
-    () => ({ state, slots, actions, walletIcons, wagmiConfig, connect, disconnect, disconnectAll, getAddress }),
-    [state, slots, actions, walletIcons, wagmiConfig, connect, disconnect, disconnectAll, getAddress],
+    () => ({ state, slots, actions, walletIcons, wagmiConfig, connect, disconnect, disconnectAll, resetChain, getAddress }),
+    [state, slots, actions, walletIcons, wagmiConfig, connect, disconnect, disconnectAll, resetChain, getAddress],
   )
 
   const evmChains = useMemo(() => chains.filter((c) => c.chain_type === 'evm'), [chains])

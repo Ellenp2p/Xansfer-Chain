@@ -263,6 +263,23 @@
   word-break: break-word;
 }
 
+/* Waiting-for-wallet state (stuck connect) with a hard cancel */
+.xw-waiting {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  margin-top: 14px;
+  padding: 20px 16px;
+  border-radius: var(--xw-radius);
+  border: 1px solid var(--xw-border);
+  background: var(--xw-surface);
+  text-align: center;
+}
+.xw-cancel {
+  width: 100%;
+}
+
 /* Chain fallback monogram */
 .xw-chain-fallback {
   display: inline-flex;
