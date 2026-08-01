@@ -43,6 +43,10 @@ export function EvmAdapter({ mode, chains, appName, setSlot, setWagmiConfig, reg
       chains: chainList,
       connectors: [injected(), coinbaseWallet({ appName })],
       transports: Object.fromEntries(chainList.map((c) => [c.id, http()])),
+      // Avoids wagmi's Hydrate calling onMount() during render (which triggers
+      // "Cannot update a component while rendering" in React 19). The mount
+      // work (reconnect/hydrate) runs in an effect instead.
+      ssr: true,
     })
   }, [chains, mode, appName])
 

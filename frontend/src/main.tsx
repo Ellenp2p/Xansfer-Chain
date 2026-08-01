@@ -21,7 +21,6 @@ function Root() {
   return (
     <React.StrictMode>
       <QueryClientProvider client={queryClient}>
-        {/* Remount on network switch — resets all wallet/query state */}
         <WalletProvider
           key={mode}
           mode={mode}
