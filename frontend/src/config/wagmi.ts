@@ -1,23 +1,12 @@
-import { http, createConfig, type Config } from 'wagmi'
 import type { Chain } from 'viem'
 import {
   mainnet, avalanche, optimism, arbitrum, base, polygon, linea, sonic,
   sepolia, optimismSepolia, arbitrumSepolia, baseSepolia, polygonAmoy, avalancheFuji,
 } from 'wagmi/chains'
-import { injected, coinbaseWallet } from 'wagmi/connectors'
 import type { ChainType } from '../types'
-import { getChains } from './chains'
-
-function makeConnectors() {
-  return [
-    injected(),
-    coinbaseWallet({ appName: 'Xansfer' }),
-  ]
-}
+import { getChains, getChainByDomain } from './chains'
 
 // ── Additional EVM chains not in wagmi/chains but supported by Xansfer ──────
-
-import { getChainByDomain } from './chains'
 
 function makeCustomChain(domain: number, mode: 'mainnet' | 'testnet'): Chain | null {
   const chain = getChainByDomain(domain, mode)
@@ -50,32 +39,16 @@ const bnbTestnet: Chain = {
   testnet: true,
 }
 
-// ── Mainnet config ──────────────────────────────────────────────────────────
-
-const MAINNET_WAGMI_CHAINS: [Chain, ...Chain[]] = [
+export const MAINNET_WAGMI_CHAINS: Chain[] = [
   mainnet, avalanche, optimism, arbitrum, base, polygon, linea, sonic,
   cronos, unichain,
 ]
 
-export const mainnetConfig: Config = createConfig({
-  chains: MAINNET_WAGMI_CHAINS,
-  connectors: makeConnectors(),
-  transports: Object.fromEntries(MAINNET_WAGMI_CHAINS.map((c) => [c.id, http()])),
-})
-
-// ── Testnet config ──────────────────────────────────────────────────────────
-
-const TESTNET_WAGMI_CHAINS: [Chain, ...Chain[]] = [
+export const TESTNET_WAGMI_CHAINS: Chain[] = [
   sepolia, avalancheFuji, optimismSepolia, arbitrumSepolia, baseSepolia, polygonAmoy,
   lineaSepolia, sonicTestnet,
   cronosTestnet, bnbTestnet, unichainSepolia, arcTestnet,
 ]
-
-export const testnetConfig: Config = createConfig({
-  chains: TESTNET_WAGMI_CHAINS,
-  connectors: makeConnectors(),
-  transports: Object.fromEntries(TESTNET_WAGMI_CHAINS.map((c) => [c.id, http()])),
-})
 
 // ── Mode-aware Domain <-> Chain ID mappings ─────────────────────────────────
 

@@ -1,8 +1,8 @@
 import { useCallback } from 'react'
-import { signTransaction, getAddress } from '@stellar/freighter-api'
+import { signTransaction } from '@stellar/freighter-api'
 import { rpc, Contract, TransactionBuilder, Address, nativeToScVal, xdr, Networks, BASE_FEE } from '@stellar/stellar-sdk'
 import { useNetworkMode } from '../../stores/networkMode'
-import { useWalletStore } from '../../stores/walletStore'
+import { useWalletState } from '@xansfer/wallet-connect'
 import type { ChainAdapter, SourceBurnParams, ClaimParams } from './types'
 import type { ChainConfig } from '../../types'
 
@@ -42,13 +42,10 @@ export function useStellarAdapter(): ChainAdapter {
   const mode = useNetworkMode((s) => s.mode)
 
   const getPublicKey = useCallback(async (): Promise<string> => {
-    // Prefer address from wallet store (synced by useFreighter hook)
-    const store = useWalletStore.getState().stellar
+    // Prefer address from wallet state (synced by the Stellar adapter)
+    const store = useWalletState().stellar
     if (store?.address) return store.address
-    // Fallback: probe Freighter directly (silent, no prompt)
-    const { address, error } = await getAddress()
-    if (error || !address) throw new Error('Freighter: not connected — please connect your Stellar wallet first')
-    return address
+    throw new Error('Freighter: not connected — please connect your Stellar wallet first')
   }, [])
 
   /** Query USDC SAC allowance for owner -> spender (no state change). */

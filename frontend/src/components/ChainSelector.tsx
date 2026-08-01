@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { getChains } from '../config/chains'
 import { useNetworkMode } from '../stores/networkMode'
+import { ChainIcon, XANSFER_CHAIN_ICONS } from '@xansfer/wallet-connect'
 import { ChevronDown } from 'lucide-react'
 
 interface Props {
@@ -8,11 +9,6 @@ interface Props {
   onChange: (domain: number) => void
   label: string
   exclude?: number | null
-}
-
-const DOMAIN_ICONS: Record<number, string> = {
-  0: '🔷', 1: '🔺', 2: '🔴', 3: '🔵', 5: '◎', 6: '🔵', 7: '🟣',
-  10: '🔴', 11: '🟢', 13: '👻', 17: '🟡', 25: '⬛', 27: '🌟', 32: '🔵',
 }
 
 export default function ChainSelector({ value, onChange, label, exclude }: Props) {
@@ -45,7 +41,7 @@ export default function ChainSelector({ value, onChange, label, exclude }: Props
       >
         {selected ? (
           <span className="flex items-center gap-2 min-w-0">
-            <span className="shrink-0">{DOMAIN_ICONS[selected.domain] ?? '⛓'}</span>
+            <ChainIcon domain={selected.domain} name={selected.name} size={20} iconMap={XANSFER_CHAIN_ICONS} />
             <span className="font-medium truncate">{selected.name}</span>
             <span className="text-xs text-gray-500 shrink-0">d={selected.domain}</span>
           </span>
@@ -67,7 +63,7 @@ export default function ChainSelector({ value, onChange, label, exclude }: Props
                 value === chain.domain ? 'bg-gray-700 text-white' : 'text-gray-300'
               }`}
             >
-              <span className="shrink-0">{DOMAIN_ICONS[chain.domain] ?? '⛓'}</span>
+              <ChainIcon domain={chain.domain} name={chain.name} size={20} iconMap={XANSFER_CHAIN_ICONS} />
               <span className="font-medium truncate">{chain.name}</span>
               <span className="ml-auto text-xs text-gray-500 shrink-0">d={chain.domain}</span>
               <span className="sm:ml-2 rounded bg-gray-700 px-1.5 py-0.5 text-[10px] text-gray-400 uppercase shrink-0">

@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useFreighter } from '../hooks/useFreighter'
-import { useWalletStore } from '../stores/walletStore'
+import { useWalletState } from '@xansfer/wallet-connect'
 import { useTransferStore } from '../stores/transferStore'
 import { useNetworkMode } from '../stores/networkMode'
 import { useCctpTransfer } from '../hooks/useCctpTransfer'
@@ -19,11 +18,10 @@ const TRANSFER_META: Record<TransferType, { label: string; icon: typeof Zap; des
 
 export default function TransferForm() {
   const navigate = useNavigate()
-  const wallet = useWalletStore()
+  const wallet = useWalletState()
   const store = useTransferStore()
   const mode = useNetworkMode((s) => s.mode)
   const { step, error: transferError, sourceTxHash, startTransfer, reset } = useCctpTransfer()
-  const freighter = useFreighter()
   const [destAddress, setDestAddress] = useState('')
   const [useCustomDestAddress, setUseCustomDestAddress] = useState(false)
   const [cctpVersion, setCctpVersion] = useState(2)
@@ -94,9 +92,9 @@ export default function TransferForm() {
     if (srcChainType === 'solana') return !!wallet.solana
     if (srcChainType === 'aptos') return !!wallet.aptos
     if (srcChainType === 'sui') return !!wallet.sui
-    if (srcChainType === 'stellar') return freighter.connected && !!freighter.address
+    if (srcChainType === 'stellar') return !!wallet.stellar
     return false
-  }, [srcChainType, wallet.evm, wallet.solana, wallet.aptos, wallet.sui, freighter.connected, freighter.address])
+  }, [srcChainType, wallet.evm, wallet.solana, wallet.aptos, wallet.sui, wallet.stellar])
 
   const dstWalletReady = useMemo(() => {
     if (!dstChainType) return false
@@ -104,9 +102,9 @@ export default function TransferForm() {
     if (dstChainType === 'solana') return !!wallet.solana
     if (dstChainType === 'aptos') return !!wallet.aptos
     if (dstChainType === 'sui') return !!wallet.sui
-    if (dstChainType === 'stellar') return freighter.connected && !!freighter.address
+    if (dstChainType === 'stellar') return !!wallet.stellar
     return false
-  }, [dstChainType, wallet.evm, wallet.solana, wallet.aptos, wallet.sui, freighter.connected, freighter.address])
+  }, [dstChainType, wallet.evm, wallet.solana, wallet.aptos, wallet.sui, wallet.stellar])
 
   // Address of the connected destination-chain wallet (if any)
   const destWalletAddress = useMemo(() => {
@@ -115,9 +113,9 @@ export default function TransferForm() {
     if (dstChainType === 'solana') return wallet.solana?.address ?? ''
     if (dstChainType === 'aptos') return wallet.aptos?.address ?? ''
     if (dstChainType === 'sui') return wallet.sui?.address ?? ''
-    if (dstChainType === 'stellar') return freighter.address ?? ''
+    if (dstChainType === 'stellar') return wallet.stellar?.address ?? ''
     return ''
-  }, [dstChainType, wallet.evm, wallet.solana, wallet.aptos, wallet.sui, freighter.address])
+  }, [dstChainType, wallet.evm, wallet.solana, wallet.aptos, wallet.sui, wallet.stellar])
 
   // Auto-fill destination address when destination chain changes and its wallet is connected.
   // Respects the custom-address checkbox: only override when checkbox is off.

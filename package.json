@@ -1,0 +1,8 @@
+{
+  "name": "xansfer-chain",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "packages/wallet-connect"
+  ]
+}

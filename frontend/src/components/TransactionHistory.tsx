@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useWalletStore } from '../stores/walletStore'
+import { useWalletState } from '@xansfer/wallet-connect'
 import { useHistoryStore } from '../stores/historyStore'
 import { useNetworkMode } from '../stores/networkMode'
 import type { TxStatus } from '../types'
@@ -17,7 +17,7 @@ const STATUS_COLORS: Record<TxStatus, string> = {
 }
 
 export default function TransactionHistory() {
-  const { evm, solana, stellar, aptos, sui } = useWalletStore()
+  const { evm, solana, stellar, aptos, sui } = useWalletState()
   const { transactions, loading, error, fetchTransactions } = useHistoryStore()
   const { mode } = useNetworkMode()
   const navigate = useNavigate()

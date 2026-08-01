@@ -1,0 +1,10 @@
+.git/
+node_modules/
+dist/
+target/
+*.db
+*.log
+.env
+.env.local
+packages/wallet-connect/node_modules/
+packages/wallet-connect/dist/

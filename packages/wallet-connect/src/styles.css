@@ -1,0 +1,197 @@
+/* @xansfer/wallet-connect default theme.
+   Override via the --xw-* CSS variables on a parent element. */
+
+:root {
+  --xw-bg: #0b0b0f;
+  --xw-surface: #15151b;
+  --xw-border: #27272f;
+  --xw-text: #f5f5f7;
+  --xw-muted: #9a9aa4;
+  --xw-accent: #6366f1;
+  --xw-accent-hover: #4f52d9;
+  --xw-danger: #ef6a6a;
+  --xw-radius: 10px;
+}
+
+/* Connect button */
+.xw-connect {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: var(--xw-radius);
+  border: 1px solid var(--xw-border);
+  background: var(--xw-surface);
+  color: var(--xw-text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.xw-connect:hover {
+  border-color: var(--xw-muted);
+}
+.xw-connect-active {
+  border-color: var(--xw-accent);
+}
+.xw-connect-label {
+  line-height: 1;
+}
+.xw-connect-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--xw-accent);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+/* Modal overlay + panel */
+.xw-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  padding: 16px;
+}
+.xw-modal {
+  width: 100%;
+  max-width: 420px;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: var(--xw-bg);
+  border: 1px solid var(--xw-border);
+  border-radius: calc(var(--xw-radius) + 4px);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+.xw-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--xw-border);
+}
+.xw-modal-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--xw-text);
+}
+.xw-close {
+  border: none;
+  background: transparent;
+  color: var(--xw-muted);
+  font-size: 15px;
+  cursor: pointer;
+  padding: 4px;
+}
+.xw-close:hover {
+  color: var(--xw-text);
+}
+.xw-modal-body {
+  padding: 8px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Rows */
+.xw-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px;
+  border-radius: var(--xw-radius);
+  border: 1px solid var(--xw-border);
+  background: var(--xw-surface);
+}
+.xw-row-stack {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+}
+.xw-row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.xw-row-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--xw-text);
+}
+.xw-row-addr {
+  font-size: 11px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--xw-muted);
+}
+.xw-row-muted {
+  font-size: 11px;
+  color: var(--xw-muted);
+}
+.xw-row-actions {
+  display: flex;
+  gap: 6px;
+}
+.xw-connector-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 6px;
+}
+.xw-connector {
+  text-align: left;
+  width: 100%;
+}
+
+/* Buttons */
+.xw-btn {
+  padding: 5px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--xw-border);
+  background: transparent;
+  color: var(--xw-text);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.xw-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.xw-btn-accent {
+  background: var(--xw-accent);
+  border-color: var(--xw-accent);
+  color: #fff;
+}
+.xw-btn-accent:hover {
+  background: var(--xw-accent-hover);
+}
+.xw-btn-danger {
+  color: var(--xw-danger);
+  border-color: transparent;
+}
+.xw-btn-danger:hover {
+  background: rgba(239, 106, 106, 0.12);
+}
+
+/* Chain fallback monogram */
+.xw-chain-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: #fff;
+  font-weight: 700;
+  user-select: none;
+}

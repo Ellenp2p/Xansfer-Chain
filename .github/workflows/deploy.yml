@@ -22,10 +22,12 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-      - name: Install dependencies
-        working-directory: frontend
+      - name: Install dependencies (workspace)
         run: bun install --frozen-lockfile
-      - name: Build
+      - name: Build wallet-connect package
+        working-directory: packages/wallet-connect
+        run: bun run build
+      - name: Build frontend
         working-directory: frontend
         env:
           # Hosted at https://<owner>.github.io/Xansfer-Chain/

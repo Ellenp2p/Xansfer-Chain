@@ -4,9 +4,9 @@ import { useCallback } from 'react'
 import { parseUnits, type Hex, toHex, stringToBytes } from 'viem'
 import { ERC20_ABI, TOKEN_MESSENGER_V2_ABI, MESSAGE_TRANSMITTER_V2_ABI } from '../../config/cctp-abi'
 import { getCctpContracts } from '../../config/chains'
-import { getChainIdForDomain, isChainSupportedByWagmi, mainnetConfig, testnetConfig } from '../../config/wagmi'
+import { getChainIdForDomain, isChainSupportedByWagmi } from '../../config/wagmi'
 import { useNetworkMode } from '../../stores/networkMode'
-import { useWalletStore } from '../../stores/walletStore'
+import { useWalletState, useWagmiConfig } from '@xansfer/wallet-connect'
 import type { ChainAdapter, SourceBurnParams, ClaimParams } from './types'
 import type { ChainConfig } from '../../types'
 
@@ -70,6 +70,7 @@ export function useEvmAdapter(): ChainAdapter {
   const { switchChainAsync } = useSwitchChain()
   const { chainId: currentChainId } = useAccount()
   const mode = useNetworkMode((s) => s.mode)
+  const wagmiConfig = useWagmiConfig()
 
   const switchChain = useCallback(
     async (domain: number) => {
@@ -87,12 +88,15 @@ export function useEvmAdapter(): ChainAdapter {
       if (!contracts) throw new Error(`CCTP v${cctpVersion} not available for ${chainConfig.name}`)
       const amountBigInt = parseUnits(amount, 6)
 
-      const wallet = useWalletStore.getState().evm
+      const wallet = useWalletState().evm
       if (!wallet?.address) throw new Error('EVM wallet not connected')
 
       // Check on-chain allowance first — skip approve if already sufficient
-      const wagmiConfig = mode === 'testnet' ? testnetConfig : mainnetConfig
-      const allowance = await readContract(wagmiConfig, {
+      if (!wagmiConfig) throw new Error('wagmi config not ready')
+      // The config instance is created by the wallet-connect package at runtime,
+      // but TypeScript sees two @wagmi/core copies (workspace vs frontend). The
+      // runtime object is the same one readContract accepts, so the cast is safe.
+      const allowance = await readContract(wagmiConfig as never, {
         address: chainConfig.usdc_address as Hex,
         abi: ERC20_ABI,
         functionName: 'allowance',

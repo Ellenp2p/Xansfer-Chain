@@ -1,5 +1,5 @@
 import { useCallback } from 'react'
-import { useWallet, type InputTransactionData } from '../../providers/AptosWalletProvider'
+import { useWallet, type InputTransactionData } from '@aptos-labs/wallet-adapter-react'
 import { getChainByDomain } from '../../config/chains'
 import { useNetworkMode } from '../../stores/networkMode'
 import type { ChainAdapter, SourceBurnParams, ClaimParams } from './types'

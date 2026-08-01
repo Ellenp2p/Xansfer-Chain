@@ -5,7 +5,7 @@ import { useStellarAdapter } from './cctp/stellar'
 import type { ChainAdapter } from './cctp/types'
 import { getChainByDomain } from '../config/chains'
 import { useNetworkMode } from '../stores/networkMode'
-import { useWalletStore } from '../stores/walletStore'
+import { useWalletState } from '@xansfer/wallet-connect'
 import * as api from '../lib/api'
 import type { TransferType } from '../types'
 
@@ -43,7 +43,7 @@ export function useCctpTransfer() {
   const aptosAdapter = useAptosAdapter()
   const stellarAdapter = useStellarAdapter()
   const mode = useNetworkMode((s) => s.mode)
-  const wallet = useWalletStore()
+  const wallet = useWalletState()
 
   function getAdapter(chainType: string): ChainAdapter {
     switch (chainType) {
