@@ -59,7 +59,7 @@ export default function Root() {
           <AptosWalletProvider>
             <SuiWalletProvider>
               <StellarWalletProvider>
-                <BrowserRouter>
+                <BrowserRouter basename={import.meta.env.BASE_URL}>
                   <App />
                 </BrowserRouter>
               </StellarWalletProvider>
