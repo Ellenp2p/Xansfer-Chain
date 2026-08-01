@@ -66,6 +66,8 @@ export interface WalletOption {
   id: string
   name: string
   icon?: string
+  /** True when the wallet extension/app is not detectable in this browser. */
+  unavailable?: boolean
 }
 
 /** Actions exposed for a single chain. Implemented by each chain adapter. */

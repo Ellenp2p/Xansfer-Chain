@@ -80,7 +80,7 @@ function EvmSync({ setSlot, registerActions }: {
   }, [address, isConnected, chainId, status, setSlot])
 
   const wallets: WalletOption[] = useMemo(
-    () => connectors.map((c) => ({ id: c.id, name: c.name })),
+    () => connectors.map((c) => ({ id: c.id, name: c.name, unavailable: !c.ready })),
     [connectors],
   )
 
@@ -88,7 +88,15 @@ function EvmSync({ setSlot, registerActions }: {
     async (walletId?: string) => {
       const connector = connectors.find((c) => c.id === walletId) ?? connectors[0]
       if (!connector) throw new Error('No EVM wallet available')
-      const result = await connectAsync({ connector })
+      if (!connector.ready) throw new Error(`No ${connector.name} detected in this browser`)
+      // Guard against a wallet popup that never resolves.
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Timed out waiting for wallet approval')), 90_000),
+      )
+      const result = await Promise.race([
+        connectAsync({ connector }),
+        timeout,
+      ])
       return { address: result.accounts[0], chainId: result.chainId, chainType: 'evm' as const }
     },
     [connectors, connectAsync],

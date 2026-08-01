@@ -83,7 +83,7 @@ function ChainTab({ chain }: { chain: ConnectedChainType }) {
     try {
       await connect(chain, walletId)
     } catch {
-      // error surfaces through slot.error
+      // error is surfaced through slot.error
     } finally {
       setBusyId(null)
     }
@@ -101,7 +101,7 @@ function ChainTab({ chain }: { chain: ConnectedChainType }) {
           <button
             key={w.id}
             className="xw-wallet-card"
-            disabled={busy}
+            disabled={busy || w.unavailable}
             onClick={() => void handleConnect(w.id)}
           >
             {icon ? (
@@ -109,7 +109,9 @@ function ChainTab({ chain }: { chain: ConnectedChainType }) {
             ) : (
               <span className="xw-wallet-monogram">{w.name.charAt(0).toUpperCase()}</span>
             )}
-            <span className="xw-wallet-name">{busy ? 'Connecting…' : w.name}</span>
+            <span className="xw-wallet-name">
+              {busy ? 'Confirm in wallet…' : w.unavailable ? 'Not detected' : w.name}
+            </span>
           </button>
         )
       })}

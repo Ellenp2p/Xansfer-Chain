@@ -88,8 +88,15 @@ export function WalletProvider({
   const connect = useCallback(async (chain: ConnectedChainType, walletId?: string) => {
     const a = actionsRef.current[chain]
     if (!a) throw new Error(`No wallet adapter registered for "${chain}"`)
-    return a.connect(walletId)
-  }, [])
+    setSlot(chain, { connecting: true, error: null })
+    try {
+      return await a.connect(walletId)
+    } catch (e) {
+      // Surface connection errors in the UI (slot.error) and re-throw.
+      setSlot(chain, { connecting: false, error: e instanceof Error ? e.message : String(e) })
+      throw e
+    }
+  }, [setSlot])
 
   const disconnect = useCallback(async (chain: ConnectedChainType) => {
     await actionsRef.current[chain]?.disconnect()
