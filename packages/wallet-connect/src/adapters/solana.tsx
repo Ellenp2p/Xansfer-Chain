@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, type ReactNode } from 'react'
 import { ConnectionProvider, WalletProvider, useWallet } from '@solana/wallet-adapter-react'
 import { WalletModalProvider } from '@solana/wallet-adapter-react-ui'
+import { useStandardWalletAdapters } from '@solana/wallet-standard-wallet-adapter-react'
 import { PhantomWalletAdapter, SolflareWalletAdapter } from '@solana/wallet-adapter-wallets'
 import type { WalletAdapter } from '@solana/wallet-adapter-base'
+import { WalletReadyState } from '@solana/wallet-adapter-base'
 import type { ChainActions, ConnectedChainType, WalletOption, WalletSlot } from '../core/types'
 
 type SetSlot = (chain: ConnectedChainType, patch: Partial<WalletSlot>) => void
@@ -37,6 +39,10 @@ function SolanaSync({ wallets, setSlot, registerActions }: {
   registerActions: RegisterActions
 }) {
   const solanaWallet = useWallet()
+  // Merge explicit adapters with all Wallet Standard wallets (OKX, etc.) that
+  // are installed in this browser. The WalletProvider inside uses the same
+  // hook, so select(name) stays in sync.
+  const allAdapters = useStandardWalletAdapters(wallets)
 
   useEffect(() => {
     setSlot('solana', {
@@ -50,8 +56,16 @@ function SolanaSync({ wallets, setSlot, registerActions }: {
   }, [solanaWallet.connected, solanaWallet.publicKey, solanaWallet.connecting, setSlot])
 
   const walletOptions: WalletOption[] = useMemo(
-    () => wallets.map((w) => ({ id: w.name, name: w.name, icon: w.icon })),
-    [wallets],
+    () =>
+      allAdapters.map((w) => ({
+        id: w.name,
+        name: w.name,
+        icon: w.icon,
+        unavailable:
+          w.readyState === WalletReadyState.NotDetected ||
+          w.readyState === WalletReadyState.Unsupported,
+      })),
+    [allAdapters],
   )
 
   const connect = useCallback(

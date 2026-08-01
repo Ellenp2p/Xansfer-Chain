@@ -13,4 +13,8 @@ export const WALLET_ICONS: Record<string, string> = {
   // wallet names (fallback keys)
   MetaMask: `${base}wallets/metamask.svg`,
   'Coinbase Wallet': `${base}wallets/coinbase.svg`,
+  // OKX Wallet (EVM connector name/id; other chains surface via Wallet Standard)
+  'OKX Wallet': `${base}wallets/okx.svg`,
+  'com.okex.wallet': `${base}wallets/okx.svg`,
+  OKX: `${base}wallets/okx.svg`,
 }
