@@ -4,5 +4,12 @@
   "workspaces": [
     "frontend",
     "packages/wallet-connect"
-  ]
+  ],
+  "scripts": {
+    "dev": "cd frontend && bun run dev",
+    "dev:backend": "cargo run --manifest-path backend/Cargo.toml",
+    "build:package": "cd packages/wallet-connect && bun run build",
+    "build": "cd packages/wallet-connect && bun run build && cd .. && cd frontend && bun run build",
+    "preview": "cd frontend && bun run preview"
+  }
 }
