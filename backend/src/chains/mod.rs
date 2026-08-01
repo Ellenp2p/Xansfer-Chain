@@ -49,9 +49,6 @@ impl ChainConfig {
             types.push("forward".to_string());
         }
 
-        // Relay is always available as fallback
-        types.push("relay".to_string());
-
         types
     }
 }

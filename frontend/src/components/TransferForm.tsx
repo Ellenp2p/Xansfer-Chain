@@ -30,15 +30,6 @@ export default function TransferForm() {
 
   const submitting = step !== 'idle' && step !== 'error' && step !== 'complete' && step !== 'submitted'
 
-  // Sync Freighter state → wallet store
-  useEffect(() => {
-    if (freighter.connected && freighter.address) {
-      wallet.setStellarWallet({ address: freighter.address, chainType: 'stellar', domain: 27 })
-    } else if (!freighter.connected) {
-      wallet.setStellarWallet(null)
-    }
-  }, [freighter.connected, freighter.address])
-
   // Reset domain selections when network mode changes
   const prevMode = useNetworkMode((s) => s.mode)
   useEffect(() => {

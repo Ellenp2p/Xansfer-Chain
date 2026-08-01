@@ -36,6 +36,7 @@ export interface Transaction {
   status: TxStatus
   cctp_version: number
   transfer_type: TransferType
+  network_mode?: string
   attestation: string | null
   message: string | null
   dest_tx_hash: string | null
@@ -74,6 +75,7 @@ export interface CreateTransactionRequest {
   amount: string
   cctp_version?: number
   transfer_type?: TransferType
+  network_mode?: string
   use_relay?: boolean
 }
 

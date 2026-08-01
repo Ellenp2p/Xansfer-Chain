@@ -7,3 +7,4 @@ target/
 .env.local
 *.log
 .claude/
+*.tsbuildinfo

@@ -2,8 +2,10 @@ use sqlx::SqlitePool;
 use tracing::info;
 
 /// RelaySigner manages hot wallet operations for the relay service.
-/// In MVP, private keys are stored as hex strings in environment variables.
-/// Production would use HSM or encrypted key management.
+/// The relay feature is currently disabled (simulated executor is not
+/// production-safe). Keys are loaded from environment variables
+/// (format: RELAY_KEY_<DOMAIN>) and are only consulted when the relay
+/// worker is enabled.
 pub struct RelaySigner {
     _pool: SqlitePool,
     evm_keys: std::collections::HashMap<i64, String>,
@@ -33,26 +35,5 @@ impl RelaySigner {
 
     pub fn has_key_for_domain(&self, domain: i64) -> bool {
         self.evm_keys.contains_key(&domain) || (domain == 27 && self.stellar_key.is_some())
-    }
-
-    pub fn evm_key(&self, domain: i64) -> Option<&str> {
-        self.evm_keys.get(&domain).map(|s| s.as_str())
-    }
-
-    pub fn stellar_key(&self) -> Option<&str> {
-        self.stellar_key.as_deref()
-    }
-
-    /// Derive address from private key (simplified for MVP)
-    pub fn evm_address(&self, domain: i64) -> Option<String> {
-        let key = self.evm_key(domain)?;
-        // Simple derivation: take last 20 bytes of keccak256 of public key
-        // In production, use proper secp256k1 derivation
-        let clean = key.strip_prefix("0x").unwrap_or(key);
-        if clean.len() >= 64 {
-            Some(format!("0x{}", &clean[..40]))
-        } else {
-            None
-        }
     }
 }

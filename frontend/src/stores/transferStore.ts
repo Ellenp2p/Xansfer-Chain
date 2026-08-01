@@ -6,13 +6,11 @@ interface TransferFormState {
   destDomain: number | null
   amount: string
   transferType: TransferType
-  useRelay: boolean
   destAddress: string
   setSourceDomain: (d: number) => void
   setDestDomain: (d: number) => void
   setAmount: (a: string) => void
   setTransferType: (t: TransferType) => void
-  setUseRelay: (v: boolean) => void
   setDestAddress: (a: string) => void
   reset: () => void
 }
@@ -22,13 +20,11 @@ export const useTransferStore = create<TransferFormState>((set) => ({
   destDomain: null,
   amount: '',
   transferType: 'standard',
-  useRelay: false,
   destAddress: '',
   setSourceDomain: (d) => set({ sourceDomain: d }),
   setDestDomain: (d) => set({ destDomain: d }),
   setAmount: (a) => set({ amount: a }),
-  setTransferType: (t) => set({ transferType: t, useRelay: t === 'relay' }),
-  setUseRelay: (v) => set({ useRelay: v }),
+  setTransferType: (t) => set({ transferType: t }),
   setDestAddress: (a) => set({ destAddress: a }),
   reset: () =>
     set({
@@ -36,7 +32,6 @@ export const useTransferStore = create<TransferFormState>((set) => ({
       destDomain: null,
       amount: '',
       transferType: 'standard',
-      useRelay: false,
       destAddress: '',
     }),
 }))

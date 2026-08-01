@@ -53,7 +53,6 @@ pub struct CctpVersionConfig {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct CctpVersionConfigWithDomains {
-    pub token_messenger: HashMap<String, String>,
     pub message_transmitter: HashMap<String, String>,
     pub attestation_api: String,
 }

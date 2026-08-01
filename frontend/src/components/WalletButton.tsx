@@ -6,8 +6,8 @@ interface Props {
 }
 
 export default function WalletButton({ onClick }: Props) {
-  const { evm, solana, stellar } = useWalletStore()
-  const count = [evm, solana, stellar].filter(Boolean).length
+  const { evm, solana, stellar, aptos, sui } = useWalletStore()
+  const count = [evm, solana, stellar, aptos, sui].filter(Boolean).length
 
   return (
     <button

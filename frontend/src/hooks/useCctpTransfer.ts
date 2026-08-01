@@ -6,6 +6,7 @@ import type { ChainAdapter } from './cctp/types'
 import { getChainByDomain } from '../config/chains'
 import { useNetworkMode } from '../stores/networkMode'
 import { useWalletStore } from '../stores/walletStore'
+import * as api from '../lib/api'
 import type { TransferType } from '../types'
 
 export type TransferStep =
@@ -147,12 +148,11 @@ export function useCctpTransfer() {
           ? (receipt.from as string)
           : chainWallet.address
 
-        // Step 5: Register with backend
+        // Step 5: Register with backend (falls back to local storage when the
+        // backend is unreachable — the frontend works standalone).
         setStep('registering')
-        const res = await fetch('/api/transactions', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+        const { transaction } = await api.createTransaction(
+          {
             source_domain: sourceDomain,
             dest_domain: destDomain,
             source_tx_hash: receipt.transactionHash ?? txHash,
@@ -162,15 +162,9 @@ export function useCctpTransfer() {
             transfer_type: transferType,
             cctp_version: cctpVersion,
             network_mode: mode,
-          }),
-        })
-
-        if (!res.ok) {
-          const text = await res.text()
-          throw new Error(`Backend error: ${text}`)
-        }
-
-        const { transaction } = await res.json()
+          },
+          mode,
+        )
         setSourceTxHash(transaction.source_tx_hash)
 
         // Done — backend poller handles attestation in background.
@@ -233,14 +227,11 @@ export function useCctpTransfer() {
         setDestTxHash(claimTxHash)
         setStep('complete')
 
-        // Report claim to backend — use passed txHash or internal sourceTxHash
+        // Report claim to backend — use passed txHash or internal sourceTxHash.
+        // Falls back to local storage when the backend is unreachable.
         const hash = txHash ?? sourceTxHash
         if (hash) {
-          fetch(`/api/transactions/${hash}/claim`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ dest_tx_hash: claimTxHash }),
-          }).catch(() => {})
+          api.reportClaim(hash, claimTxHash, mode).catch(() => {})
         }
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Claim failed')

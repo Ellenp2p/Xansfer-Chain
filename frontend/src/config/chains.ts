@@ -1,9 +1,8 @@
 import type { ChainConfig } from '../types'
-import { DEFAULT_CHAINS_MAINNET, DEFAULT_CHAINS_TESTNET, DEFAULT_CCTP } from './defaults'
 
-// Static import of the shared JSON config. Vite embeds this at build time.
-// If the file is missing at build time, this import fails during build —
-// which is intentional: the config file should be present in production.
+// Single source of truth: config/chains.json (committed to the repo).
+// Vite embeds this at build time, so the app is fully self-contained
+// and does not require the backend to resolve chain data.
 import configJson from '../../../config/chains.json'
 
 export type Mode = 'mainnet' | 'testnet'
@@ -19,31 +18,40 @@ function resolveString(value: ResolvableString): string {
   if (typeof value === 'string') return value
 
   if ('env' in value && value.env) {
-    const envKey = value.env
-    const envValue = import.meta.env[envKey]
-    if (!envValue) {
-      console.warn(`[config] Environment variable ${envKey} is not set`)
-      return ''
-    }
-    return String(envValue)
+    return String(import.meta.env[value.env] ?? '')
   }
 
   if ('template' in value && value.template) {
-    return value.template.replace(/\$\{([A-Za-z0-9_]+)\}/g, (_match, varName) => {
+    return value.template.replace(/\$\{([A-Za-z0-9_]+)\}/g, (_match, varName: string) => {
       const viteVarName = varName.startsWith('VITE_') ? varName : `VITE_${varName}`
-      const envValue = import.meta.env[viteVarName]
-      if (!envValue) {
-        console.warn(`[config] Environment variable ${viteVarName} is not set for template`)
-        return ''
-      }
-      return String(envValue)
+      return String(import.meta.env[viteVarName] ?? '')
     })
   }
 
   return ''
 }
 
-function resolveChainConfig(raw: any): ChainConfig {
+interface RawChainConfig {
+  domain: number
+  name: string
+  chain_id: number | null
+  rpc_url: ResolvableString
+  explorer_url: ResolvableString
+  usdc_address: ResolvableString
+  usdc_sac?: ResolvableString
+  token_messenger_v2: ResolvableString
+  message_transmitter_v2: ResolvableString
+  token_messenger_v1?: ResolvableString
+  message_transmitter_v1?: ResolvableString
+  cctp_versions?: number[]
+  chain_type: ChainConfig['chain_type']
+  supports_fast_transfer?: boolean
+  supports_forwarding?: boolean
+  block_time_ms?: number
+  finality_blocks?: number
+}
+
+function resolveChainConfig(raw: RawChainConfig): ChainConfig {
   return {
     domain: raw.domain,
     name: raw.name,
@@ -65,53 +73,19 @@ function resolveChainConfig(raw: any): ChainConfig {
   }
 }
 
-function isValidConfig(value: unknown): value is { version: number; modes: Record<string, { chains: unknown[]; cctp: unknown }> } {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'version' in value &&
-    typeof (value as any).version === 'number' &&
-    'modes' in value &&
-    typeof (value as any).modes === 'object' &&
-    (value as any).modes !== null
-  )
+function modeConfig(mode: Mode) {
+  const mc = configJson.modes[mode]
+  if (!mc || !Array.isArray(mc.chains) || mc.chains.length === 0) {
+    throw new Error(`[config] chains.json has no chains for mode "${mode}"`)
+  }
+  return mc
 }
 
-function getChainsForMode(mode: Mode): ChainConfig[] {
-  if (!isValidConfig(configJson)) {
-    console.warn('[config] config/chains.json is invalid, using defaults')
-    return mode === 'mainnet' ? DEFAULT_CHAINS_MAINNET : DEFAULT_CHAINS_TESTNET
-  }
-
-  const modeConfig = (configJson as any).modes[mode]
-  if (!modeConfig || !Array.isArray(modeConfig.chains) || modeConfig.chains.length === 0) {
-    console.warn(`[config] No chains defined for ${mode}, using defaults`)
-    return mode === 'mainnet' ? DEFAULT_CHAINS_MAINNET : DEFAULT_CHAINS_TESTNET
-  }
-
-  return modeConfig.chains.map(resolveChainConfig)
-}
-
-function getCctpForMode(mode: Mode) {
-  if (!isValidConfig(configJson)) {
-    return DEFAULT_CCTP[mode]
-  }
-
-  const modeConfig = (configJson as any).modes[mode]
-  if (!modeConfig || !modeConfig.cctp) {
-    return DEFAULT_CCTP[mode]
-  }
-
-  return modeConfig.cctp
-}
-
-// ── Public API ──────────────────────────────────────────────────────────────
+// ── Chain resolution ────────────────────────────────────────────────────────
 
 export function getChains(mode: Mode): ChainConfig[] {
-  return getChainsForMode(mode)
+  return modeConfig(mode).chains.map((raw) => resolveChainConfig(raw as RawChainConfig))
 }
-
-export const CHAINS = DEFAULT_CHAINS_MAINNET
 
 export function getChainByDomain(domain: number, mode: Mode = 'mainnet'): ChainConfig | undefined {
   return getChains(mode).find((c) => c.domain === domain)
@@ -125,7 +99,6 @@ export function getTransferTypes(sourceDomain: number, destDomain: number, mode:
   const types: string[] = ['standard']
   if (src.supports_fast_transfer) types.push('fast')
   if (src.supports_forwarding && dst.supports_forwarding) types.push('forward')
-  types.push('relay')
   return types
 }
 
@@ -137,10 +110,15 @@ export function getSupportedVersions(domain: number, mode: Mode = 'mainnet'): nu
   return getChainByDomain(domain, mode)?.cctp_versions ?? [2]
 }
 
-// ── CCTP config helpers ─────────────────────────────────────────────────────
+// ── CCTP contract / attestation helpers ─────────────────────────────────────
 
-export function getCctpContracts(domain: number, version: number, mode: Mode) {
-  const cctp = getCctpForMode(mode)
+export interface CctpContractSet {
+  tokenMessenger: string
+  messageTransmitter: string
+}
+
+export function getCctpContracts(domain: number, version: number, mode: Mode): CctpContractSet | null {
+  const cctp = modeConfig(mode).cctp
   if (version === 2) {
     return {
       tokenMessenger: resolveString(cctp.v2.token_messenger),
@@ -148,8 +126,10 @@ export function getCctpContracts(domain: number, version: number, mode: Mode) {
     }
   }
   if (version === 1 && cctp.v1) {
-    const tm = cctp.v1.token_messenger[domain]
-    const mt = cctp.v1.message_transmitter[domain]
+    const v1Tokens = cctp.v1.token_messenger as unknown as Record<string, ResolvableString>
+    const v1Transmitters = cctp.v1.message_transmitter as unknown as Record<string, ResolvableString>
+    const tm = v1Tokens[String(domain)]
+    const mt = v1Transmitters[String(domain)]
     if (!tm || !mt) return null
     return {
       tokenMessenger: resolveString(tm),
@@ -160,22 +140,9 @@ export function getCctpContracts(domain: number, version: number, mode: Mode) {
 }
 
 export function getAttestationUrl(version: number, mode: Mode): string {
-  const cctp = getCctpForMode(mode)
-  const base = version === 2 ? resolveString(cctp.v2.attestation_api) : resolveString(cctp.v1?.attestation_api ?? cctp.v2.attestation_api)
+  const cctp = modeConfig(mode).cctp
+  const base = version === 2
+    ? resolveString(cctp.v2.attestation_api)
+    : resolveString(cctp.v1?.attestation_api ?? cctp.v2.attestation_api)
   return version === 2 ? `${base}/v2` : base
 }
-
-// Re-export wagmi chain objects for external consumers
-import {
-  mainnet, avalanche, optimism, arbitrum, base, polygon, linea, sonic,
-  sepolia, optimismSepolia, arbitrumSepolia, baseSepolia, polygonAmoy,
-  avalancheFuji,
-} from 'wagmi/chains'
-
-export const TESTNET_WAGMI_CHAINS = [
-  sepolia, avalancheFuji, optimismSepolia, arbitrumSepolia, baseSepolia, polygonAmoy, linea, sonic,
-]
-
-export const MAINNET_WAGMI_CHAINS = [
-  mainnet, avalanche, optimism, arbitrum, base, polygon, linea, sonic,
-]

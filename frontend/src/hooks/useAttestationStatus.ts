@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import type { TransactionStatusResponse } from '../types'
-
-const BASE = '/api'
+import { useNetworkMode } from '../stores/networkMode'
+import * as api from '../lib/api'
 
 /**
  * Estimated attestation wait times in seconds, by source chain + CCTP version + speed.
@@ -107,15 +107,12 @@ export function useAttestationStatus(
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const createdAtRef = useRef<number>(0)
   const fastPollingRef = useRef(false)
+  const mode = useNetworkMode((s) => s.mode)
 
   const fetchStatus = useCallback(async () => {
     if (!transactionId) return null
     try {
-      const res = await fetch(`${BASE}/transactions/${transactionId}/status`, {
-        headers: { 'Content-Type': 'application/json' },
-      })
-      if (!res.ok) throw new Error(`${res.status}`)
-      const json: TransactionStatusResponse = await res.json()
+      const json = await api.getTransactionStatus(transactionId, mode)
       setData(json)
       setError(null)
 
@@ -131,7 +128,7 @@ export function useAttestationStatus(
     } finally {
       setIsLoading(false)
     }
-  }, [transactionId])
+  }, [transactionId, mode])
 
   useEffect(() => {
     if (!enabled || !transactionId) return

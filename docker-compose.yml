@@ -1,0 +1,32 @@
+services:
+  # Optional backend: server-side history + background attestation polling.
+  # The frontend works standalone without it; when present, nginx proxies
+  # /api and /ws here.
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      DATABASE_URL: sqlite:/data/xansfer.db?mode=rwc
+      PORT: 3001
+      # Comma-separated origins allowed to call the API cross-origin.
+      # Leave empty only for development. Example: https://xansfer.example.com
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
+      # Relay is a simulated implementation — keep disabled in production.
+      RELAY_ENABLED: "false"
+    volumes:
+      - db_data:/data
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    ports:
+      - "${PORT:-80}:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  db_data:

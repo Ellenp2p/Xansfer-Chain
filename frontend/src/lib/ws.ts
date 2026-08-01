@@ -1,6 +1,9 @@
+import { probeBackend } from './api'
+
 type TxUpdate = { type: 'tx_update'; tx_id: string }
 
 let ws: WebSocket | null = null
+let started = false
 const listeners = new Map<string, Set<(txId: string) => void>>()
 
 function connect() {
@@ -23,16 +26,22 @@ function connect() {
 
   ws.onclose = () => {
     ws = null
-    setTimeout(connect, 3000)
+    setTimeout(connect, 5000)
   }
 }
 
 export function subscribeTx(txId: string, cb: (txId: string) => void): () => void {
-  connect()
+  if (!started) {
+    started = true
+    // Only open the socket when a backend is actually reachable — standalone
+    // static hosting has no /ws endpoint.
+    probeBackend().then((up) => {
+      if (up) connect()
+    })
+  }
   if (!listeners.has(txId)) listeners.set(txId, new Set())
   listeners.get(txId)!.add(cb)
 
-  // Also subscribe to wildcard
   if (!listeners.has('*')) listeners.set('*', new Set())
   listeners.get('*')!.add(cb)
 

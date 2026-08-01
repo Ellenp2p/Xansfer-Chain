@@ -1,10 +1,10 @@
 import { useEffect } from 'react'
-import { useAccount, useDisconnect } from 'wagmi'
+import { useDisconnect } from 'wagmi'
 import { useConnectModal } from '@rainbow-me/rainbowkit'
 import { useWallet as useSolanaWallet } from '@solana/wallet-adapter-react'
 import { useWalletModal } from '@solana/wallet-adapter-react-ui'
 import { useWallet as useAptosWallet } from '@aptos-labs/wallet-adapter-react'
-import { useCurrentAccount as useSuiAccount, useDisconnectWallet as useSuiDisconnect } from '@mysten/dapp-kit'
+import { useDisconnectWallet as useSuiDisconnect, useConnectWallet as useSuiConnect, useWallets as useSuiWallets } from '@mysten/dapp-kit'
 import { useStellarWallet } from '../providers/StellarWalletProvider'
 import { useWalletStore } from '../stores/walletStore'
 import { Zap, Wallet, Star, X, Copy, Check, Hexagon, Diamond, LogOut } from 'lucide-react'
@@ -15,7 +15,7 @@ function truncate(addr: string) {
 }
 
 function copyToClipboard(text: string) {
-  navigator.clipboard.writeText(text)
+  navigator.clipboard.writeText(text).catch(() => {})
 }
 
 interface Props {
@@ -112,72 +112,33 @@ function WalletRow({ icon: Icon, iconColor, iconBg, connectBg, name, address, on
   )
 }
 
+// Wallet state sync to the store is handled once, globally, by <WalletSync/>.
+
 // ── EVM ─────────────────────────────────────────────────────────────────────
 
 function EvmRow() {
-  const { evm, setEvmWallet } = useWalletStore()
-  const { address, isConnected } = useAccount()
+  const { evm } = useWalletStore()
   const { disconnect: wagmiDisconnect } = useDisconnect()
   const { openConnectModal } = useConnectModal()
 
-  // Sync wagmi state → store (bidirectional)
-  useEffect(() => {
-    if (isConnected && address) {
-      setEvmWallet({ address, chainType: 'evm' })
-    } else {
-      setEvmWallet(null)
-    }
-  }, [isConnected, address, setEvmWallet])
-
-  function handleDisconnect() {
-    wagmiDisconnect()
-    setEvmWallet(null)
-  }
-
-  return <WalletRow icon={Zap} iconColor="text-blue-400" iconBg="bg-blue-500/10" connectBg="bg-blue-600" name="EVM" address={evm?.address ?? null} onDisconnect={handleDisconnect} onConnect={openConnectModal} />
+  return <WalletRow icon={Zap} iconColor="text-blue-400" iconBg="bg-blue-500/10" connectBg="bg-blue-600" name="EVM" address={evm?.address ?? null} onDisconnect={wagmiDisconnect} onConnect={openConnectModal} />
 }
 
 // ── Solana ──────────────────────────────────────────────────────────────────
 
 function SolanaRow() {
-  const { solana, setSolanaWallet } = useWalletStore()
+  const { solana } = useWalletStore()
   const solanaWallet = useSolanaWallet()
   const { setVisible: setSolanaModalVisible } = useWalletModal()
 
-  useEffect(() => {
-    if (solanaWallet.connected && solanaWallet.publicKey) {
-      setSolanaWallet({ address: solanaWallet.publicKey.toBase58(), chainType: 'solana' })
-    } else {
-      setSolanaWallet(null)
-    }
-  }, [solanaWallet.connected, solanaWallet.publicKey, setSolanaWallet])
-
-  function handleDisconnect() {
-    solanaWallet.disconnect()
-    setSolanaWallet(null)
-  }
-
-  return <WalletRow icon={Wallet} iconColor="text-purple-400" iconBg="bg-purple-500/10" connectBg="bg-purple-600" name="Solana" address={solana?.address ?? null} onDisconnect={handleDisconnect} onConnect={() => setSolanaModalVisible(true)} />
+  return <WalletRow icon={Wallet} iconColor="text-purple-400" iconBg="bg-purple-500/10" connectBg="bg-purple-600" name="Solana" address={solana?.address ?? null} onDisconnect={() => solanaWallet.disconnect()} onConnect={() => setSolanaModalVisible(true)} />
 }
 
 // ── Aptos ───────────────────────────────────────────────────────────────────
 
 function AptosRow() {
-  const { aptos, setAptosWallet } = useWalletStore()
-  const { account, connect, disconnect: aptosDisconnect, wallets } = useAptosWallet()
-
-  useEffect(() => {
-    if (account) {
-      setAptosWallet({ address: account.address.toString(), chainType: 'aptos', domain: 14 })
-    } else {
-      setAptosWallet(null)
-    }
-  }, [account, setAptosWallet])
-
-  function handleDisconnect() {
-    aptosDisconnect()
-    setAptosWallet(null)
-  }
+  const { aptos } = useWalletStore()
+  const { connect, disconnect: aptosDisconnect, wallets } = useAptosWallet()
 
   function handleConnect() {
     const petra = wallets.find((w) => w.name === 'Petra')
@@ -185,55 +146,29 @@ function AptosRow() {
     else if (wallets.length > 0) connect(wallets[0].name)
   }
 
-  return <WalletRow icon={Hexagon} iconColor="text-orange-400" iconBg="bg-orange-500/10" connectBg="bg-orange-600" name="Aptos" address={aptos?.address ?? null} onDisconnect={handleDisconnect} onConnect={handleConnect} />
+  return <WalletRow icon={Hexagon} iconColor="text-orange-400" iconBg="bg-orange-500/10" connectBg="bg-orange-600" name="Aptos" address={aptos?.address ?? null} onDisconnect={aptosDisconnect} onConnect={handleConnect} />
 }
 
 // ── SUI ─────────────────────────────────────────────────────────────────────
 
 function SuiRow() {
-  const { sui, setSuiWallet } = useWalletStore()
-  const suiAccount = useSuiAccount()
+  const { sui } = useWalletStore()
   const { mutate: suiDisconnect } = useSuiDisconnect()
-
-  useEffect(() => {
-    if (suiAccount) {
-      setSuiWallet({ address: suiAccount.address, chainType: 'sui', domain: 8 })
-    } else {
-      setSuiWallet(null)
-    }
-  }, [suiAccount, setSuiWallet])
-
-  function handleDisconnect() {
-    suiDisconnect()
-    setSuiWallet(null)
-  }
+  const { mutate: suiConnect } = useSuiConnect()
+  const wallets = useSuiWallets()
 
   function handleConnect() {
-    const btn = document.querySelector('[data-testid="connect-button"]') as HTMLElement
-    if (btn) btn.click()
+    if (wallets[0]) suiConnect({ wallet: wallets[0] })
   }
 
-  return <WalletRow icon={Diamond} iconColor="text-cyan-400" iconBg="bg-cyan-500/10" connectBg="bg-cyan-600" name="SUI" address={sui?.address ?? null} onDisconnect={handleDisconnect} onConnect={handleConnect} />
+  return <WalletRow icon={Diamond} iconColor="text-cyan-400" iconBg="bg-cyan-500/10" connectBg="bg-cyan-600" name="SUI" address={sui?.address ?? null} onDisconnect={() => suiDisconnect()} onConnect={handleConnect} />
 }
 
 // ── Stellar ─────────────────────────────────────────────────────────────────
 
 function StellarRow() {
-  const { stellar, setStellarWallet } = useWalletStore()
+  const { stellar } = useWalletStore()
   const stellarWallet = useStellarWallet()
 
-  useEffect(() => {
-    if (stellarWallet.connected && stellarWallet.address) {
-      setStellarWallet({ address: stellarWallet.address, chainType: 'stellar', domain: 27 })
-    } else {
-      setStellarWallet(null)
-    }
-  }, [stellarWallet.connected, stellarWallet.address, setStellarWallet])
-
-  function handleDisconnect() {
-    stellarWallet.disconnect()
-    setStellarWallet(null)
-  }
-
-  return <WalletRow icon={Star} iconColor="text-sky-400" iconBg="bg-sky-500/10" connectBg="bg-sky-600" name="Stellar" address={stellar?.address ?? null} onDisconnect={handleDisconnect} onConnect={stellarWallet.connect} />
+  return <WalletRow icon={Star} iconColor="text-sky-400" iconBg="bg-sky-500/10" connectBg="bg-sky-600" name="Stellar" address={stellar?.address ?? null} onDisconnect={stellarWallet.disconnect} onConnect={stellarWallet.connect} />
 }

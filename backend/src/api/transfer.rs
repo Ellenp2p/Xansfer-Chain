@@ -5,6 +5,7 @@ use axum::{
 };
 use chrono::Utc;
 use sqlx::SqlitePool;
+use std::collections::HashMap;
 
 use crate::attestation::poller::{AttestationPoller, parse_message_meta};
 use crate::chains::registry::ChainRegistry;
@@ -20,16 +21,22 @@ pub struct AppState {
     pub tx_notify: tokio::sync::broadcast::Sender<String>,
 }
 
-pub async fn list_chains(State(state): State<AppState>) -> Json<serde_json::Value> {
-    let chains = state.chains.all();
-    Json(serde_json::json!({ "chains": chains }))
+pub async fn list_chains(
+    State(state): State<AppState>,
+    Query(params): Query<HashMap<String, String>>,
+) -> Json<serde_json::Value> {
+    let mode = params.get("mode").map(String::as_str).unwrap_or("mainnet");
+    let chains = state.chains.all(mode);
+    Json(serde_json::json!({ "mode": mode, "chains": chains }))
 }
 
 pub async fn transfer_types(
     State(state): State<AppState>,
     Path((source, dest)): Path<(i64, i64)>,
+    Query(params): Query<HashMap<String, String>>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
-    match state.chains.transfer_types(source, dest) {
+    let mode = params.get("mode").map(String::as_str).unwrap_or("mainnet");
+    match state.chains.transfer_types(source, dest, mode) {
         Some(types) => Ok(Json(serde_json::json!({ "transfer_types": types }))),
         None => Err(StatusCode::NOT_FOUND),
     }
@@ -39,10 +46,11 @@ pub async fn create_transaction(
     State(state): State<AppState>,
     Json(req): Json<CreateTransactionRequest>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), (StatusCode, String)> {
-    if state.chains.get(req.source_domain).is_none() {
+    let network_mode = req.network_mode.as_deref().unwrap_or("testnet");
+    if state.chains.get(req.source_domain, network_mode).is_none() {
         return Err((StatusCode::BAD_REQUEST, "Invalid source domain".into()));
     }
-    if state.chains.get(req.dest_domain).is_none() {
+    if state.chains.get(req.dest_domain, network_mode).is_none() {
         return Err((StatusCode::BAD_REQUEST, "Invalid dest domain".into()));
     }
 

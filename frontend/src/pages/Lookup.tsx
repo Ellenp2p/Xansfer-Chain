@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Search, Loader2, AlertCircle, ArrowRight } from 'lucide-react'
 import { useNetworkMode } from '../stores/networkMode'
 import { getChains } from '../config/chains'
-import type { LookupResponse } from '../types'
+import { lookupTransaction } from '../lib/api'
 
 export default function Lookup() {
   const navigate = useNavigate()
@@ -33,25 +33,18 @@ export default function Lookup() {
       return
     }
 
-    const params = new URLSearchParams({
-      source_tx_hash: hash.trim(),
-      source_domain: String(domain),
-      mode,
-      cctp_version: cctpVersion,
-    })
-    if (destDomain.trim()) params.set('dest_domain', destDomain.trim())
-    if (amount.trim()) params.set('amount', amount.trim())
-
     setLoading(true)
     try {
-      const res = await fetch(`/api/lookup?${params.toString()}`)
-      if (!res.ok) {
-        const text = await res.text()
-        throw new Error(text || `HTTP ${res.status}`)
-      }
-      const json: LookupResponse = await res.json()
+      const json = await lookupTransaction(
+        hash.trim(),
+        domain,
+        mode,
+        parseInt(cctpVersion, 10),
+        destDomain.trim() ? parseInt(destDomain, 10) : undefined,
+        amount.trim(),
+      )
       if (!json.transaction) {
-        throw new Error('Lookup succeeded but no transaction was created')
+        throw new Error('No transaction found for this hash')
       }
       navigate(`/tx/${json.transaction.source_tx_hash}`)
     } catch (e) {

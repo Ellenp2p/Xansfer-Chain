@@ -36,9 +36,14 @@ export default function TransactionHistory() {
   const [lookupResult, setLookupResult] = useState<string | null>(null)
   const [lookupLoading, setLookupLoading] = useState(false)
 
+  // Keep the lookup chain selection valid when the network mode changes
   useEffect(() => {
-    if (connected) fetchTransactions(addresses)
-  }, [connected, addresses, fetchTransactions])
+    setLookupDomain(String(chains[0]?.domain ?? 0))
+  }, [mode])
+
+  useEffect(() => {
+    if (connected) fetchTransactions(addresses, mode)
+  }, [connected, addresses, fetchTransactions, mode])
 
   async function handleLookup() {
     if (!lookupHash.trim()) return
