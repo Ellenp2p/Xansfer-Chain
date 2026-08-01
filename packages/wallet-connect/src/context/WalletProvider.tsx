@@ -10,7 +10,6 @@ import {
 import type { Config } from 'wagmi'
 import {
   ALL_CHAIN_TYPES,
-  emptyWalletState,
   type ChainActions,
   type ChainConfig,
   type ConnectedChainType,
@@ -26,21 +25,18 @@ import { AptosAdapter } from '../adapters/aptos'
 import { SuiAdapter } from '../adapters/sui'
 import { StellarAdapter } from '../adapters/stellar'
 
-export interface ConnectorOption {
-  id: string
-  name: string
-}
-
 export interface WalletContextValue {
   state: WalletState
-  /** Registered per-chain actions. */
+  /** Per-chain connection slots (wallet, connecting, error). */
+  slots: WalletSlots
+  /** Registered per-chain actions (wallets list + connect/disconnect). */
   actions: WalletActions
-  /** Available EVM connectors (e.g. injected, coinbase). Empty for non-EVM. */
-  evmConnectors: ConnectorOption[]
+  /** Optional icon overrides keyed by wallet name or id. */
+  walletIcons: Record<string, string>
   /** Active wagmi config (created by the EVM adapter). Consumers can use it
    * with wagmi/actions (e.g. readContract) without creating a second config. */
   wagmiConfig: Config | null
-  connect: (chain: ConnectedChainType, connectorId?: string) => Promise<WalletInfo | null>
+  connect: (chain: ConnectedChainType, walletId?: string) => Promise<WalletInfo | null>
   disconnect: (chain: ConnectedChainType) => Promise<void>
   disconnectAll: () => void
   getAddress: (chain: ConnectedChainType) => string | null
@@ -58,6 +54,8 @@ export interface WalletProviderProps {
   chains: ChainConfig[]
   solanaRpc?: string
   appName?: string
+  /** Wallet icon overrides keyed by wallet name or id (e.g. "injected" → "/wallets/metamask.png"). */
+  walletIcons?: Record<string, string>
   children: ReactNode
 }
 
@@ -66,6 +64,7 @@ export function WalletProvider({
   chains,
   solanaRpc,
   appName = 'Xansfer',
+  walletIcons = {},
   children,
 }: WalletProviderProps) {
   const [slots, setSlots] = useState<WalletSlots>(() => ({
@@ -75,7 +74,6 @@ export function WalletProvider({
     sui: emptySlot(),
     stellar: emptySlot(),
   }))
-  const [evmConnectors, setEvmConnectors] = useState<ConnectorOption[]>([])
   const [wagmiConfig, setWagmiConfig] = useState<Config | null>(null)
   const actionsRef = useRef<Partial<WalletActions>>({})
 
@@ -87,10 +85,10 @@ export function WalletProvider({
     actionsRef.current[chain] = actions
   }, [])
 
-  const connect = useCallback(async (chain: ConnectedChainType, connectorId?: string) => {
+  const connect = useCallback(async (chain: ConnectedChainType, walletId?: string) => {
     const a = actionsRef.current[chain]
     if (!a) throw new Error(`No wallet adapter registered for "${chain}"`)
-    return a.connect(connectorId)
+    return a.connect(walletId)
   }, [])
 
   const disconnect = useCallback(async (chain: ConnectedChainType) => {
@@ -132,19 +130,18 @@ export function WalletProvider({
       const a = actionsRef.current[chain]
       base[chain] = a ?? {
         chainType: chain,
+        wallets: [],
         connect: async () => null,
         disconnect: async () => {},
         getAddress: () => null,
       }
     }
     return base
-    // actionsRef is mutated on adapter mount; recompute on slot changes so
-    // newly-registered actions are picked up.
-  }, [slots, emptyWalletState])
+  }, [slots])
 
   const value = useMemo<WalletContextValue>(
-    () => ({ state, actions, evmConnectors, wagmiConfig, connect, disconnect, disconnectAll, getAddress }),
-    [state, actions, evmConnectors, wagmiConfig, connect, disconnect, disconnectAll, getAddress],
+    () => ({ state, slots, actions, walletIcons, wagmiConfig, connect, disconnect, disconnectAll, getAddress }),
+    [state, slots, actions, walletIcons, wagmiConfig, connect, disconnect, disconnectAll, getAddress],
   )
 
   const evmChains = useMemo(() => chains.filter((c) => c.chain_type === 'evm'), [chains])
@@ -156,7 +153,6 @@ export function WalletProvider({
         chains={evmChains}
         appName={appName}
         setSlot={setSlot}
-        setConnectors={setEvmConnectors}
         setWagmiConfig={setWagmiConfig}
         registerActions={registerActions}
       >
@@ -166,7 +162,7 @@ export function WalletProvider({
           registerActions={registerActions}
         >
           <AptosAdapter setSlot={setSlot} registerActions={registerActions}>
-            <SuiAdapter setSlot={setSlot} registerActions={registerActions}>
+            <SuiAdapter mode={mode} setSlot={setSlot} registerActions={registerActions}>
               <StellarAdapter setSlot={setSlot} registerActions={registerActions}>
                 {children}
               </StellarAdapter>

@@ -6,12 +6,12 @@ import NetworkToggle from './NetworkToggle'
 export default function Header() {
   return (
     <header className="sticky top-0 z-50 border-b border-gray-800 bg-gray-950/80 backdrop-blur-md">
-      <div className="mx-auto flex max-w-4xl items-center justify-between px-3 sm:px-4 py-2.5 sm:py-3">
-        <Link to="/" className="flex items-center gap-2 text-lg font-bold text-white shrink-0">
+      <div className="mx-auto flex max-w-4xl items-center justify-between gap-2 px-2 sm:px-4 py-2.5 sm:py-3">
+        <Link to="/" className="flex items-center gap-1.5 sm:gap-2 text-base sm:text-lg font-bold text-white shrink-0">
           <Layers className="h-5 w-5 sm:h-6 sm:w-6 text-brand-500" />
           <span className="hidden sm:inline">Xansfer</span>
         </Link>
-        <nav className="flex items-center gap-4 sm:gap-6 text-sm text-gray-400">
+        <nav className="flex items-center gap-3 sm:gap-6 text-sm text-gray-400">
           <Link
             to="/"
             className="flex items-center gap-1.5 transition hover:text-white"
@@ -34,7 +34,7 @@ export default function Header() {
             <span className="hidden sm:inline">Lookup</span>
           </Link>
         </nav>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <NetworkToggle />
           <ConnectWallet />
         </div>

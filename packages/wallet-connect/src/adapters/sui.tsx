@@ -1,4 +1,4 @@
-import { useCallback, useEffect, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, type ReactNode } from 'react'
 import {
   SuiClientProvider,
   WalletProvider,
@@ -7,7 +7,7 @@ import {
   useDisconnectWallet,
   useWallets,
 } from '@mysten/dapp-kit'
-import type { ChainActions, ConnectedChainType, WalletSlot } from '../core/types'
+import type { ChainActions, ConnectedChainType, WalletOption, WalletSlot } from '../core/types'
 
 type SetSlot = (chain: ConnectedChainType, patch: Partial<WalletSlot>) => void
 type RegisterActions = (chain: ConnectedChainType, actions: ChainActions) => void
@@ -59,15 +59,20 @@ function SuiSync({ setSlot, registerActions }: {
     })
   }, [account, setSlot])
 
-  const connectFn = useCallback(async () => {
-    if (wallets[0]) {
-      connect({ wallet: wallets[0] })
-    } else {
-      // No registered wallet in this browser — nothing to show, keep modal-based flows out.
-      throw new Error('No Sui wallet found')
-    }
-    return null
-  }, [connect, wallets])
+  const walletOptions: WalletOption[] = useMemo(
+    () => wallets.map((w) => ({ id: w.name, name: w.name, icon: w.icon })),
+    [wallets],
+  )
+
+  const connectFn = useCallback(
+    async (walletId?: string) => {
+      const target = walletId ? wallets.find((w) => w.name === walletId) : wallets[0]
+      if (!target) throw new Error('No Sui wallet found')
+      connect({ wallet: target })
+      return null
+    },
+    [connect, wallets],
+  )
 
   const disconnectFn = useCallback(async () => {
     disconnect()
@@ -76,8 +81,8 @@ function SuiSync({ setSlot, registerActions }: {
   const getAddress = useCallback(() => (account ? account.address : null), [account])
 
   useEffect(() => {
-    registerActions('sui', { chainType: 'sui', connect: connectFn, disconnect: disconnectFn, getAddress })
-  }, [registerActions, connectFn, disconnectFn, getAddress])
+    registerActions('sui', { chainType: 'sui', wallets: walletOptions, connect: connectFn, disconnect: disconnectFn, getAddress })
+  }, [registerActions, walletOptions, connectFn, disconnectFn, getAddress])
 
   return null
 }

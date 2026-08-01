@@ -1,18 +1,15 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useWallet } from '../context/WalletProvider'
 import type { ConnectedChainType, WalletInfo } from '../core/types'
 
-const CHAIN_LABELS: Record<ConnectedChainType, string> = {
-  evm: 'EVM',
-  solana: 'Solana',
-  aptos: 'Aptos',
-  sui: 'Sui',
-  stellar: 'Stellar',
-}
-
-function truncate(addr: string) {
-  return addr.length > 12 ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : addr
-}
+const CHAIN_TABS: { key: ConnectedChainType; label: string }[] = [
+  { key: 'evm', label: 'EVM' },
+  { key: 'solana', label: 'Solana' },
+  { key: 'aptos', label: 'Aptos' },
+  { key: 'sui', label: 'Sui' },
+  { key: 'stellar', label: 'Stellar' },
+]
 
 export interface WalletModalProps {
   open: boolean
@@ -20,10 +17,14 @@ export interface WalletModalProps {
 }
 
 /**
- * Unified wallet panel. One modal for every supported chain:
- * shows connection state, address, copy + disconnect, and a per-chain connect.
+ * Unified wallet modal: pick a chain tab, then a wallet for that chain.
+ * Rendered via a portal so it is centered on the viewport regardless of any
+ * ancestor with backdrop-filter/transform. Collapses to a bottom sheet on
+ * narrow screens.
  */
 export function WalletModal({ open, onClose }: WalletModalProps) {
+  const [tab, setTab] = useState<ConnectedChainType>('evm')
+
   useEffect(() => {
     if (!open) return
     function onKey(e: KeyboardEvent) {
@@ -35,117 +36,91 @@ export function WalletModal({ open, onClose }: WalletModalProps) {
 
   if (!open) return null
 
-  return (
+  return createPortal(
     <div className="xw-overlay" onClick={onClose}>
-      <div className="xw-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+      <div className="xw-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
         <div className="xw-modal-head">
-          <h2 className="xw-modal-title">Wallets</h2>
+          <h2 className="xw-modal-title">Connect Wallet</h2>
           <button className="xw-close" onClick={onClose} aria-label="Close">
             ✕
           </button>
         </div>
+        <div className="xw-tabs" role="tablist">
+          {CHAIN_TABS.map((t) => (
+            <button
+              key={t.key}
+              role="tab"
+              aria-selected={tab === t.key}
+              className={`xw-tab ${tab === t.key ? 'xw-tab-active' : ''}`}
+              onClick={() => setTab(t.key)}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
         <div className="xw-modal-body">
-          <EvmRow />
-          <ChainRow chain="solana" />
-          <ChainRow chain="aptos" />
-          <ChainRow chain="sui" />
-          <ChainRow chain="stellar" />
+          <ChainTab key={tab} chain={tab} />
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
-function ChainRow({ chain }: { chain: ConnectedChainType }) {
-  const { state, connect, disconnect } = useWallet()
+function ChainTab({ chain }: { chain: ConnectedChainType }) {
+  const { state, slots, actions, walletIcons, connect } = useWallet()
   const info: WalletInfo | null = state[chain]
-  const [copied, setCopied] = useState(false)
-  const [busy, setBusy] = useState(false)
+  const slot = slots[chain]
+  const wallets = actions[chain].wallets
+  const [busyId, setBusyId] = useState<string | null>(null)
 
-  const handleConnect = async () => {
-    setBusy(true)
+  if (info?.address) {
+    return <ConnectedView chain={chain} info={info} />
+  }
+
+  const handleConnect = async (walletId: string) => {
+    setBusyId(walletId)
     try {
-      await connect(chain)
+      await connect(chain, walletId)
     } catch {
-      // error surfaced through slot.error if the adapter sets it
+      // error surfaces through slot.error
     } finally {
-      setBusy(false)
+      setBusyId(null)
     }
   }
 
-  const handleCopy = () => {
-    if (!info?.address) return
-    navigator.clipboard.writeText(info.address).catch(() => {})
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1200)
-  }
-
   return (
-    <div className="xw-row">
-      <div className="xw-row-main">
-        <span className="xw-row-name">{CHAIN_LABELS[chain]}</span>
-        {info?.address ? (
-          <span className="xw-row-addr">{truncate(info.address)}</span>
-        ) : (
-          <span className="xw-row-muted">Not connected</span>
-        )}
-      </div>
-      {info?.address ? (
-        <div className="xw-row-actions">
-          <button className="xw-btn" onClick={handleCopy}>
-            {copied ? '✓' : 'Copy'}
-          </button>
-          <button className="xw-btn xw-btn-danger" onClick={() => void disconnect(chain)}>
-            Disconnect
-          </button>
-        </div>
-      ) : (
-        <button className="xw-btn xw-btn-accent" onClick={() => void handleConnect()} disabled={busy}>
-          {busy ? '...' : 'Connect'}
-        </button>
+    <div className="xw-wallet-grid">
+      {wallets.length === 0 && (
+        <p className="xw-row-muted">No wallets detected for this chain.</p>
       )}
+      {wallets.map((w) => {
+        const icon = w.icon || walletIcons[w.name] || walletIcons[w.id]
+        const busy = busyId === w.id || slot.connecting
+        return (
+          <button
+            key={w.id}
+            className="xw-wallet-card"
+            disabled={busy}
+            onClick={() => void handleConnect(w.id)}
+          >
+            {icon ? (
+              <img className="xw-wallet-icon" src={icon} alt="" />
+            ) : (
+              <span className="xw-wallet-monogram">{w.name.charAt(0).toUpperCase()}</span>
+            )}
+            <span className="xw-wallet-name">{busy ? 'Connecting…' : w.name}</span>
+          </button>
+        )
+      })}
+      {slot.error && <p className="xw-row-error">{slot.error}</p>}
     </div>
   )
 }
 
-function EvmRow() {
-  const { state, connect, disconnect, evmConnectors } = useWallet()
-  const [picking, setPicking] = useState(false)
+function ConnectedView({ chain, info }: { chain: ConnectedChainType; info: WalletInfo }) {
+  const { disconnect } = useWallet()
   const [copied, setCopied] = useState(false)
-  const info = state.evm
-
-  if (!info?.address) {
-    return (
-      <div className="xw-row xw-row-stack">
-        <div className="xw-row">
-          <div className="xw-row-main">
-            <span className="xw-row-name">EVM</span>
-            <span className="xw-row-muted">Not connected</span>
-          </div>
-          <button className="xw-btn xw-btn-accent" onClick={() => setPicking((v) => !v)}>
-            Connect
-          </button>
-        </div>
-        {picking && (
-          <div className="xw-connector-list">
-            {evmConnectors.length === 0 && <span className="xw-row-muted">No EVM wallets detected</span>}
-            {evmConnectors.map((c) => (
-              <button
-                key={c.id}
-                className="xw-btn xw-connector"
-                onClick={() => {
-                  void connect('evm', c.id)
-                  setPicking(false)
-                }}
-              >
-                {c.name}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-    )
-  }
 
   const handleCopy = () => {
     navigator.clipboard.writeText(info.address).catch(() => {})
@@ -154,16 +129,16 @@ function EvmRow() {
   }
 
   return (
-    <div className="xw-row">
-      <div className="xw-row-main">
-        <span className="xw-row-name">EVM</span>
-        <span className="xw-row-addr">{truncate(info.address)}</span>
+    <div className="xw-connected">
+      <div className="xw-connected-addr">
+        <span className="xw-row-name">{CHAIN_TABS.find((t) => t.key === chain)?.label}</span>
+        <span className="xw-row-addr">{info.address}</span>
       </div>
       <div className="xw-row-actions">
         <button className="xw-btn" onClick={handleCopy}>
           {copied ? '✓' : 'Copy'}
         </button>
-        <button className="xw-btn xw-btn-danger" onClick={() => void disconnect('evm')}>
+        <button className="xw-btn xw-btn-danger" onClick={() => void disconnect(chain)}>
           Disconnect
         </button>
       </div>

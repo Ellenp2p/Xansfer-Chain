@@ -4,8 +4,11 @@ import './styles.css'
 export type {
   ChainConfig,
   ChainType,
+  ConnectedChainType,
   WalletInfo,
+  WalletOption,
   WalletSlot,
+  WalletSlots,
   WalletState,
   ChainActions,
   WalletActions,
@@ -14,7 +17,7 @@ export { ALL_CHAIN_TYPES, emptyWalletState } from './core/types'
 
 // Context / provider
 export { WalletProvider, useWallet, useWalletState, useWagmiConfig } from './context/WalletProvider'
-export type { WalletProviderProps, WalletContextValue, ConnectorOption } from './context/WalletProvider'
+export type { WalletProviderProps, WalletContextValue } from './context/WalletProvider'
 
 // UI components
 export { ConnectWallet } from './components/ConnectWallet'

@@ -3,8 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createConfig, http, WagmiProvider, useAccount, useConnect, useDisconnect, type Config } from 'wagmi'
 import { injected, coinbaseWallet } from 'wagmi/connectors'
 import type { Chain } from 'viem'
-import type { ChainActions, ChainConfig, ConnectedChainType, WalletSlot } from '../core/types'
-import type { ConnectorOption } from '../context/WalletProvider'
+import type { ChainActions, ChainConfig, ConnectedChainType, WalletOption, WalletSlot } from '../core/types'
 
 type SetSlot = (chain: ConnectedChainType, patch: Partial<WalletSlot>) => void
 type RegisterActions = (chain: ConnectedChainType, actions: ChainActions) => void
@@ -32,13 +31,12 @@ interface Props {
   chains: ChainConfig[]
   appName: string
   setSlot: SetSlot
-  setConnectors: (c: ConnectorOption[]) => void
   setWagmiConfig: (c: Config | null) => void
   registerActions: RegisterActions
   children: ReactNode
 }
 
-export function EvmAdapter({ mode, chains, appName, setSlot, setConnectors, setWagmiConfig, registerActions, children }: Props) {
+export function EvmAdapter({ mode, chains, appName, setSlot, setWagmiConfig, registerActions, children }: Props) {
   const wagmiConfig = useMemo(() => {
     const chainList = buildWagmiChains(chains, mode)
     return createConfig({
@@ -58,16 +56,15 @@ export function EvmAdapter({ mode, chains, appName, setSlot, setConnectors, setW
   return (
     <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
-        <EvmSync setSlot={setSlot} setConnectors={setConnectors} registerActions={registerActions} />
+        <EvmSync setSlot={setSlot} registerActions={registerActions} />
         {children}
       </QueryClientProvider>
     </WagmiProvider>
   )
 }
 
-function EvmSync({ setSlot, setConnectors, registerActions }: {
+function EvmSync({ setSlot, registerActions }: {
   setSlot: SetSlot
-  setConnectors: (c: ConnectorOption[]) => void
   registerActions: RegisterActions
 }) {
   const { address, isConnected, chainId, status } = useAccount()
@@ -82,14 +79,15 @@ function EvmSync({ setSlot, setConnectors, registerActions }: {
     })
   }, [address, isConnected, chainId, status, setSlot])
 
-  useEffect(() => {
-    setConnectors(connectors.map((c) => ({ id: c.id, name: c.name })))
-  }, [connectors, setConnectors])
+  const wallets: WalletOption[] = useMemo(
+    () => connectors.map((c) => ({ id: c.id, name: c.name })),
+    [connectors],
+  )
 
   const connect = useCallback(
-    async (connectorId?: string) => {
-      const connector = connectors.find((c) => c.id === connectorId) ?? connectors[0]
-      if (!connector) throw new Error('No EVM connector available')
+    async (walletId?: string) => {
+      const connector = connectors.find((c) => c.id === walletId) ?? connectors[0]
+      if (!connector) throw new Error('No EVM wallet available')
       const result = await connectAsync({ connector })
       return { address: result.accounts[0], chainId: result.chainId, chainType: 'evm' as const }
     },
@@ -106,8 +104,8 @@ function EvmSync({ setSlot, setConnectors, registerActions }: {
   )
 
   useEffect(() => {
-    registerActions('evm', { chainType: 'evm', connect, disconnect, getAddress })
-  }, [registerActions, connect, disconnect, getAddress])
+    registerActions('evm', { chainType: 'evm', wallets, connect, disconnect, getAddress })
+  }, [registerActions, wallets, connect, disconnect, getAddress])
 
   return null
 }

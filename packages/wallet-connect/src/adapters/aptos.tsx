@@ -1,6 +1,6 @@
-import { useCallback, useEffect, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, type ReactNode } from 'react'
 import { AptosWalletAdapterProvider, useWallet } from '@aptos-labs/wallet-adapter-react'
-import type { ChainActions, ConnectedChainType, WalletInfo, WalletSlot } from '../core/types'
+import type { ChainActions, ConnectedChainType, WalletInfo, WalletOption, WalletSlot } from '../core/types'
 
 type SetSlot = (chain: ConnectedChainType, patch: Partial<WalletSlot>) => void
 type RegisterActions = (chain: ConnectedChainType, actions: ChainActions) => void
@@ -34,12 +34,22 @@ function AptosSync({ setSlot, registerActions }: {
     })
   }, [account, setSlot])
 
-  const connectFn = useCallback(async () => {
-    const target = wallets.find((w) => w.name === 'Petra') ?? wallets[0]
-    if (!target) throw new Error('No Aptos wallet available')
-    await connect(target.name)
-    return getAddressFromAccount(account)
-  }, [wallets, connect, account])
+  const walletOptions: WalletOption[] = useMemo(
+    () => wallets.map((w) => ({ id: w.name, name: w.name, icon: w.icon })),
+    [wallets],
+  )
+
+  const connectFn = useCallback(
+    async (walletId?: string) => {
+      const target = walletId
+        ? wallets.find((w) => w.name === walletId)
+        : wallets.find((w) => w.name === 'Petra') ?? wallets[0]
+      if (!target) throw new Error('No Aptos wallet available')
+      await connect(target.name)
+      return getAddressFromAccount(account)
+    },
+    [wallets, connect, account],
+  )
 
   const disconnectFn = useCallback(async () => {
     await disconnect()
@@ -51,8 +61,8 @@ function AptosSync({ setSlot, registerActions }: {
   )
 
   useEffect(() => {
-    registerActions('aptos', { chainType: 'aptos', connect: connectFn, disconnect: disconnectFn, getAddress })
-  }, [registerActions, connectFn, disconnectFn, getAddress])
+    registerActions('aptos', { chainType: 'aptos', wallets: walletOptions, connect: connectFn, disconnect: disconnectFn, getAddress })
+  }, [registerActions, walletOptions, connectFn, disconnectFn, getAddress])
 
   return null
 }

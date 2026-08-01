@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import * as Freighter from '@stellar/freighter-api'
-import type { ChainActions, ConnectedChainType, WalletSlot } from '../core/types'
+import type { ChainActions, ConnectedChainType, WalletOption, WalletSlot } from '../core/types'
 
 type SetSlot = (chain: ConnectedChainType, patch: Partial<WalletSlot>) => void
 type RegisterActions = (chain: ConnectedChainType, actions: ChainActions) => void
@@ -103,9 +103,14 @@ function StellarSync({ setSlot, registerActions, children }: Props & { children:
 
   const getAddress = useCallback(() => (connected && address ? address : null), [address, connected])
 
+  const walletOptions: WalletOption[] = useMemo(
+    () => [{ id: 'freighter', name: 'Freighter' }],
+    [],
+  )
+
   useEffect(() => {
-    registerActions('stellar', { chainType: 'stellar', connect, disconnect, getAddress })
-  }, [registerActions, connect, disconnect, getAddress])
+    registerActions('stellar', { chainType: 'stellar', wallets: walletOptions, connect, disconnect, getAddress })
+  }, [registerActions, walletOptions, connect, disconnect, getAddress])
 
   return <>{children}</>
 }

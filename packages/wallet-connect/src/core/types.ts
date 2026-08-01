@@ -61,11 +61,20 @@ export interface WalletState {
   totalConnected: number
 }
 
+/** A selectable wallet for a chain (e.g. MetaMask, Petra, Phantom). */
+export interface WalletOption {
+  id: string
+  name: string
+  icon?: string
+}
+
 /** Actions exposed for a single chain. Implemented by each chain adapter. */
 export interface ChainActions {
   chainType: ChainType
+  /** Wallets available for this chain. */
+  wallets: WalletOption[]
   /** EVM uses connectorId to pick among injected/coinbase; other chains ignore it. */
-  connect: (connectorId?: string) => Promise<WalletInfo | null>
+  connect: (walletId?: string) => Promise<WalletInfo | null>
   disconnect: () => Promise<void>
   getAddress: () => string | null
 }

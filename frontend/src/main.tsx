@@ -6,6 +6,7 @@ import { WalletProvider } from '@xansfer/wallet-connect'
 import '@xansfer/wallet-connect/styles.css'
 import { useNetworkMode } from './stores/networkMode'
 import { getChains } from './config/chains'
+import { WALLET_ICONS } from './config/walletIcons'
 import App from './App'
 import './index.css'
 
@@ -27,6 +28,7 @@ function Root() {
           chains={chains}
           solanaRpc={import.meta.env.VITE_SOLANA_RPC}
           appName="Xansfer"
+          walletIcons={WALLET_ICONS}
         >
           <BrowserRouter basename={import.meta.env.BASE_URL}>
             <App />

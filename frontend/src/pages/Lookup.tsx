@@ -91,7 +91,7 @@ export default function Lookup() {
             </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-xs font-medium text-gray-400">Dest Domain (optional)</label>
               <input

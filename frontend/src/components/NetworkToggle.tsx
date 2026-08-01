@@ -16,7 +16,7 @@ export default function NetworkToggle() {
       }`}
     >
       <Globe className="h-3.5 w-3.5" />
-      <span>{isTestnet ? 'Testnet' : 'Mainnet'}</span>
+      <span className="hidden sm:inline">{isTestnet ? 'Testnet' : 'Mainnet'}</span>
       <span
         className={`h-1.5 w-1.5 rounded-full ${
           isTestnet ? 'bg-amber-400' : 'bg-green-400'
