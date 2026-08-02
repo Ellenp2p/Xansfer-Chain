@@ -113,7 +113,8 @@ export function WalletProvider({
         (e as { code?: unknown })?.code === 4001 ||
         (e as { name?: string })?.name === 'UserRejectedRequestError' ||
         String(e).toLowerCase().includes('user rejected') ||
-        String(e).toLowerCase().includes('request rejected')
+        String(e).toLowerCase().includes('request rejected') ||
+        String(e).toLowerCase().includes('connection cancelled')
       if (!cancelledRef.current[chain]) {
         setSlot(chain, {
           connecting: false,

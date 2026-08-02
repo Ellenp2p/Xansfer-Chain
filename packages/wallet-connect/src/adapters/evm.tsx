@@ -225,16 +225,41 @@ function EvmSync({ setSlot, registerActions }: {
       // wagmi v3 has no connector.ready — probe the provider directly.
       const provider = await connector.getProvider()
       if (!provider) throw new Error(`No ${connector.name} detected in this browser`)
-      // Guard against a wallet popup that never resolves (some wallets don't
-      // reject when the user dismisses the popup — the request just hangs).
+
+      // Some wallets (e.g. OKX) hang instead of rejecting when the user
+      // dismisses the popup (closes the window without clicking reject) —
+      // `eth_requestAccounts` never settles. Detect dismissal via provider
+      // events (disconnect / accountsChanged → empty) and abort immediately.
+      let rejectCancel: ((e: Error) => void) | undefined
+      const cancelled = new Promise<never>((_, reject) => {
+        rejectCancel = reject
+      })
+      const onDisconnect = () => rejectCancel?.(new Error('Connection cancelled'))
+      const onAccountsChanged = (accounts: unknown[]) => {
+        if (Array.isArray(accounts) && accounts.length === 0) rejectCancel?.(new Error('Connection cancelled'))
+      }
+      const eth = provider as unknown as EIP1193Provider
+      if (typeof eth.on === 'function') {
+        eth.on('disconnect', onDisconnect as never)
+        eth.on('accountsChanged', onAccountsChanged as never)
+      }
+      const cleanup = () => {
+        if (typeof eth.removeListener === 'function') {
+          eth.removeListener('disconnect', onDisconnect as never)
+          eth.removeListener('accountsChanged', onAccountsChanged as never)
+        }
+      }
+
+      // Guard against a popup that never resolves.
       const timeout = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('Timed out waiting for wallet approval')), 30_000),
       )
-      const result = await Promise.race([
-        connectAsync({ connector }),
-        timeout,
-      ])
-      return { address: result.accounts[0], chainId: result.chainId, chainType: 'evm' as const }
+      try {
+        const result = await Promise.race([connectAsync({ connector }), timeout, cancelled])
+        return { address: result.accounts[0], chainId: result.chainId, chainType: 'evm' as const }
+      } finally {
+        cleanup()
+      }
     },
     [connectors, connectAsync],
   )
