@@ -77,6 +77,7 @@ export function WalletProvider({
     stellar: emptySlot(),
   }))
   const [wagmiConfig, setWagmiConfig] = useState<Config | null>(null)
+  const [actionsVersion, setActionsVersion] = useState(0)
   const actionsRef = useRef<Partial<WalletActions>>({})
   // Set when the user cancels a stuck connect; used to suppress late errors.
   const cancelledRef = useRef<Partial<Record<ConnectedChainType, boolean>>>({})
@@ -87,6 +88,9 @@ export function WalletProvider({
 
   const registerActions = useCallback((chain: ConnectedChainType, actions: ChainActions) => {
     actionsRef.current[chain] = actions
+    // Bump a version so consumers re-read actions (e.g. a chain's wallet list
+    // can change when a wallet like OKX is detected dynamically).
+    setActionsVersion((v) => v + 1)
   }, [])
 
   const connect = useCallback(async (chain: ConnectedChainType, walletId?: string) => {
@@ -159,7 +163,10 @@ export function WalletProvider({
       }
     }
     return base
-  }, [slots])
+    // actionsRef is mutated on adapter (re)registration; actionsVersion forces
+    // a rebuild so late-registered wallet lists (e.g. dynamically injected OKX)
+    // reach the UI.
+  }, [slots, actionsVersion])
 
   const value = useMemo<WalletContextValue>(
     () => ({ state, slots, actions, walletIcons, wagmiConfig, connect, disconnect, disconnectAll, resetChain, getAddress }),

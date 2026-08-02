@@ -110,8 +110,7 @@ interface Props {
 export function EvmAdapter({ mode, chains, appName, setSlot, setWagmiConfig, registerActions, children }: Props) {
   const okxProvider = useOkxProvider()
 
-  const wagmiConfig = useMemo(() => {
-    const chainList = buildWagmiChains(chains, mode)
+  const wagmiConfig = useMemo(() => {    const chainList = buildWagmiChains(chains, mode)
     return createConfig({
       chains: chainList,
       connectors: [injected(), coinbaseWallet({ appName })],
