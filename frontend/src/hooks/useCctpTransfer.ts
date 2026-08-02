@@ -24,6 +24,19 @@ export type TransferStep =
   | 'complete'
   | 'error'
 
+/** Shrink wallet/viem errors for the UI — a user-rejected request just shows a short note. */
+function friendlyError(e: unknown): string {
+  const err = e as { code?: unknown; name?: string; message?: string }
+  const isRejected =
+    err?.code === 4001 ||
+    err?.name === 'UserRejectedRequestError' ||
+    /(user rejected|request rejected|user denied|user cancelled|connection cancelled)/i.test(
+      String(err?.message ?? ''),
+    )
+  if (isRejected) return '您在钱包中拒绝了此操作'
+  return e instanceof Error ? e.message : String(e)
+}
+
 export interface CctpTransferParams {
   sourceDomain: number
   destDomain: number
@@ -110,7 +123,7 @@ export function useCctpTransfer() {
         try {
           await adapter.approveUsdc(srcChain, amount, cctpVersion)
         } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e)
+          const msg = friendlyError(e)
           console.error('[approveUsdc]', msg)
           setError(`Approve failed: ${msg}`)
           setStep('error')
@@ -132,7 +145,7 @@ export function useCctpTransfer() {
             transferType,
           })
         } catch (burnErr) {
-          const msg = burnErr instanceof Error ? burnErr.message : String(burnErr)
+          const msg = friendlyError(burnErr)
           console.error('[burnUsdc]', msg)
           setError(`Burn failed: ${msg}`)
           setStep('error')
@@ -171,7 +184,7 @@ export function useCctpTransfer() {
         // User can check status and claim from the transaction status page.
         setStep('submitted')
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Transfer failed')
+        setError(friendlyError(e))
         setStep('error')
       }
     },
@@ -217,7 +230,7 @@ export function useCctpTransfer() {
             destChainType: destChain.chain_type,
           })
         } catch (claimErr) {
-          const msg = claimErr instanceof Error ? claimErr.message : String(claimErr)
+          const msg = friendlyError(claimErr)
           console.error('[claimOnDest]', msg)
           setError(`Claim failed: ${msg}`)
           setStep('error')
@@ -234,7 +247,7 @@ export function useCctpTransfer() {
           api.reportClaim(hash, claimTxHash, mode).catch(() => {})
         }
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Claim failed')
+        setError(friendlyError(e))
         setStep('error')
       }
     },
