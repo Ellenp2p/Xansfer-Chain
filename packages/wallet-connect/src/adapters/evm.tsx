@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createConfig, http, WagmiProvider, useAccount, useConnect, useDisconnect, type Config } from 'wagmi'
 import { injected, coinbaseWallet } from 'wagmi/connectors'
 import type { Chain } from 'viem'
+import type { EIP1193Provider } from 'viem'
 import type { ChainActions, ChainConfig, ConnectedChainType, WalletOption, WalletSlot } from '../core/types'
 
 type SetSlot = (chain: ConnectedChainType, patch: Partial<WalletSlot>) => void
@@ -26,6 +27,16 @@ function buildWagmiChains(chains: ChainConfig[], mode: 'mainnet' | 'testnet'): [
   return [list[0], ...list.slice(1)]
 }
 
+function okxProvider(window?: Window): EIP1193Provider | undefined {
+  const eth = (window as any)?.ethereum
+  if (!eth) return undefined
+  // OKX sets isOkxWallet on its provider; some setups expose it via
+  // window.ethereum.providers (multi-wallet browsers).
+  if (eth.isOkxWallet) return eth as EIP1193Provider
+  const providers: any[] | undefined = eth.providers
+  return (providers?.find((p) => p.isOkxWallet) ?? undefined) as EIP1193Provider | undefined
+}
+
 interface Props {
   mode: 'mainnet' | 'testnet'
   chains: ChainConfig[]
@@ -41,12 +52,22 @@ export function EvmAdapter({ mode, chains, appName, setSlot, setWagmiConfig, reg
     const chainList = buildWagmiChains(chains, mode)
     return createConfig({
       chains: chainList,
-      connectors: [injected(), coinbaseWallet({ appName })],
+      connectors: [
+        injected(),
+        coinbaseWallet({ appName }),
+        // OKX is not in wagmi's targetMap and sometimes does not register
+        // EIP-6963, so detect it explicitly by probing window.ethereum.
+        injected({
+          target: {
+            id: 'com.okex.wallet',
+            name: 'OKX Wallet',
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            provider: okxProvider as any,
+          },
+        }),
+      ],
       transports: Object.fromEntries(chainList.map((c) => [c.id, http()])),
-      // Discover injected wallets (MetaMask, OKX, Rabby, …) via EIP-6963.
-      // OKX no longer sets the legacy isOkxWallet flag, so an explicit
-      // injected({ target: 'okxWallet' }) connector would report not-detected
-      // AND block the EIP-6963 entry (rdns de-dup). Rely on auto-discovery.
+      // Discover injected wallets (MetaMask, Rabby, …) via EIP-6963.
       multiInjectedProviderDiscovery: true,
       // Avoids wagmi's Hydrate calling onMount() during render (which triggers
       // "Cannot update a component while rendering" in React 19). The mount
@@ -88,10 +109,18 @@ function EvmSync({ setSlot, registerActions }: {
     })
   }, [address, isConnected, chainId, status, setSlot])
 
-  const wallets: WalletOption[] = useMemo(
-    () => connectors.map((c) => ({ id: c.id, name: c.name, unavailable: !c.ready })),
-    [connectors],
-  )
+  // Dedupe by connector id (e.g. OKX may be detected both explicitly and via
+  // EIP-6963, both with id 'com.okex.wallet'); prefer the ready one.
+  const wallets: WalletOption[] = useMemo(() => {
+    const byId = new Map<string, { id: string; name: string; ready: boolean }>()
+    for (const c of connectors) {
+      const prev = byId.get(c.id)
+      if (!prev || (!prev.ready && c.ready)) {
+        byId.set(c.id, { id: c.id, name: c.name, ready: !!c.ready })
+      }
+    }
+    return [...byId.values()].map((w) => ({ id: w.id, name: w.name, unavailable: !w.ready }))
+  }, [connectors])
 
   const connect = useCallback(
     async (walletId?: string) => {
