@@ -10,6 +10,23 @@ import { WALLET_ICONS } from './config/walletIcons'
 import App from './App'
 import './index.css'
 
+// Dev-only: dump the full component stack of the "Cannot update a component
+// while rendering" warning so we can find which library/component triggers it.
+if (import.meta.env.DEV) {
+  const origError = console.error
+  console.error = (...args: any[]) => {
+    if (String(args[0]).includes('Cannot update a component')) {
+      try {
+        const parts = args
+          .map((a) => (a && (a.stack || a.componentStack)) || (typeof a === 'string' ? a : ''))
+          .filter(Boolean)
+        console.log('[WARN_STACK]\n' + parts.join('\n---\n'))
+      } catch { /* ignore */ }
+    }
+    origError(...args)
+  }
+}
+
 function Root() {
   return (
     <React.StrictMode>
