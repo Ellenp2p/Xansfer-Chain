@@ -118,6 +118,11 @@ export function EvmAdapter({ mode, chains, appName, setSlot, setWagmiConfig, reg
       transports: Object.fromEntries(chainList.map((c) => [c.id, http()])),
       // Discover injected wallets (MetaMask, OKX, Rabby, …) via EIP-6963.
       multiInjectedProviderDiscovery: true,
+      // Fully static client app: no SSR flag, no persisted wallet state.
+      // storage:null makes wagmi's Hydrate onMount() a no-op (no render-phase
+      // setState), which removes the React "Cannot update during render"
+      // warning while keeping EIP-6963 discovery working.
+      storage: null,
     })
   }, [chains, mode, appName])
 
@@ -151,7 +156,7 @@ export function EvmAdapter({ mode, chains, appName, setSlot, setWagmiConfig, reg
   const [queryClient] = useState(() => new QueryClient())
 
   return (
-    <WagmiProvider config={wagmiConfig}>
+    <WagmiProvider config={wagmiConfig} reconnectOnMount={false}>
       <QueryClientProvider client={queryClient}>
         <EvmSync setSlot={setSlot} registerActions={registerActions} />
         {children}
