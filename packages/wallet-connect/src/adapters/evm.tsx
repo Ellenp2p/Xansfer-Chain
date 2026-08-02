@@ -110,18 +110,20 @@ interface Props {
 export function EvmAdapter({ mode, chains, appName, setSlot, setWagmiConfig, registerActions, children }: Props) {
   const okxProvider = useOkxProvider()
 
-  const wagmiConfig = useMemo(() => {    const chainList = buildWagmiChains(chains, mode)
+  const wagmiConfig = useMemo(() => {
+    const chainList = buildWagmiChains(chains, mode)
     return createConfig({
       chains: chainList,
       connectors: [injected(), coinbaseWallet({ appName })],
       transports: Object.fromEntries(chainList.map((c) => [c.id, http()])),
-      // Discover injected wallets (MetaMask, OKX, Rabby, …) via EIP-6963.
-      multiInjectedProviderDiscovery: true,
-      // Fully static client app: no SSR flag, no persisted wallet state.
-      // storage:null makes wagmi's Hydrate onMount() a no-op (no render-phase
-      // setState), which removes the React "Cannot update during render"
-      // warning while keeping EIP-6963 discovery working.
-      storage: null,
+      // ssr:true is a wagmi flag (NOT real server-side rendering): it runs the
+      // hydrate/reconnect work inside an effect instead of during render, which
+      // (a) removes the React "Cannot update during render" warning and
+      // (b) lets the default storage persist the connection so the wallet stays
+      // connected after a page refresh.
+      // OKX is detected by our own probe + dynamic injection, so it keeps
+      // working without wagmi's EIP-6963 auto-discovery.
+      ssr: true,
     })
   }, [chains, mode, appName])
 
@@ -155,7 +157,7 @@ export function EvmAdapter({ mode, chains, appName, setSlot, setWagmiConfig, reg
   const [queryClient] = useState(() => new QueryClient())
 
   return (
-    <WagmiProvider config={wagmiConfig} reconnectOnMount={false}>
+    <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
         <EvmSync setSlot={setSlot} registerActions={registerActions} />
         {children}
