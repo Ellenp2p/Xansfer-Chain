@@ -27,13 +27,17 @@ function buildWagmiChains(chains: ChainConfig[], mode: 'mainnet' | 'testnet'): [
   return [list[0], ...list.slice(1)]
 }
 
+/**
+ * Detect the OKX provider. OKX injects its EIP-1193 provider under the
+ * `window.okxwallet` namespace (per RainbowKit's official connector), with
+ * legacy fallbacks on window.ethereum.isOkxWallet / providers.
+ */
 function okxProvider(window?: Window): EIP1193Provider | undefined {
-  const eth = (window as any)?.ethereum
-  if (!eth) return undefined
-  // OKX sets isOkxWallet on its provider; some setups expose it via
-  // window.ethereum.providers (multi-wallet browsers).
-  if (eth.isOkxWallet) return eth as EIP1193Provider
-  const providers: any[] | undefined = eth.providers
+  const w = window as any
+  if (w?.okxwallet) return w.okxwallet as EIP1193Provider
+  const eth = w?.ethereum
+  if (eth?.isOkxWallet) return eth as EIP1193Provider
+  const providers: any[] | undefined = eth?.providers
   return (providers?.find((p) => p.isOkxWallet) ?? undefined) as EIP1193Provider | undefined
 }
 
