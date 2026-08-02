@@ -71,6 +71,7 @@ export function useEvmAdapter(): ChainAdapter {
   const { chainId: currentChainId } = useAccount()
   const mode = useNetworkMode((s) => s.mode)
   const wagmiConfig = useWagmiConfig()
+  const evmAddress = useWalletState().evm?.address ?? null
 
   const switchChain = useCallback(
     async (domain: number) => {
@@ -88,8 +89,7 @@ export function useEvmAdapter(): ChainAdapter {
       if (!contracts) throw new Error(`CCTP v${cctpVersion} not available for ${chainConfig.name}`)
       const amountBigInt = parseUnits(amount, 6)
 
-      const wallet = useWalletState().evm
-      if (!wallet?.address) throw new Error('EVM wallet not connected')
+      if (!evmAddress) throw new Error('EVM wallet not connected')
 
       // Check on-chain allowance first — skip approve if already sufficient
       if (!wagmiConfig) throw new Error('wagmi config not ready')
@@ -100,7 +100,7 @@ export function useEvmAdapter(): ChainAdapter {
         address: chainConfig.usdc_address as Hex,
         abi: ERC20_ABI,
         functionName: 'allowance',
-        args: [wallet.address as Hex, contracts.tokenMessenger as Hex],
+        args: [evmAddress as Hex, contracts.tokenMessenger as Hex],
       })
 
       if (allowance >= amountBigInt) {
@@ -115,7 +115,7 @@ export function useEvmAdapter(): ChainAdapter {
         args: [contracts.tokenMessenger as Hex, amountBigInt],
       })
     },
-    [writeContractAsync, mode],
+    [writeContractAsync, mode, wagmiConfig, evmAddress],
   )
 
   const burnUsdc = useCallback(

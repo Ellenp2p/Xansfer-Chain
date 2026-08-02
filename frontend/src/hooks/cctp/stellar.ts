@@ -40,13 +40,13 @@ function contractAddr(contractId: string): xdr.ScVal {
 
 export function useStellarAdapter(): ChainAdapter {
   const mode = useNetworkMode((s) => s.mode)
+  const stellarAddress = useWalletState().stellar?.address ?? null
 
   const getPublicKey = useCallback(async (): Promise<string> => {
     // Prefer address from wallet state (synced by the Stellar adapter)
-    const store = useWalletState().stellar
-    if (store?.address) return store.address
+    if (stellarAddress) return stellarAddress
     throw new Error('Freighter: not connected — please connect your Stellar wallet first')
-  }, [])
+  }, [stellarAddress])
 
   /** Query USDC SAC allowance for owner -> spender (no state change). */
   const getAllowance = useCallback(
