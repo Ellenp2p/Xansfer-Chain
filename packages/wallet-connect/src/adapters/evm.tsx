@@ -9,6 +9,9 @@ import type { ChainActions, ChainConfig, ConnectedChainType, WalletOption, Walle
 type SetSlot = (chain: ConnectedChainType, patch: Partial<WalletSlot>) => void
 type RegisterActions = (chain: ConnectedChainType, actions: ChainActions) => void
 
+const OKX_RDNS = 'com.okex.wallet'
+const OKX_CONNECTOR_ID = 'com.okex.wallet'
+
 function buildWagmiChains(chains: ChainConfig[], mode: 'mainnet' | 'testnet'): [Chain, ...Chain[]] {
   const list = chains
     .filter((c) => c.chain_id != null)
@@ -28,17 +31,70 @@ function buildWagmiChains(chains: ChainConfig[], mode: 'mainnet' | 'testnet'): [
 }
 
 /**
- * Detect the OKX provider. OKX injects its EIP-1193 provider under the
- * `window.okxwallet` namespace (per RainbowKit's official connector), with
- * legacy fallbacks on window.ethereum.isOkxWallet / providers.
+ * Detect the OKX EIP-1193 provider.
+ *
+ * OKX injects its provider via several possible surfaces:
+ *   1. the `window.okxwallet` namespace (RainbowKit's official detection)
+ *   2. `window.ethereum` with `isOkxWallet: true` (when OKX owns window.ethereum)
+ *   3. `window.ethereum.providers[]` with `isOkxWallet: true` (multi-wallet)
+ *   4. EIP-6963 `eip6963:announceProvider` with rdns `com.okex.wallet`
+ *
+ * We actively announce-request + listen, and poll the window probes because
+ * extensions can inject asynchronously after page load.
  */
-function okxProvider(window?: Window): EIP1193Provider | undefined {
-  const w = window as any
-  if (w?.okxwallet) return w.okxwallet as EIP1193Provider
-  const eth = w?.ethereum
-  if (eth?.isOkxWallet) return eth as EIP1193Provider
-  const providers: any[] | undefined = eth?.providers
-  return (providers?.find((p) => p.isOkxWallet) ?? undefined) as EIP1193Provider | undefined
+function useOkxProvider(): EIP1193Provider | undefined {
+  const [provider, setProvider] = useState<EIP1193Provider>()
+
+  useEffect(() => {
+    let cancelled = false
+    const w = window as any
+
+    const probe = (): EIP1193Provider | undefined => {
+      if (w?.okxwallet) return w.okxwallet as EIP1193Provider
+      const eth = w?.ethereum
+      if (eth?.isOkxWallet) return eth as EIP1193Provider
+      const providers: any[] | undefined = eth?.providers
+      return providers?.find((p) => p.isOkxWallet) as EIP1193Provider | undefined
+    }
+
+    const apply = (p: EIP1193Provider | undefined) => {
+      if (p && !cancelled) setProvider(p)
+    }
+
+    apply(probe())
+
+    const handler = (e: Event) => {
+      const d = (e as CustomEvent).detail
+      if (!d?.provider) return
+      const rdns = String(d?.info?.rdns ?? '').toLowerCase()
+      const name = String(d?.info?.name ?? '').toLowerCase()
+      if (rdns === OKX_RDNS || name.includes('okx') || name.includes('okex')) {
+        apply(d.provider as EIP1193Provider)
+      }
+    }
+    window.addEventListener('eip6963:announceProvider', handler)
+    window.dispatchEvent(new Event('eip6963:requestProvider'))
+
+    // OKX may inject late — poll for a while
+    let attempts = 0
+    const timer = setInterval(() => {
+      const p = probe()
+      if (p) {
+        apply(p)
+        clearInterval(timer)
+      } else if (++attempts > 24) {
+        clearInterval(timer) // ~12s max
+      }
+    }, 500)
+
+    return () => {
+      cancelled = true
+      clearInterval(timer)
+      window.removeEventListener('eip6963:announceProvider', handler)
+    }
+  }, [])
+
+  return provider
 }
 
 interface Props {
@@ -52,33 +108,40 @@ interface Props {
 }
 
 export function EvmAdapter({ mode, chains, appName, setSlot, setWagmiConfig, registerActions, children }: Props) {
+  const okxProvider = useOkxProvider()
+
   const wagmiConfig = useMemo(() => {
     const chainList = buildWagmiChains(chains, mode)
     return createConfig({
       chains: chainList,
-      connectors: [
-        injected(),
-        coinbaseWallet({ appName }),
-        // OKX is not in wagmi's targetMap and sometimes does not register
-        // EIP-6963, so detect it explicitly by probing window.ethereum.
-        injected({
-          target: {
-            id: 'com.okex.wallet',
-            name: 'OKX Wallet',
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            provider: okxProvider as any,
-          },
-        }),
-      ],
+      connectors: [injected(), coinbaseWallet({ appName })],
       transports: Object.fromEntries(chainList.map((c) => [c.id, http()])),
-      // Discover injected wallets (MetaMask, Rabby, …) via EIP-6963.
+      // Discover injected wallets (MetaMask, OKX, Rabby, …) via EIP-6963.
       multiInjectedProviderDiscovery: true,
-      // Avoids wagmi's Hydrate calling onMount() during render (which triggers
-      // "Cannot update a component while rendering" in React 19). The mount
-      // work (reconnect/hydrate) runs in an effect instead.
-      ssr: true,
     })
   }, [chains, mode, appName])
+
+  // Inject the OKX connector as soon as its provider is detected. Done
+  // dynamically (not in the initial list) so it never blocks the EIP-6963
+  // entry via connector-id de-dup, and so a late-injected OKX still shows up.
+  useEffect(() => {
+    if (!okxProvider || !wagmiConfig) return
+    const exists = wagmiConfig.connectors.some((c) => c.id === OKX_CONNECTOR_ID)
+    if (exists) return
+    const okxConnectorFn = injected({
+      target: {
+        id: OKX_CONNECTOR_ID,
+        name: 'OKX Wallet',
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        provider: okxProvider as any,
+      },
+    })
+    wagmiConfig._internal.connectors.setState((prev) => {
+      if (prev.some((c) => c.id === OKX_CONNECTOR_ID)) return prev
+      const connector = wagmiConfig._internal.connectors.setup(okxConnectorFn)
+      return [...prev, connector]
+    })
+  }, [okxProvider, wagmiConfig])
 
   useEffect(() => {
     setWagmiConfig(wagmiConfig)
@@ -113,8 +176,8 @@ function EvmSync({ setSlot, registerActions }: {
     })
   }, [address, isConnected, chainId, status, setSlot])
 
-  // Dedupe by connector id (e.g. OKX may be detected both explicitly and via
-  // EIP-6963, both with id 'com.okex.wallet'); prefer the ready one.
+  // Dedupe by connector id (e.g. OKX may be injected both by us and via
+  // EIP-6963); prefer the ready one.
   const wallets: WalletOption[] = useMemo(() => {
     const byId = new Map<string, { id: string; name: string; ready: boolean }>()
     for (const c of connectors) {
