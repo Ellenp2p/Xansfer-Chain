@@ -107,10 +107,18 @@ export function WalletProvider({
     try {
       return await a.connect(walletId)
     } catch (e) {
-      // If the user cancelled, a late rejection (timeout/reject) must not
-      // re-surface an error on an already-reset UI.
+      // If the user dismissed the popup, restore quietly — no scary error.
+      // Real failures (no provider, timeout) surface via slot.error.
+      const isUserRejected =
+        (e as { code?: unknown })?.code === 4001 ||
+        (e as { name?: string })?.name === 'UserRejectedRequestError' ||
+        String(e).toLowerCase().includes('user rejected') ||
+        String(e).toLowerCase().includes('request rejected')
       if (!cancelledRef.current[chain]) {
-        setSlot(chain, { connecting: false, error: e instanceof Error ? e.message : String(e) })
+        setSlot(chain, {
+          connecting: false,
+          error: isUserRejected ? null : e instanceof Error ? e.message : String(e),
+        })
       } else {
         setSlot(chain, { connecting: false })
       }

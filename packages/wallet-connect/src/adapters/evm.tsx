@@ -225,9 +225,10 @@ function EvmSync({ setSlot, registerActions }: {
       // wagmi v3 has no connector.ready — probe the provider directly.
       const provider = await connector.getProvider()
       if (!provider) throw new Error(`No ${connector.name} detected in this browser`)
-      // Guard against a wallet popup that never resolves.
+      // Guard against a wallet popup that never resolves (some wallets don't
+      // reject when the user dismisses the popup — the request just hangs).
       const timeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Timed out waiting for wallet approval')), 90_000),
+        setTimeout(() => reject(new Error('Timed out waiting for wallet approval')), 30_000),
       )
       const result = await Promise.race([
         connectAsync({ connector }),
