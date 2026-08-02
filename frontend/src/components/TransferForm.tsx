@@ -31,8 +31,8 @@ export default function TransferForm() {
   // Reset domain selections when network mode changes
   const prevMode = useNetworkMode((s) => s.mode)
   useEffect(() => {
-    store.setSourceDomain(null as unknown as number)
-    store.setDestDomain(null as unknown as number)
+    store.setSourceDomain(null)
+    store.setDestDomain(null)
     store.setTransferType('standard')
     setCctpVersion(2)
     setDestAddress('')
@@ -154,6 +154,14 @@ export default function TransferForm() {
     })
   }
 
+  // Swap source and destination. Straight swap (supports unselected/null) so a
+  // partially-filled form just moves the selection to the other side.
+  function handleSwap() {
+    const tmp = store.sourceDomain
+    store.setSourceDomain(store.destDomain)
+    store.setDestDomain(tmp)
+  }
+
   // Button text logic
   function getButtonText(): string {
     switch (step) {
@@ -199,12 +207,15 @@ export default function TransferForm() {
           exclude={store.destDomain}
         />
         <button
-          onClick={() => {
-            const tmp = store.sourceDomain
-            store.setSourceDomain(store.destDomain ?? 0)
-            store.setDestDomain(tmp ?? 0)
-          }}
-          className="mx-auto rounded-full border border-gray-700 bg-gray-800 p-2 text-gray-400 transition hover:text-white"
+          onClick={handleSwap}
+          disabled={store.sourceDomain == null && store.destDomain == null}
+          title="Swap source and destination"
+          aria-label="Swap source and destination"
+          className={`mx-auto rounded-full border p-2 transition ${
+            store.sourceDomain == null && store.destDomain == null
+              ? 'border-gray-800 bg-gray-900 text-gray-700 cursor-not-allowed'
+              : 'border-gray-700 bg-gray-800 text-gray-400 hover:text-white'
+          }`}
         >
           <ArrowDownUp className="h-5 w-5 sm:rotate-0 rotate-90" />
         </button>

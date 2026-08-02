@@ -7,8 +7,8 @@ interface TransferFormState {
   amount: string
   transferType: TransferType
   destAddress: string
-  setSourceDomain: (d: number) => void
-  setDestDomain: (d: number) => void
+  setSourceDomain: (d: number | null) => void
+  setDestDomain: (d: number | null) => void
   setAmount: (a: string) => void
   setTransferType: (t: TransferType) => void
   setDestAddress: (a: string) => void
