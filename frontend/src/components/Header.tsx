@@ -22,6 +22,15 @@ export default function Header({ mode }: { mode: Mode }) {
   return (
     <header className="sticky top-0 z-50 border-b border-gray-800 bg-gray-950/80 backdrop-blur-md">
       <div className="mx-auto flex max-w-4xl items-center justify-between gap-2 px-2 sm:px-4 py-2.5 sm:py-3">
+        {/* Mobile hamburger — far left */}
+        <button
+          onClick={() => setMenuOpen(true)}
+          className="sm:hidden flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-700 bg-gray-800 text-gray-300"
+          aria-label="Open menu"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+
         <Link to={withModePrefix(mode, '/')} className="flex items-center gap-1.5 sm:gap-2 text-base sm:text-lg font-bold text-white shrink-0">
           <Layers className="h-5 w-5 sm:h-6 sm:w-6 text-brand-500" />
           <span className="hidden sm:inline">Xansfer</span>
@@ -43,22 +52,14 @@ export default function Header({ mode }: { mode: Mode }) {
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <NetworkToggle />
           <ConnectWallet />
-          {/* Mobile menu button */}
-          <button
-            onClick={() => setMenuOpen(true)}
-            className="sm:hidden flex h-9 w-9 items-center justify-center rounded-lg border border-gray-700 bg-gray-800 text-gray-300"
-            aria-label="Open menu"
-          >
-            <Menu className="h-5 w-5" />
-          </button>
         </div>
       </div>
 
-      {/* Mobile drawer */}
+      {/* Mobile full-width drawer */}
       {menuOpen && (
         <div className="sm:hidden fixed inset-0 z-[90]">
           <div className="absolute inset-0 bg-black/60" onClick={() => setMenuOpen(false)} />
-          <div className="absolute left-0 top-0 bottom-0 w-64 bg-gray-900 border-r border-gray-800 flex flex-col">
+          <div className="absolute top-0 inset-x-0 w-full bg-gray-900 border-b border-gray-800 shadow-xl">
             <div className="flex items-center justify-between px-4 py-4 border-b border-gray-800">
               <span className="font-bold text-white">Xansfer</span>
               <button onClick={() => setMenuOpen(false)} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-800">
@@ -73,7 +74,7 @@ export default function Header({ mode }: { mode: Mode }) {
                   end={item.to === '/'}
                   onClick={() => setMenuOpen(false)}
                   className={({ isActive }) =>
-                    `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition hover:bg-gray-800 ${
+                    `flex items-center gap-3 rounded-lg px-3 py-3 text-sm transition hover:bg-gray-800 ${
                       isActive ? 'text-white bg-gray-800' : 'text-gray-300'
                     }`
                   }
