@@ -2,7 +2,7 @@ import { useState, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search, Loader2, AlertCircle, ArrowRight } from 'lucide-react'
 import { useNetworkMode } from '../stores/networkMode'
-import { getChains } from '../config/chains'
+import { getChains, withModePrefix } from '../config/chains'
 import { lookupTransaction } from '../lib/api'
 
 export default function Lookup() {
@@ -46,7 +46,7 @@ export default function Lookup() {
       if (!json.transaction) {
         throw new Error('No transaction found for this hash')
       }
-      navigate(`/tx/${json.transaction.source_tx_hash}`)
+      navigate(withModePrefix(mode, `/tx/${json.transaction.source_tx_hash}`))
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Lookup failed')
     } finally {
@@ -145,7 +145,7 @@ export default function Lookup() {
       </div>
 
       <button
-        onClick={() => navigate('/')}
+        onClick={() => navigate(withModePrefix(mode, '/'))}
         className="flex items-center justify-center gap-1 text-sm text-gray-400 hover:text-white"
       >
         Back to Transfer <ArrowRight className="h-4 w-4" />

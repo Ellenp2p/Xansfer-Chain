@@ -1,13 +1,26 @@
-import { useNetworkMode } from '../stores/networkMode'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Globe } from 'lucide-react'
+import { modeFromPath } from '../config/chains'
 
+/**
+ * Switches network by navigating between "/" (mainnet) and "/testnet" paths,
+ * keeping the current page.
+ */
 export default function NetworkToggle() {
-  const { mode, toggleMode } = useNetworkMode()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const mode = modeFromPath(location.pathname)
   const isTestnet = mode === 'testnet'
+
+  const toggle = () => {
+    const base = location.pathname.replace(/^\/testnet/, '') || '/'
+    const target = isTestnet ? base : `/testnet${base}`
+    navigate(target, { replace: true })
+  }
 
   return (
     <button
-      onClick={toggleMode}
+      onClick={toggle}
       title={`Switch to ${isTestnet ? 'Mainnet' : 'Testnet'}`}
       className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-medium transition ${
         isTestnet
@@ -18,9 +31,7 @@ export default function NetworkToggle() {
       <Globe className="h-3.5 w-3.5" />
       <span className="hidden sm:inline">{isTestnet ? 'Testnet' : 'Mainnet'}</span>
       <span
-        className={`h-1.5 w-1.5 rounded-full ${
-          isTestnet ? 'bg-amber-400' : 'bg-green-400'
-        }`}
+        className={`h-1.5 w-1.5 rounded-full ${isTestnet ? 'bg-amber-400' : 'bg-green-400'}`}
       />
     </button>
   )

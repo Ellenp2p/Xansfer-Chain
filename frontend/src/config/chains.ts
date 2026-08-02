@@ -7,6 +7,17 @@ import configJson from '../../../config/chains.json'
 
 export type Mode = 'mainnet' | 'testnet'
 
+/** Network mode is driven by the URL path: `/testnet/*` → testnet, else mainnet. */
+export function modeFromPath(pathname: string): Mode {
+  return pathname.startsWith('/testnet') ? 'testnet' : 'mainnet'
+}
+
+/** Prefix a route path for the given network mode (testnet lives under /testnet). */
+export function withModePrefix(mode: Mode, path: string): string {
+  if (mode !== 'testnet') return path
+  return path === '/' ? '/testnet' : `/testnet${path}`
+}
+
 interface ResolvableStringValue {
   env?: string
   template?: string

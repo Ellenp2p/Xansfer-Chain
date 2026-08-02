@@ -4,7 +4,7 @@ import { useWalletState } from '@xansfer/wallet-connect'
 import { useTransferStore } from '../stores/transferStore'
 import { useNetworkMode } from '../stores/networkMode'
 import { useCctpTransfer } from '../hooks/useCctpTransfer'
-import { getTransferTypes, getChainTypeForDomain, getSupportedVersions } from '../config/chains'
+import { getTransferTypes, getChainTypeForDomain, getSupportedVersions, withModePrefix } from '../config/chains'
 import ChainSelector from './ChainSelector'
 import type { TransferType } from '../types'
 import { ArrowDownUp, Zap, Send, Radio, AlertCircle, Wallet, Layers, Loader2 } from 'lucide-react'
@@ -42,7 +42,7 @@ export default function TransferForm() {
   // Navigate to status page when ready
   useEffect(() => {
     if ((step === 'complete' || step === 'submitted') && sourceTxHash) {
-      navigate(`/tx/${sourceTxHash}`)
+      navigate(withModePrefix(mode, `/tx/${sourceTxHash}`))
     }
   }, [step, sourceTxHash, navigate])
 

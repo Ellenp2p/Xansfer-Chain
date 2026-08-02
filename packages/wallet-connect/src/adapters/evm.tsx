@@ -250,9 +250,10 @@ function EvmSync({ setSlot, registerActions }: {
         }
       }
 
-      // Guard against a popup that never resolves.
+      // Guard against a popup that never resolves (fallback when no
+      // disconnect/accountsChanged event is emitted).
       const timeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Timed out waiting for wallet approval')), 30_000),
+        setTimeout(() => reject(new Error('Timed out waiting for wallet approval')), 12_000),
       )
       try {
         const result = await Promise.race([connectAsync({ connector }), timeout, cancelled])

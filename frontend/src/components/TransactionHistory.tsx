@@ -6,7 +6,7 @@ import { useNetworkMode } from '../stores/networkMode'
 import type { TxStatus } from '../types'
 import { ExternalLink, Search } from 'lucide-react'
 import { lookupTransaction } from '../lib/api'
-import { getChains } from '../config/chains'
+import { getChains, withModePrefix } from '../config/chains'
 
 const STATUS_COLORS: Record<TxStatus, string> = {
   pending: 'bg-yellow-500/20 text-yellow-400',
@@ -52,7 +52,7 @@ export default function TransactionHistory() {
     try {
       const res = await lookupTransaction(lookupHash.trim(), parseInt(lookupDomain), mode)
       if (res.transaction) {
-        navigate(`/tx/${res.transaction.source_tx_hash}`)
+        navigate(withModePrefix(mode, `/tx/${res.transaction.source_tx_hash}`))
       } else if (res.circle_status) {
         setLookupResult(
           `Circle status: ${res.circle_status.status ?? 'unknown'} — attestation ${res.circle_status.attestation ? 'available' : 'pending'}`,
@@ -127,7 +127,7 @@ export default function TransactionHistory() {
           {transactions.map((tx) => (
             <button
               key={tx.source_tx_hash}
-              onClick={() => navigate(`/tx/${tx.source_tx_hash}`)}
+              onClick={() => navigate(withModePrefix(mode, `/tx/${tx.source_tx_hash}`))}
               className="flex w-full items-center justify-between gap-3 py-4 text-left transition hover:bg-gray-800/50 -mx-4 sm:-mx-6 px-4 sm:px-6 overflow-hidden"
             >
               <div className="min-w-0">

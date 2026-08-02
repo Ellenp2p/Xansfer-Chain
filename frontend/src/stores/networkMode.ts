@@ -1,23 +1,21 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { modeFromPath } from '../config/chains'
 
 export type NetworkMode = 'mainnet' | 'testnet'
+
+const initialMode: NetworkMode =
+  typeof window !== 'undefined' ? modeFromPath(window.location.pathname) : 'mainnet'
 
 interface NetworkModeState {
   mode: NetworkMode
   setMode: (mode: NetworkMode) => void
-  toggleMode: () => void
 }
 
 export const useNetworkMode = create<NetworkModeState>()(
-  persist(
-    (set) => ({
-      mode: 'mainnet',
-      setMode: (mode) => set({ mode }),
-      toggleMode: () => set((s) => ({ mode: s.mode === 'mainnet' ? 'testnet' : 'mainnet' })),
-    }),
-    { name: 'xansfer-network-mode' },
-  ),
+  (set) => ({
+    mode: initialMode,
+    setMode: (mode) => set({ mode }),
+  }),
 )
 
 export function isTestnet(): boolean {
