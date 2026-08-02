@@ -41,8 +41,13 @@ export function EvmAdapter({ mode, chains, appName, setSlot, setWagmiConfig, reg
     const chainList = buildWagmiChains(chains, mode)
     return createConfig({
       chains: chainList,
-      connectors: [injected(), coinbaseWallet({ appName }), injected({ target: 'okxWallet' })],
+      connectors: [injected(), coinbaseWallet({ appName })],
       transports: Object.fromEntries(chainList.map((c) => [c.id, http()])),
+      // Discover injected wallets (MetaMask, OKX, Rabby, …) via EIP-6963.
+      // OKX no longer sets the legacy isOkxWallet flag, so an explicit
+      // injected({ target: 'okxWallet' }) connector would report not-detected
+      // AND block the EIP-6963 entry (rdns de-dup). Rely on auto-discovery.
+      multiInjectedProviderDiscovery: true,
       // Avoids wagmi's Hydrate calling onMount() during render (which triggers
       // "Cannot update a component while rendering" in React 19). The mount
       // work (reconnect/hydrate) runs in an effect instead.
