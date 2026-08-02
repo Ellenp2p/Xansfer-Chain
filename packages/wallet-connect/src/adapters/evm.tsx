@@ -180,18 +180,43 @@ function EvmSync({ setSlot, registerActions }: {
     })
   }, [address, isConnected, chainId, status, setSlot])
 
+  // wagmi v3 connectors have no `ready` property — detect availability by
+  // probing each connector's provider.
+  const [availMap, setAvailMap] = useState<Record<string, boolean>>({})
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const map: Record<string, boolean> = {}
+      await Promise.all(
+        connectors.map(async (c) => {
+          try {
+            const p = await c.getProvider()
+            map[c.id] = !!p
+          } catch {
+            map[c.id] = false
+          }
+        }),
+      )
+      if (!cancelled) setAvailMap(map)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [connectors])
+
   // Dedupe by connector id (e.g. OKX may be injected both by us and via
-  // EIP-6963); prefer the ready one.
+  // EIP-6963); prefer the available one.
   const wallets: WalletOption[] = useMemo(() => {
-    const byId = new Map<string, { id: string; name: string; ready: boolean }>()
+    const byId = new Map<string, { id: string; name: string; unavailable: boolean }>()
     for (const c of connectors) {
       const prev = byId.get(c.id)
-      if (!prev || (!prev.ready && c.ready)) {
-        byId.set(c.id, { id: c.id, name: c.name, ready: !!c.ready })
+      const unavailable = availMap[c.id] === false
+      if (!prev || (prev.unavailable && !unavailable)) {
+        byId.set(c.id, { id: c.id, name: c.name, unavailable })
       }
     }
-    return [...byId.values()].map((w) => ({ id: w.id, name: w.name, unavailable: !w.ready }))
-  }, [connectors])
+    return [...byId.values()]
+  }, [connectors, availMap])
 
   const connect = useCallback(
     async (walletId?: string) => {

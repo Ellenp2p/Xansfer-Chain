@@ -88,14 +88,13 @@ export function WalletProvider({
 
   const registerActions = useCallback((chain: ConnectedChainType, actions: ChainActions) => {
     const prev = actionsRef.current[chain]
-    // Only bump the version when the wallet list actually changes (e.g. a
-    // dynamically-injected OKX connector). Avoids a render loop: adapter
-    // effects re-register on every render because wagmi/React Query return
-    // fresh references for connectAsync etc., and bumping unconditionally
-    // would re-render WalletProvider → re-render adapters → re-register → …
-    const prevIds = prev?.wallets?.map((w) => w.id).join(',') ?? ''
-    const nextIds = actions.wallets.map((w) => w.id).join(',')
-    const walletsChanged = prevIds !== nextIds
+    // Only bump the version when the wallet list actually changes (ids or
+    // availability). Avoids a render loop: adapter effects re-register on every
+    // render because wagmi/React Query return fresh references, and bumping
+    // unconditionally would re-render WalletProvider → adapters → re-register.
+    const prevKey = prev?.wallets?.map((w) => `${w.id}:${w.unavailable}`).join(',') ?? ''
+    const nextKey = actions.wallets.map((w) => `${w.id}:${w.unavailable}`).join(',')
+    const walletsChanged = prevKey !== nextKey
     actionsRef.current[chain] = actions
     if (walletsChanged) setActionsVersion((v) => v + 1)
   }, [])
