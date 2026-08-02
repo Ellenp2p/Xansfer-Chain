@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createConfig, http, WagmiProvider, useAccount, useConnect, useDisconnect, type Config } from 'wagmi'
 import { injected, coinbaseWallet } from 'wagmi/connectors'
+import { reconnect } from 'wagmi/actions'
 import type { Chain } from 'viem'
 import type { EIP1193Provider } from 'viem'
 import type { ChainActions, ChainConfig, ConnectedChainType, WalletOption, WalletSlot } from '../core/types'
@@ -147,6 +148,17 @@ export function EvmAdapter({ mode, chains, appName, setSlot, setWagmiConfig, reg
       const connector = wagmiConfig._internal.connectors.setup(okxConnectorFn)
       return [...prev, connector]
     })
+    // The OKX connector is injected after wagmi's initial reconnect (onMount),
+    // so it never auto-reconnects after a refresh. If OKX was the last
+    // connected wallet, reconnect explicitly now that the connector exists.
+    ;(async () => {
+      try {
+        const recent = await wagmiConfig.storage?.getItem('recentConnectorId')
+        if (recent === OKX_CONNECTOR_ID) await reconnect(wagmiConfig)
+      } catch {
+        // ignore — OKX just won't auto-reconnect
+      }
+    })()
   }, [okxProvider, wagmiConfig])
 
   useEffect(() => {
