@@ -32,65 +32,37 @@ function buildWagmiChains(chains: ChainConfig[], mode: 'mainnet' | 'testnet'): [
 }
 
 /**
- * Detect the OKX EIP-1193 provider.
+ * Detect the OKX provider via the EIP-6963 standard (rdns `com.okex.wallet`).
  *
- * OKX injects its provider via several possible surfaces:
- *   1. the `window.okxwallet` namespace (RainbowKit's official detection)
- *   2. `window.ethereum` with `isOkxWallet: true` (when OKX owns window.ethereum)
- *   3. `window.ethereum.providers[]` with `isOkxWallet: true` (multi-wallet)
- *   4. EIP-6963 `eip6963:announceProvider` with rdns `com.okex.wallet`
- *
- * We actively announce-request + listen, and poll the window probes because
- * extensions can inject asynchronously after page load.
+ * EIP-6963 is the universal discovery mechanism for injected EVM wallets and
+ * is what OKX implements officially. We listen for `eip6963:announceProvider`
+ * and actively re-request via `eip6963:requestProvider` so a provider that
+ * registered before we mounted still announces itself. Pure event-driven — no
+ * polling, so detection is instant.
  */
 function useOkxProvider(): EIP1193Provider | undefined {
   const [provider, setProvider] = useState<EIP1193Provider>()
 
   useEffect(() => {
     let cancelled = false
-    const w = window as any
-
-    const probe = (): EIP1193Provider | undefined => {
-      if (w?.okxwallet) return w.okxwallet as EIP1193Provider
-      const eth = w?.ethereum
-      if (eth?.isOkxWallet) return eth as EIP1193Provider
-      const providers: any[] | undefined = eth?.providers
-      return providers?.find((p) => p.isOkxWallet) as EIP1193Provider | undefined
-    }
 
     const apply = (p: EIP1193Provider | undefined) => {
       if (p && !cancelled) setProvider(p)
     }
 
-    apply(probe())
-
     const handler = (e: Event) => {
       const d = (e as CustomEvent).detail
       if (!d?.provider) return
       const rdns = String(d?.info?.rdns ?? '').toLowerCase()
-      const name = String(d?.info?.name ?? '').toLowerCase()
-      if (rdns === OKX_RDNS || name.includes('okx') || name.includes('okex')) {
-        apply(d.provider as EIP1193Provider)
-      }
+      if (rdns === OKX_RDNS) apply(d.provider as EIP1193Provider)
     }
     window.addEventListener('eip6963:announceProvider', handler)
+    // Ask already-registered wallets to announce themselves (covers providers
+    // that registered before this listener mounted).
     window.dispatchEvent(new Event('eip6963:requestProvider'))
-
-    // OKX may inject late — poll for a while
-    let attempts = 0
-    const timer = setInterval(() => {
-      const p = probe()
-      if (p) {
-        apply(p)
-        clearInterval(timer)
-      } else if (++attempts > 24) {
-        clearInterval(timer) // ~12s max
-      }
-    }, 500)
 
     return () => {
       cancelled = true
-      clearInterval(timer)
       window.removeEventListener('eip6963:announceProvider', handler)
     }
   }, [])
