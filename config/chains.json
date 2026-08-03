@@ -10,8 +10,8 @@
           "rpc_url": "https://eth.llamarpc.com",
           "explorer_url": "https://etherscan.io",
           "usdc_address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
-          "token_messenger_v2": "0x28b5a0e9C2308A3d74BE81826939D71BC9371B2e",
-          "message_transmitter_v2": "0x81D40F21F12A8F0E3252Bccb954D720d9770512A",
+          "token_messenger_v2": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+          "message_transmitter_v2": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
           "token_messenger_v1": "0xBd3fa81B58Ba92a82136038B25aDec7066af3155",
           "message_transmitter_v1": "0x0a992d191DEeC32aFe36203Ad87D7d289a738F81",
           "cctp_versions": [
@@ -31,8 +31,8 @@
           "rpc_url": "https://api.avax.network/ext/bc/C/rpc",
           "explorer_url": "https://snowtrace.io",
           "usdc_address": "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6e",
-          "token_messenger_v2": "0x28b5a0e9C2308A3d74BE81826939D71BC9371B2e",
-          "message_transmitter_v2": "0x81D40F21F12A8F0E3252Bccb954D720d9770512A",
+          "token_messenger_v2": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+          "message_transmitter_v2": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
           "token_messenger_v1": "0x6B25532e1060CE10cc3B0A99e5683b91BFDe6982",
           "message_transmitter_v1": "0x8186359aF5F57FbB40c6b14A588d2A59C0C29880",
           "cctp_versions": [
@@ -52,8 +52,8 @@
           "rpc_url": "https://mainnet.optimism.io",
           "explorer_url": "https://optimistic.etherscan.io",
           "usdc_address": "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85",
-          "token_messenger_v2": "0x28b5a0e9C2308A3d74BE81826939D71BC9371B2e",
-          "message_transmitter_v2": "0x81D40F21F12A8F0E3252Bccb954D720d9770512A",
+          "token_messenger_v2": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+          "message_transmitter_v2": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
           "token_messenger_v1": "0x2B4069517957735bE00ceE0fadAE88a26365528f",
           "message_transmitter_v1": "0x4D41f22c5a0e5c74090899E5a8Fb597a8842b3e8",
           "cctp_versions": [
@@ -73,8 +73,8 @@
           "rpc_url": "https://arb1.arbitrum.io/rpc",
           "explorer_url": "https://arbiscan.io",
           "usdc_address": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
-          "token_messenger_v2": "0x28b5a0e9C2308A3d74BE81826939D71BC9371B2e",
-          "message_transmitter_v2": "0x81D40F21F12A8F0E3252Bccb954D720d9770512A",
+          "token_messenger_v2": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+          "message_transmitter_v2": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
           "token_messenger_v1": "0x19330d10D9Cc8751218eaf51E8885D058642E08A",
           "message_transmitter_v1": "0xC30362313FBBA5cf9163F0bb16a0e01f01A896ca",
           "cctp_versions": [
@@ -94,8 +94,8 @@
           "rpc_url": "https://api.mainnet-beta.solana.com",
           "explorer_url": "https://solscan.io",
           "usdc_address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-          "token_messenger_v2": "",
-          "message_transmitter_v2": "",
+          "token_messenger_v2": "CCTPV2vPZJS2u2BBsUoscuikbYjnpFmbFsvVuJdgUMQe",
+          "message_transmitter_v2": "CCTPV2Sm4AdWt5296sk4P66VBZ7bEhcARwFaaS9YPbeC",
           "cctp_versions": [
             2
           ],
@@ -112,8 +112,8 @@
           "rpc_url": "https://mainnet.base.org",
           "explorer_url": "https://basescan.org",
           "usdc_address": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-          "token_messenger_v2": "0x28b5a0e9C2308A3d74BE81826939D71BC9371B2e",
-          "message_transmitter_v2": "0x81D40F21F12A8F0E3252Bccb954D720d9770512A",
+          "token_messenger_v2": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+          "message_transmitter_v2": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
           "token_messenger_v1": "0x1682Ae6375C4E4A97e4B583BC394c861A46d8962",
           "message_transmitter_v1": "0xAD09780d193884d503182aD4588450C416D6F9D4",
           "cctp_versions": [
@@ -133,8 +133,8 @@
           "rpc_url": "https://polygon-rpc.com",
           "explorer_url": "https://polygonscan.com",
           "usdc_address": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
-          "token_messenger_v2": "0x28b5a0e9C2308A3d74BE81826939D71BC9371B2e",
-          "message_transmitter_v2": "0x81D40F21F12A8F0E3252Bccb954D720d9770512A",
+          "token_messenger_v2": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+          "message_transmitter_v2": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
           "token_messenger_v1": "0x9daF8c91AEFAE50b9c0E69629D3F6Ca40cA3B3FE",
           "message_transmitter_v1": "0xF3be9355363857F3e001be68856A2f96b4C39Ba9",
           "cctp_versions": [
@@ -153,17 +153,17 @@
           "chain_id": null,
           "rpc_url": "https://fullnode.mainnet.sui.io:443",
           "explorer_url": "https://suiscan.xyz/mainnet/home",
-          "usdc_address": "0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb845e24ff689::usdc::USDC",
-          "token_messenger_v2": "0x63686576726f6e73000000000000000000000000000000000000000000000001",
-          "message_transmitter_v2": "0x63686576726f6e73000000000000000000000000000000000000000000000002",
+          "usdc_address": "0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC",
           "cctp_versions": [
-            2
+            1
           ],
           "chain_type": "sui",
           "supports_fast_transfer": false,
           "supports_forwarding": false,
           "block_time_ms": 2000,
-          "finality_blocks": 1
+          "finality_blocks": 1,
+          "token_messenger_v1": "0x2aa6c5d56376c371f88a6cc42e852824994993cb9bab8d3e6450cbe3cb32b94e",
+          "message_transmitter_v1": "0x08d87d37ba49e785dde270a83f8e979605b03dc552b5548f26fdf2f49bf7ed1b"
         },
         {
           "domain": 10,
@@ -171,9 +171,9 @@
           "chain_id": 130,
           "rpc_url": "https://mainnet.unichain.org",
           "explorer_url": "https://uniscan.io",
-          "usdc_address": "0x078D782b760474a361dDA0AF3839290b0EF57FEF",
-          "token_messenger_v2": "0x28b5a0e9C2308A3d74BE81826939D71BC9371B2e",
-          "message_transmitter_v2": "0x81D40F21F12A8F0E3252Bccb954D720d9770512A",
+          "usdc_address": "0x078D782b760474a361dDA0AF3839290b0EF57AD6",
+          "token_messenger_v2": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+          "message_transmitter_v2": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
           "cctp_versions": [
             2
           ],
@@ -189,9 +189,9 @@
           "chain_id": 59144,
           "rpc_url": "https://rpc.linea.build",
           "explorer_url": "https://lineascan.build",
-          "usdc_address": "0x176211869cA2b568f2A7D4FC9456dB96d577A886",
-          "token_messenger_v2": "0x28b5a0e9C2308A3d74BE81826939D71BC9371B2e",
-          "message_transmitter_v2": "0x81D40F21F12A8F0E3252Bccb954D720d9770512A",
+          "usdc_address": "0x176211869cA2b568f2A7D4EE941E073a821EE1ff",
+          "token_messenger_v2": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+          "message_transmitter_v2": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
           "cctp_versions": [
             2
           ],
@@ -207,9 +207,9 @@
           "chain_id": 8333,
           "rpc_url": "https://rpc.codex.xyz",
           "explorer_url": "https://explorer.codex.xyz",
-          "usdc_address": "0xd54A9c321Ba676679b2B2D47C1d4ED5e1e1A98C6",
-          "token_messenger_v2": "0x28b5a0e9C2308A3d74BE81826939D71BC9371B2e",
-          "message_transmitter_v2": "0x81D40F21F12A8F0E3252Bccb954D720d9770512A",
+          "usdc_address": "0xd996633a415985DBd7D6D12f4A4343E31f5037cf",
+          "token_messenger_v2": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+          "message_transmitter_v2": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
           "cctp_versions": [
             2
           ],
@@ -226,8 +226,8 @@
           "rpc_url": "https://rpc.soniclabs.com",
           "explorer_url": "https://sonicscan.org",
           "usdc_address": "0x29219dd400f2Bf60E5a23d13Be72B486D4038894",
-          "token_messenger_v2": "0x28b5a0e9C2308A3d74BE81826939D71BC9371B2e",
-          "message_transmitter_v2": "0x81D40F21F12A8F0E3252Bccb954D720d9770512A",
+          "token_messenger_v2": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+          "message_transmitter_v2": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
           "cctp_versions": [
             2
           ],
@@ -238,22 +238,22 @@
           "finality_blocks": 1
         },
         {
-          "domain": 14,
+          "domain": 9,
           "name": "Aptos",
           "chain_id": null,
           "rpc_url": "https://fullnode.mainnet.aptoslabs.com/v1",
           "explorer_url": "https://explorer.aptoslabs.com",
-          "usdc_address": "0xbae204db268662167f40e43d77e93293d5588929d8cbee8b714e8304318ae11e::coin::T",
-          "token_messenger_v2": "0x63686576726f6e73000000000000000000000000000000000000000000000001",
-          "message_transmitter_v2": "0x63686576726f6e73000000000000000000000000000000000000000000000002",
+          "usdc_address": "0xbae207659db88bea0cbead6da0ed00aac12edcdda169e591cd41c94180b46f3b",
           "cctp_versions": [
-            2
+            1
           ],
           "chain_type": "aptos",
           "supports_fast_transfer": true,
           "supports_forwarding": false,
           "block_time_ms": 1000,
-          "finality_blocks": 1
+          "finality_blocks": 1,
+          "token_messenger_v1": "0x9bce6734f7b63e835108e3bd8c36743d4709fe435f44791918801d0989640a9d",
+          "message_transmitter_v1": "0x177e17751820e4b4371873ca8c30279be63bdea63b88ed0f2239c2eea10f1772"
         },
         {
           "domain": 15,
@@ -261,9 +261,9 @@
           "chain_id": 10143,
           "rpc_url": "https://rpc.monad.xyz",
           "explorer_url": "https://explorer.monad.xyz",
-          "usdc_address": "0x0000000000000000000000000000000000000000",
-          "token_messenger_v2": "0x28b5a0e9C2308A3d74BE81826939D71BC9371B2e",
-          "message_transmitter_v2": "0x81D40F21F12A8F0E3252Bccb954D720d9770512A",
+          "usdc_address": "0x754704Bc059F8C67012fEd69BC8A327a5aafb603",
+          "token_messenger_v2": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+          "message_transmitter_v2": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
           "cctp_versions": [
             2
           ],
@@ -279,9 +279,9 @@
           "chain_id": 1329,
           "rpc_url": "https://evm-rpc.sei-apis.com",
           "explorer_url": "https://seitrace.com",
-          "usdc_address": "0x3894085Ef7Ff0f0aeDf52E2A2704928d1Ec074F1",
-          "token_messenger_v2": "0x28b5a0e9C2308A3d74BE81826939D71BC9371B2e",
-          "message_transmitter_v2": "0x81D40F21F12A8F0E3252Bccb954D720d9770512A",
+          "usdc_address": "0xe15fC38F6D8c56aF07bbCBe3BAf5708A2Bf42392",
+          "token_messenger_v2": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+          "message_transmitter_v2": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
           "cctp_versions": [
             2
           ],
@@ -298,8 +298,8 @@
           "rpc_url": "https://bsc-dataseed1.binance.org",
           "explorer_url": "https://bscscan.com",
           "usdc_address": "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
-          "token_messenger_v2": "0x28b5a0e9C2308A3d74BE81826939D71BC9371B2e",
-          "message_transmitter_v2": "0x81D40F21F12A8F0E3252Bccb954D720d9770512A",
+          "token_messenger_v2": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+          "message_transmitter_v2": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
           "cctp_versions": [
             2
           ],
@@ -315,9 +315,9 @@
           "chain_id": 50,
           "rpc_url": "https://rpc.xdcrpc.com",
           "explorer_url": "https://xdcscan.io",
-          "usdc_address": "0xD4d0Fa7A8d71A7b29C154983a2066E682f4B3B4a",
-          "token_messenger_v2": "0x28b5a0e9C2308A3d74BE81826939D71BC9371B2e",
-          "message_transmitter_v2": "0x81D40F21F12A8F0E3252Bccb954D720d9770512A",
+          "usdc_address": "0xfA2958CB79b0491CC627c1557F441eF849Ca8eb1",
+          "token_messenger_v2": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+          "message_transmitter_v2": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
           "cctp_versions": [
             2
           ],
@@ -333,9 +333,9 @@
           "chain_id": 999,
           "rpc_url": "https://rpc.hyperliquid.xyz",
           "explorer_url": "https://explorer.hyperliquid.xyz",
-          "usdc_address": "0x0000000000000000000000000000000000000000",
-          "token_messenger_v2": "0x28b5a0e9C2308A3d74BE81826939D71BC9371B2e",
-          "message_transmitter_v2": "0x81D40F21F12A8F0E3252Bccb954D720d9770512A",
+          "usdc_address": "0xb88339CB7199b77E23DB6E890353E22632Ba630f",
+          "token_messenger_v2": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+          "message_transmitter_v2": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
           "cctp_versions": [
             2
           ],
@@ -351,9 +351,9 @@
           "chain_id": 57073,
           "rpc_url": "https://rpc-gel.inkonchain.com",
           "explorer_url": "https://explorer.inkonchain.com",
-          "usdc_address": "0x0000000000000000000000000000000000000000",
-          "token_messenger_v2": "0x28b5a0e9C2308A3d74BE81826939D71BC9371B2e",
-          "message_transmitter_v2": "0x81D40F21F12A8F0E3252Bccb954D720d9770512A",
+          "usdc_address": "0x2D270e6886d130D724215A266106e6832161EAEd",
+          "token_messenger_v2": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+          "message_transmitter_v2": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
           "cctp_versions": [
             2
           ],
@@ -369,9 +369,9 @@
           "chain_id": 98866,
           "rpc_url": "https://rpc.plume.org",
           "explorer_url": "https://explorer.plume.org",
-          "usdc_address": "0x0000000000000000000000000000000000000000",
-          "token_messenger_v2": "0x28b5a0e9C2308A3d74BE81826939D71BC9371B2e",
-          "message_transmitter_v2": "0x81D40F21F12A8F0E3252Bccb954D720d9770512A",
+          "usdc_address": "0x222365EF19F7947e5484218551B56bb3965Aa7aF",
+          "token_messenger_v2": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+          "message_transmitter_v2": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
           "cctp_versions": [
             2
           ],
@@ -387,9 +387,9 @@
           "chain_id": null,
           "rpc_url": "https://starknet-mainnet.public.blastapi.io",
           "explorer_url": "https://starkscan.co",
-          "usdc_address": "",
-          "token_messenger_v2": "",
-          "message_transmitter_v2": "",
+          "usdc_address": "0x033068F6539f8e6e6b131e6B2B814e6c34A5224bC66947c47DaB9dFeE93b35fb",
+          "token_messenger_v2": "0x07d421B9cA8aA32DF259965cDA8ACb93F7599F69209A41872AE84638B2A20F2a",
+          "message_transmitter_v2": "0x02EBB5777B6dD8B26ea11D68Fdf1D2c85cD2099335328Be845a28c77A8AEf183",
           "cctp_versions": [
             2
           ],
@@ -406,8 +406,8 @@
           "rpc_url": "https://rpc.arc.org",
           "explorer_url": "https://explorer.arc.org",
           "usdc_address": "0x0000000000000000000000000000000000000000",
-          "token_messenger_v2": "0x28b5a0e9C2308A3d74BE81826939D71BC9371B2e",
-          "message_transmitter_v2": "0x81D40F21F12A8F0E3252Bccb954D720d9770512A",
+          "token_messenger_v2": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+          "message_transmitter_v2": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
           "cctp_versions": [
             2
           ],
@@ -423,7 +423,7 @@
           "chain_id": null,
           "rpc_url": "https://soroban-rpc.stellar.org",
           "explorer_url": "https://stellar.expert/explorer/public",
-          "usdc_address": "USDC:GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3THOJQHJMR5KTSLSQ",
+          "usdc_address": "USDC:GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
           "usdc_sac": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
           "token_messenger_v2": "CAE2G5Z77UP7GYPYGFOWFGW7C7J6I4YP2AFGSADRKQY62SYUFLPNFTXL",
           "message_transmitter_v2": "CACMENFFJPJMSDAJQLX4R7K3SFZIW2LJSE3R2UMLGSWHFHS353FVXAZV",
@@ -442,9 +442,9 @@
           "chain_id": 255,
           "rpc_url": "https://rpc.edge.network",
           "explorer_url": "https://explorer.edge.network",
-          "usdc_address": "0x0000000000000000000000000000000000000000",
-          "token_messenger_v2": "0x28b5a0e9C2308A3d74BE81826939D71BC9371B2e",
-          "message_transmitter_v2": "0x81D40F21F12A8F0E3252Bccb954D720d9770512A",
+          "usdc_address": "0x98d2919b9A214E6Fa5384AC81E6864bA686Ad74c",
+          "token_messenger_v2": "0x98706A006bc632Df31CAdFCBD43F38887ce2ca5c",
+          "message_transmitter_v2": "0x5b61381Fc9e58E70EfC13a4A97516997019198ee",
           "cctp_versions": [
             2
           ],
@@ -460,9 +460,9 @@
           "chain_id": 60808,
           "rpc_url": "https://sentry.tm.injective.network",
           "explorer_url": "https://explorer.injective.network",
-          "usdc_address": "0x0000000000000000000000000000000000000000",
-          "token_messenger_v2": "0x28b5a0e9C2308A3d74BE81826939D71BC9371B2e",
-          "message_transmitter_v2": "0x81D40F21F12A8F0E3252Bccb954D720d9770512A",
+          "usdc_address": "0xa00C59fF5a080D2b954d0c75e46E22a0c371235a",
+          "token_messenger_v2": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+          "message_transmitter_v2": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
           "cctp_versions": [
             2
           ],
@@ -478,9 +478,9 @@
           "chain_id": 2818,
           "rpc_url": "https://rpc.morphl2.io",
           "explorer_url": "https://explorer.morphl2.io",
-          "usdc_address": "0x0000000000000000000000000000000000000000",
-          "token_messenger_v2": "0x28b5a0e9C2308A3d74BE81826939D71BC9371B2e",
-          "message_transmitter_v2": "0x81D40F21F12A8F0E3252Bccb954D720d9770512A",
+          "usdc_address": "0xCfb1186F4e93D60E60a8bDd997427D1F33bc372B",
+          "token_messenger_v2": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+          "message_transmitter_v2": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
           "cctp_versions": [
             2
           ],
@@ -496,9 +496,9 @@
           "chain_id": 0,
           "rpc_url": "https://rpc.pharos.org",
           "explorer_url": "https://explorer.pharos.org",
-          "usdc_address": "0x0000000000000000000000000000000000000000",
-          "token_messenger_v2": "0x28b5a0e9C2308A3d74BE81826939D71BC9371B2e",
-          "message_transmitter_v2": "0x81D40F21F12A8F0E3252Bccb954D720d9770512A",
+          "usdc_address": "0xC879C018dB60520F4355C26eD1a6D572cdAC1815",
+          "token_messenger_v2": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+          "message_transmitter_v2": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
           "cctp_versions": [
             2
           ],
@@ -514,9 +514,9 @@
           "chain_id": 25,
           "rpc_url": "https://evm.cronos.org",
           "explorer_url": "https://cronoscan.com",
-          "usdc_address": "0xc21223249CA28397B4B6541dfFaEcC539BfF0c59",
-          "token_messenger_v2": "0x28b5a0e9C2308A3d74BE81826939D71BC9371B2e",
-          "message_transmitter_v2": "0x81D40F21F12A8F0E3252Bccb954D720d9770512A",
+          "usdc_address": "0x3D7F2C478aAfdB65542BCB44bCeeC05849999d2D",
+          "token_messenger_v2": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+          "message_transmitter_v2": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
           "cctp_versions": [
             2
           ],
@@ -527,14 +527,14 @@
           "finality_blocks": 1
         },
         {
-          "domain": 33,
+          "domain": 14,
           "name": "World Chain",
           "chain_id": 480,
           "rpc_url": "https://worldchain-mainnet.g.alchemy.com/public",
           "explorer_url": "https://worldscan.org",
-          "usdc_address": "0x79A02482A880bCE3F13e09Da970dC34db7CD1c73",
-          "token_messenger_v2": "0x28b5a0e9C2308A3d74BE81826939D71BC9371B2e",
-          "message_transmitter_v2": "0x81D40F21F12A8F0E3252Bccb954D720d9770512A",
+          "usdc_address": "0x79A02482A880bCe3F13E09da970dC34dB4cD24D1",
+          "token_messenger_v2": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+          "message_transmitter_v2": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
           "cctp_versions": [
             2
           ],
@@ -547,8 +547,8 @@
       ],
       "cctp": {
         "v2": {
-          "token_messenger": "0x28b5a0e9C2308A3d74BE81826939D71BC9371B2e",
-          "message_transmitter": "0x81D40F21F12A8F0E3252Bccb954D720d9770512A",
+          "token_messenger": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+          "message_transmitter": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
           "attestation_api": "https://iris-api.circle.com"
         },
         "v1": {
@@ -558,7 +558,9 @@
             "2": "0x2B4069517957735bE00ceE0fadAE88a26365528f",
             "3": "0x19330d10D9Cc8751218eaf51E8885D058642E08A",
             "6": "0x1682Ae6375C4E4A97e4B583BC394c861A46d8962",
-            "7": "0x9daF8c91AEFAE50b9c0E69629D3F6Ca40cA3B3FE"
+            "7": "0x9daF8c91AEFAE50b9c0E69629D3F6Ca40cA3B3FE",
+            "8": "0x2aa6c5d56376c371f88a6cc42e852824994993cb9bab8d3e6450cbe3cb32b94e",
+            "9": "0x9bce6734f7b63e835108e3bd8c36743d4709fe435f44791918801d0989640a9d"
           },
           "message_transmitter": {
             "0": "0x0a992d191DEeC32aFe36203Ad87D7d289a738F81",
@@ -566,7 +568,9 @@
             "2": "0x4D41f22c5a0e5c74090899E5a8Fb597a8842b3e8",
             "3": "0xC30362313FBBA5cf9163F0bb16a0e01f01A896ca",
             "6": "0xAD09780d193884d503182aD4588450C416D6F9D4",
-            "7": "0xF3be9355363857F3e001be68856A2f96b4C39Ba9"
+            "7": "0xF3be9355363857F3e001be68856A2f96b4C39Ba9",
+            "8": "0x08d87d37ba49e785dde270a83f8e979605b03dc552b5548f26fdf2f49bf7ed1b",
+            "9": "0x177e17751820e4b4371873ca8c30279be63bdea63b88ed0f2239c2eea10f1772"
           },
           "attestation_api": "https://iris-api.circle.com"
         }
@@ -659,8 +663,8 @@
           "rpc_url": "https://api.devnet.solana.com",
           "explorer_url": "https://solscan.io/?cluster=devnet",
           "usdc_address": "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
-          "token_messenger_v2": "",
-          "message_transmitter_v2": "",
+          "token_messenger_v2": "CCTPV2vPZJS2u2BBsUoscuikbYjnpFmbFsvVuJdgUMQe",
+          "message_transmitter_v2": "CCTPV2Sm4AdWt5296sk4P66VBZ7bEhcARwFaaS9YPbeC",
           "cctp_versions": [
             2
           ],
@@ -767,8 +771,8 @@
           "rpc_url": "https://starknet-sepolia.public.blastapi.io",
           "explorer_url": "https://sepolia.starkscan.co",
           "usdc_address": "0x0512feAc6339Ff7889822cb5aA2a86C848e9D392bB0E3E237C008674feeD8343",
-          "token_messenger_v2": "",
-          "message_transmitter_v2": "",
+          "token_messenger_v2": "0x04bDdE1E09a4B09a2F95d893D94a967b7717eB85A3f6dEcA8c080Ee01fBc3370",
+          "message_transmitter_v2": "0x04db7926C64f1f32a840F3Fa95cB551f3801a3600Bae87aF87807A54DCE12Fe8",
           "cctp_versions": [
             2
           ],
@@ -821,7 +825,7 @@
           "chain_id": 338,
           "rpc_url": "https://evm-croeseed-338.cronos.org",
           "explorer_url": "https://cronos.org/explorer/testnet3",
-          "usdc_address": "0xc21223249CA28397B4B6541dfFaEcC539BfF0c59",
+          "usdc_address": "0xEb33dc5fac03833e132593659e1dE7256aB59794",
           "token_messenger_v2": "0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA",
           "message_transmitter_v2": "0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275",
           "cctp_versions": [
@@ -835,39 +839,39 @@
         },
         {
           "domain": 8,
-          "name": "SUI Devnet",
+          "name": "Sui Testnet",
           "chain_id": null,
-          "rpc_url": "https://fullnode.devnet.sui.io:443",
+          "rpc_url": "https://fullnode.testnet.sui.io:443",
           "explorer_url": "https://suiscan.xyz/testnet/home",
-          "usdc_address": "0x3a915322be45c414508712322acdf4f4d5c94ac2c262f635f037e2a26f364dd3::usdc::USDC",
-          "token_messenger_v2": "",
-          "message_transmitter_v2": "",
+          "usdc_address": "0xa1ec7fc00a6f40db9693ad1415d0c193ad3906494428cf252621037bd7117e29::usdc::USDC",
           "cctp_versions": [
-            2
+            1
           ],
           "chain_type": "sui",
           "supports_fast_transfer": true,
           "supports_forwarding": false,
           "block_time_ms": 500,
-          "finality_blocks": 1
+          "finality_blocks": 1,
+          "token_messenger_v1": "0x31cc14d80c175ae39777c0238f20594c6d4869cfab199f40b69f3319956b8beb",
+          "message_transmitter_v1": "0x4931e06dce648b3931f890035bd196920770e913e43e45990b383f6486fdd0a5"
         },
         {
-          "domain": 14,
+          "domain": 9,
           "name": "Aptos Testnet",
           "chain_id": null,
           "rpc_url": "https://fullnode.testnet.aptoslabs.com/v1",
           "explorer_url": "https://explorer.aptoslabs.com/?network=testnet",
-          "usdc_address": "0xf22bede237a07e121b56d91a491eb7bcdfd1f5907926a9e58338f964a01b17fa::asset::USDC",
-          "token_messenger_v2": "",
-          "message_transmitter_v2": "",
+          "usdc_address": "0x69091fbab5f7d635ee7ac5098cf0c1efbe31d68fec0f2cd565e8d168daf52832",
           "cctp_versions": [
-            2
+            1
           ],
           "chain_type": "aptos",
           "supports_fast_transfer": true,
           "supports_forwarding": false,
           "block_time_ms": 1000,
-          "finality_blocks": 1
+          "finality_blocks": 1,
+          "token_messenger_v1": "0x5f9b937419dda90aa06c1836b7847f65bbbe3f1217567758dc2488be31a477b9",
+          "message_transmitter_v1": "0x081e86cebf457a0c6004f35bd648a2794698f52e0dde09a48619dcd3d4cc23d9"
         }
       ],
       "cctp": {
@@ -879,11 +883,15 @@
         "v1": {
           "token_messenger": {
             "0": "0x9f3B8679c73C2Fef8b59B4f3444d4e156fb70AA5",
-            "1": "0xeb08f243E5d3FCFF26A9E38Ae5520A669f4019d0"
+            "1": "0xeb08f243E5d3FCFF26A9E38Ae5520A669f4019d0",
+            "8": "0x31cc14d80c175ae39777c0238f20594c6d4869cfab199f40b69f3319956b8beb",
+            "9": "0x5f9b937419dda90aa06c1836b7847f65bbbe3f1217567758dc2488be31a477b9"
           },
           "message_transmitter": {
             "0": "0x7865fAfC2db2093669d92c0F33AeEF291086BEFD",
-            "1": "0xa9fB1b3009DCb79E2fe346c16a604B8Fa8aE0a79"
+            "1": "0xa9fB1b3009DCb79E2fe346c16a604B8Fa8aE0a79",
+            "8": "0x4931e06dce648b3931f890035bd196920770e913e43e45990b383f6486fdd0a5",
+            "9": "0x081e86cebf457a0c6004f35bd648a2794698f52e0dde09a48619dcd3d4cc23d9"
           },
           "attestation_api": "https://iris-api-sandbox.circle.com"
         }

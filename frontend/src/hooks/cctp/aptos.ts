@@ -34,9 +34,12 @@ export function useAptosAdapter(): ChainAdapter {
 
       const amountRaw = Math.floor(parseFloat(amount) * 1_000_000)
 
+      // Aptos is CCTP V1-only. NOTE: V1 deposit_for_burn takes a
+      // FungibleAsset (caller, asset, destination_domain, mint_recipient) —
+      // this adapter needs a V1 rewrite to pass a proper FungibleAsset.
       const payload: InputTransactionData = {
         data: {
-          function: `${chainConfig.token_messenger_v2}::token_messenger::deposit_for_burn`,
+          function: `${chainConfig.token_messenger_v1}::token_messenger::deposit_for_burn`,
           typeArguments: [chainConfig.usdc_address],
           functionArguments: [
             amountRaw.toString(),
@@ -84,9 +87,11 @@ export function useAptosAdapter(): ChainAdapter {
       const destChain = getChainByDomain(destDomain, mode)
       if (!destChain) throw new Error('Invalid destination chain')
 
+      // Aptos is CCTP V1-only; V1 receive_message + handle_receive_message is
+      // a two-step Move-script flow (not a single receive_message call).
       const payload: InputTransactionData = {
         data: {
-          function: `${destChain.message_transmitter_v2}::message_transmitter::receive_message`,
+          function: `${destChain.message_transmitter_v1}::message_transmitter::receive_message`,
           typeArguments: [],
           functionArguments: [
             hexToBytes(message),
