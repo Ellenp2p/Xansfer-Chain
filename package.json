@@ -6,10 +6,14 @@
     "packages/wallet-connect"
   ],
   "scripts": {
-    "dev": "cd frontend && bun run dev",
+    "dev": "bun run --cwd frontend dev",
     "dev:backend": "cargo run --manifest-path backend/Cargo.toml",
-    "build:package": "cd packages/wallet-connect && bun run build",
-    "build": "cd packages/wallet-connect && bun run build && cd .. && cd frontend && bun run build",
-    "preview": "cd frontend && bun run preview"
+    "build:package": "bun run --cwd packages/wallet-connect build",
+    "build": "bun run --cwd packages/wallet-connect build && bun run --cwd frontend build",
+    "preview": "bun run --cwd frontend preview"
+  },
+  "overrides": {
+    "@aptos-labs/ts-sdk": "7.2.0",
+    "@aptos-labs/wallet-standard": "2.0.0"
   }
 }
