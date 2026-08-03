@@ -41,18 +41,12 @@ pub struct ModeConfig {
 #[derive(Debug, Deserialize, Clone)]
 pub struct CctpConfig {
     pub v2: CctpVersionConfig,
-    pub v1: Option<CctpVersionConfigWithDomains>,
+    pub v1: Option<CctpVersionConfig>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct CctpVersionConfig {
-    pub token_messenger: String,
-    pub message_transmitter: String,
-    pub attestation_api: String,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub struct CctpVersionConfigWithDomains {
+    pub token_messenger: HashMap<String, String>,
     pub message_transmitter: HashMap<String, String>,
     pub attestation_api: String,
 }
@@ -66,10 +60,6 @@ pub struct RawChainConfig {
     pub explorer_url: String,
     pub usdc_address: String,
     pub usdc_sac: Option<String>,
-    pub token_messenger_v2: String,
-    pub message_transmitter_v2: String,
-    pub token_messenger_v1: Option<String>,
-    pub message_transmitter_v1: Option<String>,
     pub cctp_versions: Vec<u32>,
     pub chain_type: ChainType,
     pub supports_fast_transfer: bool,
@@ -182,10 +172,6 @@ pub fn resolve_mode_chains(mode_config: &ModeConfig) -> Result<Vec<ChainConfig>,
             rpc_url,
             explorer_url: raw.explorer_url.clone(),
             usdc_address: raw.usdc_address.clone(),
-            token_messenger_v2: raw.token_messenger_v2.clone(),
-            message_transmitter_v2: raw.message_transmitter_v2.clone(),
-            token_messenger_v1: raw.token_messenger_v1.clone(),
-            message_transmitter_v1: raw.message_transmitter_v1.clone(),
             cctp_versions: raw.cctp_versions.clone(),
             chain_type: raw.chain_type.clone(),
             supports_fast_transfer: raw.supports_fast_transfer,

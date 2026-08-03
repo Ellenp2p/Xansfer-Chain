@@ -50,10 +50,6 @@ interface RawChainConfig {
   explorer_url: ResolvableString
   usdc_address: ResolvableString
   usdc_sac?: ResolvableString
-  token_messenger_v2: ResolvableString
-  message_transmitter_v2: ResolvableString
-  token_messenger_v1?: ResolvableString
-  message_transmitter_v1?: ResolvableString
   cctp_versions?: number[]
   chain_type: ChainConfig['chain_type']
   supports_fast_transfer?: boolean
@@ -71,10 +67,6 @@ function resolveChainConfig(raw: RawChainConfig): ChainConfig {
     explorer_url: resolveString(raw.explorer_url),
     usdc_address: resolveString(raw.usdc_address),
     usdc_sac: raw.usdc_sac ? resolveString(raw.usdc_sac) : undefined,
-    token_messenger_v2: resolveString(raw.token_messenger_v2),
-    message_transmitter_v2: resolveString(raw.message_transmitter_v2),
-    token_messenger_v1: raw.token_messenger_v1 ? resolveString(raw.token_messenger_v1) : undefined,
-    message_transmitter_v1: raw.message_transmitter_v1 ? resolveString(raw.message_transmitter_v1) : undefined,
     cctp_versions: raw.cctp_versions ?? [2],
     chain_type: raw.chain_type,
     supports_fast_transfer: raw.supports_fast_transfer ?? false,
@@ -130,17 +122,13 @@ export interface CctpContractSet {
 
 export function getCctpContracts(domain: number, version: number, mode: Mode): CctpContractSet | null {
   const cctp = modeConfig(mode).cctp
-  if (version === 2) {
-    return {
-      tokenMessenger: resolveString(cctp.v2.token_messenger),
-      messageTransmitter: resolveString(cctp.v2.message_transmitter),
-    }
-  }
-  if (version === 1 && cctp.v1) {
-    const v1Tokens = cctp.v1.token_messenger as unknown as Record<string, ResolvableString>
-    const v1Transmitters = cctp.v1.message_transmitter as unknown as Record<string, ResolvableString>
-    const tm = v1Tokens[String(domain)]
-    const mt = v1Transmitters[String(domain)]
+  if (version === 2 || version === 1) {
+    const cfg = version === 2 ? cctp.v2 : cctp.v1
+    if (!cfg) return null
+    const tokens = cfg.token_messenger as unknown as Record<string, ResolvableString>
+    const transmitters = cfg.message_transmitter as unknown as Record<string, ResolvableString>
+    const tm = tokens[String(domain)]
+    const mt = transmitters[String(domain)]
     if (!tm || !mt) return null
     return {
       tokenMessenger: resolveString(tm),

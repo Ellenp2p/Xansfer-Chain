@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
 import { useWallet, type InputTransactionData } from '@aptos-labs/wallet-adapter-react'
-import { getChainByDomain } from '../../config/chains'
+import { getCctpContracts } from '../../config/chains'
 import { useNetworkMode } from '../../stores/networkMode'
 import type { ChainAdapter, SourceBurnParams, ClaimParams } from './types'
 import type { ChainConfig } from '../../types'
@@ -37,9 +37,11 @@ export function useAptosAdapter(): ChainAdapter {
       // Aptos is CCTP V1-only. NOTE: V1 deposit_for_burn takes a
       // FungibleAsset (caller, asset, destination_domain, mint_recipient) —
       // this adapter needs a V1 rewrite to pass a proper FungibleAsset.
+      const contracts = getCctpContracts(chainConfig.domain, 1, mode as 'mainnet' | 'testnet')
+      if (!contracts) throw new Error(`No CCTP v1 contracts configured for domain ${chainConfig.domain}`)
       const payload: InputTransactionData = {
         data: {
-          function: `${chainConfig.token_messenger_v1}::token_messenger::deposit_for_burn`,
+          function: `${contracts.tokenMessenger}::token_messenger::deposit_for_burn`,
           typeArguments: [chainConfig.usdc_address],
           functionArguments: [
             amountRaw.toString(),
@@ -84,14 +86,14 @@ export function useAptosAdapter(): ChainAdapter {
         throw new Error('Aptos wallet not connected')
       }
 
-      const destChain = getChainByDomain(destDomain, mode)
-      if (!destChain) throw new Error('Invalid destination chain')
+      const contracts = getCctpContracts(destDomain, 1, mode as 'mainnet' | 'testnet')
+      if (!contracts) throw new Error(`No CCTP v1 contracts configured for domain ${destDomain}`)
 
       // Aptos is CCTP V1-only; V1 receive_message + handle_receive_message is
       // a two-step Move-script flow (not a single receive_message call).
       const payload: InputTransactionData = {
         data: {
-          function: `${destChain.message_transmitter_v1}::message_transmitter::receive_message`,
+          function: `${contracts.messageTransmitter}::message_transmitter::receive_message`,
           typeArguments: [],
           functionArguments: [
             hexToBytes(message),

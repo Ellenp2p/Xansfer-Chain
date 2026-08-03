@@ -75,16 +75,18 @@ impl ChainRegistry {
         cctp_version: i64,
     ) -> Option<String> {
         let mode = normalize_mode(network_mode);
-        if cctp_version == 2 {
-            let cctp = self.cctp.get(mode)?;
-            Some(cctp.v2.message_transmitter.clone())
+        let cctp = self.cctp.get(mode)?;
+        let version_cfg = if cctp_version == 2 {
+            Some(&cctp.v2)
         } else if cctp_version == 1 {
-            let cctp = self.cctp.get(mode)?;
-            let v1 = cctp.v1.as_ref()?;
-            v1.message_transmitter.get(&domain.to_string()).cloned()
+            cctp.v1.as_ref()
         } else {
             None
-        }
+        };
+        version_cfg?
+            .message_transmitter
+            .get(&domain.to_string())
+            .cloned()
     }
 
     pub fn get_attestation_api(&self, network_mode: &str, cctp_version: i64) -> Option<String> {

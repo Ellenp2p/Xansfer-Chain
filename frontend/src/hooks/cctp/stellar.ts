@@ -3,6 +3,7 @@ import { signTransaction } from '@stellar/freighter-api'
 import { rpc, Contract, TransactionBuilder, Address, nativeToScVal, xdr, Networks, BASE_FEE } from '@stellar/stellar-sdk'
 import { useNetworkMode } from '../../stores/networkMode'
 import { useWalletState } from '@xansfer/wallet-connect'
+import { getCctpContracts } from '../../config/chains'
 import type { ChainAdapter, SourceBurnParams, ClaimParams } from './types'
 import type { ChainConfig } from '../../types'
 
@@ -156,7 +157,9 @@ export function useStellarAdapter(): ChainAdapter {
 
     const amountRaw = BigInt(Math.round(parseFloat(amount) * 10_000_000))
     const publicKey = await getPublicKey()
-    const currentAllowance = await getAllowance(chainConfig, publicKey, chainConfig.token_messenger_v2)
+    const contracts = getCctpContracts(chainConfig.domain, 2, mode as 'mainnet' | 'testnet')
+    if (!contracts) throw new Error(`No CCTP v2 contracts configured for domain ${chainConfig.domain}`)
+    const currentAllowance = await getAllowance(chainConfig, publicKey, contracts.tokenMessenger)
     console.log('[approveUsdc] currentAllowance=' + currentAllowance + ' required=' + amountRaw)
 
     if (currentAllowance >= amountRaw) {
@@ -173,7 +176,7 @@ export function useStellarAdapter(): ChainAdapter {
 
     await buildAndSubmitContract(chainConfig.domain, usdcSacAddr, 'approve', [
       new Address(publicKey).toScVal(),
-      new Address(chainConfig.token_messenger_v2).toScVal(),
+      new Address(contracts.tokenMessenger).toScVal(),
       nativeToScVal(maxApprove, { type: 'i128' }),
       nativeToScVal(expirationLedger, { type: 'u32' }),
     ])
@@ -248,6 +251,9 @@ export function useStellarAdapter(): ChainAdapter {
       const usdcSacAddr = chainConfig.usdc_sac
       if (!usdcSacAddr) throw new Error('Stellar chain config missing usdc_sac — check chains.ts')
 
+      const contracts = getCctpContracts(chainConfig.domain, 2, mode as 'mainnet' | 'testnet')
+      if (!contracts) throw new Error(`No CCTP v2 contracts configured for domain ${chainConfig.domain}`)
+
       // deposit_for_burn(
       //   sender: Address,
       //   amount: i128,
@@ -269,7 +275,7 @@ export function useStellarAdapter(): ChainAdapter {
         nativeToScVal(minFinalityThreshold, { type: 'u32' }), // min_finality_threshold
       ]
 
-      return buildAndSubmitContract(chainConfig.domain, chainConfig.token_messenger_v2, 'deposit_for_burn', args)
+      return buildAndSubmitContract(chainConfig.domain, contracts.tokenMessenger, 'deposit_for_burn', args)
     },
     [mode, buildAndSubmitContract, getPublicKey],
   )
@@ -388,12 +394,11 @@ export function useStellarAdapter(): ChainAdapter {
         fn = 'mint_and_forward'
       } else {
         // EVM/other destination: use MessageTransmitter.receive_message
-        const { getChainByDomain } = await import('../../config/chains')
-        const destChain = getChainByDomain(destDomain, mode as 'mainnet' | 'testnet')
-        if (!destChain?.message_transmitter_v2) {
-          throw new Error(`No Message Transmitter configured for domain ${destDomain}`)
+        const contracts = getCctpContracts(destDomain, 2, mode as 'mainnet' | 'testnet')
+        if (!contracts) {
+          throw new Error(`No CCTP v2 Message Transmitter configured for domain ${destDomain}`)
         }
-        contractAddress = destChain.message_transmitter_v2
+        contractAddress = contracts.messageTransmitter
         fn = 'receive_message'
       }
 
