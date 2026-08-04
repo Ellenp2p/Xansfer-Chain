@@ -26,6 +26,25 @@ function getNetworkPassphrase(mode: string): string {
   return NETWORK_PASSPHRASE[mode] ?? Networks.PUBLIC
 }
 
+/**
+ * Wrap Soroban getAccount so an unactivated (non-existent) Stellar account
+ * produces a clear, actionable error. On Stellar a new address does not exist
+ * on-chain until it holds the minimum XLM balance reserve.
+ */
+async function accountOrError(server: rpc.Server, address: string, network: string) {
+  try {
+    return await server.getAccount(address)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    if (/not found|not exist|does not exist/i.test(msg)) {
+      throw new Error(
+        `Stellar account ${address} does not exist on ${network}. Send it at least 1 XLM (minimum balance reserve) to create the account first.`,
+      )
+    }
+    throw e
+  }
+}
+
 /** bytes32 hex → ScVal bytes */
 function bytes32(hex: string): xdr.ScVal {
   const clean = hex.startsWith('0x') ? hex.slice(2) : hex
@@ -55,7 +74,7 @@ export function useStellarAdapter(): ChainAdapter {
       const sorobanUrl = getSorobanUrl(chainConfig.domain, mode)
       const passphrase = getNetworkPassphrase(mode)
       const server = new rpc.Server(sorobanUrl, { allowHttp: false })
-      const account = await server.getAccount(owner)
+      const account = await accountOrError(server, owner, mode)
       const usdcContract = new Contract(chainConfig.usdc_sac!)
 
       const tx = new TransactionBuilder(account, {
@@ -90,7 +109,7 @@ export function useStellarAdapter(): ChainAdapter {
 
       async function attemptSubmit(): Promise<string> {
         // Fetch account & build contract invocation
-        const account = await server.getAccount(publicKey)
+        const account = await accountOrError(server, publicKey, mode)
         const contract = new Contract(contractId)
         const op = contract.call(fn, ...args)
 

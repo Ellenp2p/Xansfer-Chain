@@ -3,7 +3,7 @@ import { useEvmAdapter } from './cctp/evm'
 import { useAptosAdapter } from './cctp/aptos'
 import { useStellarAdapter } from './cctp/stellar'
 import type { ChainAdapter } from './cctp/types'
-import { getChainByDomain } from '../config/chains'
+import { getChainByDomain, getSupportedVersions } from '../config/chains'
 import { useNetworkMode } from '../stores/networkMode'
 import { useWalletState } from '@xansfer/wallet-connect'
 import * as api from '../lib/api'
@@ -81,6 +81,24 @@ export function useCctpTransfer() {
       const srcChain = getChainByDomain(sourceDomain, mode)
       if (!srcChain) {
         setError('Invalid source chain')
+        setStep('error')
+        return
+      }
+
+      // CCTP v1 and v2 messages/attestations are NOT cross-compatible: an
+      // attestation signed by the v2 attester can never pass verification on a
+      // v1-only chain's MessageTransmitter (e.g. Aptos). Reject pairs with no
+      // shared version up front instead of letting the burn/claim fail later.
+      const srcVersions = getSupportedVersions(sourceDomain, mode)
+      const dstVersions = getSupportedVersions(destDomain, mode)
+      const commonVersions = srcVersions.filter((v) => dstVersions.includes(v))
+      if (commonVersions.length === 0) {
+        setError('源链与目标链没有共同支持的 CCTP 版本，无法转账')
+        setStep('error')
+        return
+      }
+      if (!commonVersions.includes(cctpVersion)) {
+        setError(`源链与目标链不支持 CCTP v${cctpVersion}，请使用 v${commonVersions.join(' 或 v')}`)
         setStep('error')
         return
       }

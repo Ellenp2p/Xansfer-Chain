@@ -1,6 +1,7 @@
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Globe } from 'lucide-react'
 import { modeFromPath } from '../config/chains'
+import { useNetworkMode } from '../stores/networkMode'
 
 /**
  * Switches network by navigating between "/" (mainnet) and "/testnet" paths,
@@ -15,6 +16,9 @@ export default function NetworkToggle() {
   const toggle = () => {
     const base = location.pathname.replace(/^\/testnet/, '') || '/'
     const target = isTestnet ? base : `/testnet${base}`
+    // Update the store synchronously so adapters (e.g. Stellar RPC selection)
+    // never use a stale mode between navigation and the location effect.
+    useNetworkMode.getState().setMode(isTestnet ? 'mainnet' : 'testnet')
     navigate(target, { replace: true })
   }
 

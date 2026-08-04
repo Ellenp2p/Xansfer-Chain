@@ -136,6 +136,7 @@ export default function TransferForm() {
   const ready =
     store.sourceDomain != null &&
     store.destDomain != null &&
+    commonVersions.length > 0 &&
     store.amount &&
     destAddress &&
     srcWalletReady &&
@@ -359,6 +360,19 @@ export default function TransferForm() {
         <div className="flex items-center gap-2 text-xs text-gray-500">
           <Layers className="h-3.5 w-3.5" />
           CCTP v{commonVersions[0]}
+        </div>
+      )}
+
+      {/* Incompatible CCTP versions between source and dest */}
+      {commonVersions.length === 0 && store.sourceDomain != null && store.destDomain != null && (
+        <div className="flex items-start gap-2 rounded-lg bg-amber-500/10 px-3 sm:px-4 py-3 text-sm text-amber-400 break-words">
+          <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+          <span>
+            源链与目标链没有共同支持的 CCTP 版本
+            {srcChainType != null && `（源 ${srcChainType} v${srcVersions.join('/')}`}
+            {dstChainType != null && `，目标 ${dstChainType} v${dstVersions.join('/')}`}
+            {')'}，无法转账。
+          </span>
         </div>
       )}
 
