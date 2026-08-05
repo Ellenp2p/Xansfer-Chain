@@ -15,6 +15,16 @@ function hexToBytes(hex: string): number[] {
   return bytes
 }
 
+/**
+ * CCTP mint_recipient for a non-Move destination (e.g. EVM) must be a
+ * 32-byte (64 hex) address. EVM addresses are 20 bytes, so left-pad them.
+ */
+function normalizeMintRecipient(addr: string): string {
+  const clean = addr.replace(/^0x/i, '')
+  if (clean.length === 64) return `0x${clean}`
+  return `0x${clean.padStart(64, '0')}`
+}
+
 // Pre-compiled CCTP V1 Move script bytecode from
 // https://github.com/circlefin/aptos-cctp/tree/master/typescript/example/precompiled-move-scripts
 // On Aptos neither deposit_for_burn nor receive_message is a plain entry
@@ -73,7 +83,7 @@ export function useAptosAdapter(): ChainAdapter {
           functionArguments: [
             new U64(amountRaw),
             new U32(destDomain),
-            AccountAddress.from(destAddress),
+            AccountAddress.from(normalizeMintRecipient(destAddress)),
             AccountAddress.from(chainConfig.usdc_address),
           ],
         },
@@ -87,12 +97,13 @@ export function useAptosAdapter(): ChainAdapter {
 
   const waitForSourceTx = useCallback(
     async (txHash: string, chainConfig: ChainConfig): Promise<any> => {
-      const rpcUrl = chainConfig.rpc_url
+      // rpc_url already includes /v1 (e.g. https://fullnode.testnet.aptoslabs.com/v1)
+      const base = chainConfig.rpc_url.endsWith('/v1') ? chainConfig.rpc_url : `${chainConfig.rpc_url}/v1`
       const deadline = Date.now() + 120_000
 
       while (Date.now() < deadline) {
         try {
-          const resp = await fetch(`${rpcUrl}/v1/transactions/by_hash/${txHash}`)
+          const resp = await fetch(`${base}/transactions/by_hash/${txHash}`)
           if (resp.ok) {
             const tx = await resp.json()
             if (tx.type === 'user_transaction') return tx
