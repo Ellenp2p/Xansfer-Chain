@@ -2,7 +2,7 @@ import { useWriteContract, useSwitchChain, useAccount } from 'wagmi'
 import { readContract } from 'wagmi/actions'
 import { useCallback } from 'react'
 import { parseUnits, type Hex, toHex, stringToBytes } from 'viem'
-import { ERC20_ABI, TOKEN_MESSENGER_V2_ABI, MESSAGE_TRANSMITTER_V2_ABI } from '../../config/cctp-abi'
+import { ERC20_ABI, TOKEN_MESSENGER_V1_ABI, TOKEN_MESSENGER_V2_ABI, MESSAGE_TRANSMITTER_V1_ABI, MESSAGE_TRANSMITTER_V2_ABI } from '../../config/cctp-abi'
 import { getCctpContracts } from '../../config/chains'
 import { getChainIdForDomain, isChainSupportedByWagmi } from '../../config/wagmi'
 import { useNetworkMode } from '../../stores/networkMode'
@@ -176,10 +176,29 @@ export function useEvmAdapter(): ChainAdapter {
         })
       }
 
-      // Standard EVM → EVM transfer
-      const zeroPad = '000000000000000000000000'
-      const mintRecipient = (`0x${zeroPad}${destAddress.slice(2).toLowerCase()}`) as Hex
+      // Standard EVM → non-Stellar transfer. mintRecipient must be bytes32:
+      // EVM addresses (20 bytes) are left-padded, Aptos (32 bytes) already fit.
+      const cleanAddr = destAddress.replace(/^0x/i, '').toLowerCase()
+      if (!/^[0-9a-f]+$/.test(cleanAddr)) {
+        throw new Error(`Unsupported destination address format: "${destAddress.slice(0, 8)}…"`)
+      }
+      const mintRecipient = (`0x${cleanAddr.padStart(64, '0')}`) as Hex
       const destinationCaller = '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex
+
+      // CCTP v1 depositForBurn(uint256,uint32,bytes32,address) — no destinationCaller/maxFee.
+      if (cctpVersion === 1) {
+        return await writeContractAsync({
+          address: contracts.tokenMessenger as Hex,
+          abi: TOKEN_MESSENGER_V1_ABI,
+          functionName: 'depositForBurn',
+          args: [
+            amountBigInt,
+            destDomain,
+            mintRecipient,
+            chainConfig.usdc_address as Hex,
+          ],
+        })
+      }
 
       return await writeContractAsync({
         address: contracts.tokenMessenger as Hex,
@@ -237,7 +256,7 @@ export function useEvmAdapter(): ChainAdapter {
 
       const claimTxHash = await writeContractAsync({
         address: contracts.messageTransmitter as Hex,
-        abi: MESSAGE_TRANSMITTER_V2_ABI,
+        abi: cctpVersion === 1 ? MESSAGE_TRANSMITTER_V1_ABI : MESSAGE_TRANSMITTER_V2_ABI,
         functionName: 'receiveMessage',
         args: [message as Hex, attestation as Hex],
       })

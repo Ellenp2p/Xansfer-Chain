@@ -9,6 +9,7 @@ use tokio::sync::broadcast;
 use tracing::{error, info, warn};
 
 use crate::chains::registry::ChainRegistry;
+use crate::chains::ChainType;
 use crate::db::models::Transaction;
 
 #[derive(Debug, Deserialize)]
@@ -88,22 +89,42 @@ impl AttestationPoller {
         let version = tx.cctp_version;
         let api_base = self.iris_api_base(version, &tx.network_mode);
 
-        let url = format!(
-            "{}/messages/{}?transactionHash={}",
-            api_base, tx.source_domain, tx.source_tx_hash
-        );
+        let msg = if version == 1 {
+            let Some(message) = self
+                .resolve_source_message(tx.source_domain, &tx.source_tx_hash, &tx.network_mode)
+                .await?
+            else {
+                return Ok(false);
+            };
+            let Some(m) = self.query_v1_attestation(&api_base, &message).await? else {
+                return Ok(false);
+            };
+            // v1 /attestations does not return the message body — persist the
+            // one parsed from the source transaction so claims can use it.
+            let mut m = m;
+            if m.message.is_none() {
+                m.message = Some(message);
+            }
+            m
+        } else {
+            let url = format!(
+                "{}/messages/{}?transactionHash={}",
+                api_base, tx.source_domain, tx.source_tx_hash
+            );
 
-        tracing::debug!("Polling attestation: GET {}", url);
+            tracing::debug!("Polling attestation: GET {}", url);
 
-        let resp = self.http.get(&url).send().await?;
+            let resp = self.http.get(&url).send().await?;
 
-        if !resp.status().is_success() {
-            return Ok(false);
-        }
+            if !resp.status().is_success() {
+                return Ok(false);
+            }
 
-        let data: MessagesResponse = resp.json().await?;
-        let Some(msg) = data.messages.first() else {
-            return Ok(false);
+            let data: MessagesResponse = resp.json().await?;
+            let Some(m) = data.messages.into_iter().next() else {
+                return Ok(false);
+            };
+            m
         };
 
         let attestation = match &msg.attestation {
@@ -176,7 +197,132 @@ pub fn parse_message_meta(message_hex: &str) -> Option<(i64, i64, i64)> {
     Some((version, source_domain, dest_domain))
 }
 
+/// keccak256("MessageSent(bytes)") — the topic of the CCTP MessageSent event on EVM chains.
+fn message_sent_topic() -> [u8; 32] {
+    let mut hasher = Keccak::v256();
+    let mut out = [0u8; 32];
+    hasher.update(b"MessageSent(bytes)");
+    hasher.finalize(&mut out);
+    out
+}
+
+/// Decode the `bytes` argument of an EVM `MessageSent(bytes)` event log.
+fn decode_message_sent_log(data: &str) -> Option<Vec<u8>> {
+    let bytes = hex::decode(data.strip_prefix("0x").unwrap_or(data)).ok()?;
+    if bytes.len() < 64 {
+        return None;
+    }
+    // ABI encoding: bytes32 offset, bytes32 length, then the bytes.
+    let mut len_buf = [0u8; 8];
+    len_buf.copy_from_slice(&bytes[56..64]);
+    let len = u64::from_be_bytes(len_buf) as usize;
+    let start = 64usize;
+    let end = start.saturating_add(len);
+    if end <= bytes.len() {
+        Some(bytes[start..end].to_vec())
+    } else {
+        None
+    }
+}
+
 impl AttestationPoller {
+    /// Resolve the CCTP message bytes emitted by the source chain transaction.
+    /// Needed for the v1 attestation flow, which queries Iris by message hash
+    /// instead of the v2 `/messages/{domain}?transactionHash=` endpoint.
+    async fn resolve_source_message(
+        &self,
+        source_domain: i64,
+        source_tx_hash: &str,
+        network_mode: &str,
+    ) -> Result<Option<String>> {
+        let Some(chain) = self.chains.get(source_domain, network_mode) else {
+            return Ok(None);
+        };
+        match chain.chain_type {
+            ChainType::Evm => self.parse_evm_message(&chain.rpc_url, source_tx_hash).await,
+            ChainType::Aptos => self.parse_aptos_message(&chain.rpc_url, source_tx_hash).await,
+            ChainType::Sui => {
+                warn!("Sui source message parsing not implemented — v1 attestation lookup skipped");
+                Ok(None)
+            }
+            _ => Ok(None),
+        }
+    }
+
+    async fn parse_evm_message(&self, rpc_url: &str, tx_hash: &str) -> Result<Option<String>> {
+        let body = serde_json::json!({
+            "jsonrpc": "2.0",
+            "method": "eth_getTransactionReceipt",
+            "params": [tx_hash],
+            "id": 1,
+        });
+        let resp = self.http.post(rpc_url).json(&body).send().await?;
+        let v: serde_json::Value = resp.json().await?;
+        let result = &v["result"];
+        if result.is_null() {
+            return Ok(None);
+        }
+        let topic_hex = format!("0x{}", hex::encode(&message_sent_topic()));
+        let Some(logs) = result.get("logs").and_then(|l| l.as_array()) else {
+            return Ok(None);
+        };
+        for log in logs {
+            if log["topics"].get(0).and_then(|t| t.as_str()) == Some(&topic_hex) {
+                if let Some(msg) = log["data"].as_str().and_then(decode_message_sent_log) {
+                    return Ok(Some(format!("0x{}", hex::encode(&msg))));
+                }
+            }
+        }
+        Ok(None)
+    }
+
+    async fn parse_aptos_message(&self, rpc_url: &str, tx_hash: &str) -> Result<Option<String>> {
+        let base = if rpc_url.ends_with("/v1") {
+            rpc_url.to_string()
+        } else {
+            format!("{rpc_url}/v1")
+        };
+        let url = format!("{base}/transactions/by_hash/{tx_hash}");
+        let resp = self.http.get(&url).send().await?;
+        if !resp.status().is_success() {
+            return Ok(None);
+        }
+        let v: serde_json::Value = resp.json().await?;
+        let Some(events) = v.get("events").and_then(|e| e.as_array()) else {
+            return Ok(None);
+        };
+        for evt in events {
+            let ty = evt["type"].as_str().unwrap_or("");
+            if ty.ends_with("::message_transmitter::MessageSent") {
+                if let Some(msg) = evt["data"]["message"].as_str() {
+                    if !msg.is_empty() {
+                        return Ok(Some(
+                            if msg.starts_with("0x") { msg.to_string() } else { format!("0x{msg}") },
+                        ));
+                    }
+                }
+            }
+        }
+        Ok(None)
+    }
+
+    /// Query the CCTP v1 attestation service: GET {base}/attestations/{messageHash}
+    async fn query_v1_attestation(
+        &self,
+        api_base: &str,
+        message_hex: &str,
+    ) -> Result<Option<CctpMessage>> {
+        let bytes = hex::decode(message_hex.strip_prefix("0x").unwrap_or(message_hex))?;
+        let hash = keccak256(&bytes);
+        let url = format!("{api_base}/attestations/0x{}", hex::encode(&hash));
+        tracing::debug!("Query v1 attestation: GET {}", url);
+        let resp = self.http.get(&url).send().await?;
+        if !resp.status().is_success() {
+            return Ok(None);
+        }
+        Ok(Some(resp.json::<CctpMessage>().await?))
+    }
+
     pub async fn check_transaction(
         &self,
         source_domain: i64,
@@ -185,6 +331,22 @@ impl AttestationPoller {
         network_mode: &str,
     ) -> Result<Option<CctpMessage>> {
         let api_base = self.iris_api_base(cctp_version, network_mode);
+
+        if cctp_version == 1 {
+            let Some(message) =
+                self.resolve_source_message(source_domain, source_tx_hash, network_mode).await?
+            else {
+                return Ok(None);
+            };
+            let Some(m) = self.query_v1_attestation(&api_base, &message).await? else {
+                return Ok(None);
+            };
+            let mut m = m;
+            if m.message.is_none() {
+                m.message = Some(message);
+            }
+            return Ok(Some(m));
+        }
 
         let url = format!(
             "{}/messages/{}?transactionHash={}",
