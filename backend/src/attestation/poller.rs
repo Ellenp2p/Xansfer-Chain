@@ -241,10 +241,7 @@ impl AttestationPoller {
         match chain.chain_type {
             ChainType::Evm => self.parse_evm_message(&chain.rpc_url, source_tx_hash).await,
             ChainType::Aptos => self.parse_aptos_message(&chain.rpc_url, source_tx_hash).await,
-            ChainType::Sui => {
-                warn!("Sui source message parsing not implemented — v1 attestation lookup skipped");
-                Ok(None)
-            }
+            ChainType::Sui => self.parse_sui_message(&chain.rpc_url, source_tx_hash).await,
             _ => Ok(None),
         }
     }
@@ -307,6 +304,41 @@ impl AttestationPoller {
     }
 
     /// Query the CCTP v1 attestation service: GET {base}/attestations/{messageHash}
+    async fn parse_sui_message(&self, rpc_url: &str, tx_hash: &str) -> Result<Option<String>> {
+        let body = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "sui_getTransactionBlock",
+            "params": [tx_hash, {"showEvents": true}]
+        });
+        let resp = self.http.post(rpc_url).json(&body).send().await?;
+        let v: serde_json::Value = resp.json().await?;
+        let Some(events) = v.get("result").and_then(|r| r.get("events")).and_then(|e| e.as_array()) else {
+            return Ok(None);
+        };
+        for evt in events {
+            let ty = evt["type"].as_str().unwrap_or("");
+            if ty.ends_with("::message_transmitter::MessageSent") {
+                // Sui event JSON may expose the vector<u8> message as a hex string
+                // (with or without 0x prefix) or as an array of byte values.
+                if let Some(msg) = evt["parsedJson"]["message"].as_str() {
+                    if !msg.is_empty() {
+                        return Ok(Some(
+                            if msg.starts_with("0x") { msg.to_string() } else { format!("0x{msg}") },
+                        ));
+                    }
+                }
+                if let Some(arr) = evt["parsedJson"]["message"].as_array() {
+                    let bytes: Vec<u8> = arr.iter().filter_map(|n| n.as_u64().map(|b| b as u8)).collect();
+                    if !bytes.is_empty() {
+                        return Ok(Some(format!("0x{}", hex::encode(&bytes))));
+                    }
+                }
+            }
+        }
+        Ok(None)
+    }
+
     async fn query_v1_attestation(
         &self,
         api_base: &str,

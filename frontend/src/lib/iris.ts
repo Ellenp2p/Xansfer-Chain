@@ -1,4 +1,4 @@
-import { keccak256 } from 'viem'
+import { keccak256, bytesToHex } from 'viem'
 import { getAttestationUrl, getChainByDomain, type Mode } from '../config/chains'
 
 export interface IrisMessage {
@@ -44,6 +44,35 @@ async function resolveSourceMessage(
       if (typeof evt?.type === 'string' && evt.type.endsWith('::message_transmitter::MessageSent')) {
         const msg = evt?.data?.message
         if (typeof msg === 'string' && msg) return msg.startsWith('0x') ? msg : `0x${msg}`
+      }
+    }
+    return null
+  }
+
+  if (chain.chain_type === 'sui') {
+    const res = await fetch(chain.rpc_url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'sui_getTransactionBlock',
+        params: [sourceTxHash, { showEvents: true }],
+      }),
+    })
+    if (!res.ok) return null
+    const json = await res.json()
+    const events = json?.result?.events ?? []
+    for (const evt of events) {
+      if (typeof evt?.type === 'string' && evt.type.endsWith('::message_transmitter::MessageSent')) {
+        const parsed = evt?.parsedJson?.message
+        if (typeof parsed === 'string' && parsed) {
+          return parsed.startsWith('0x') ? parsed : `0x${parsed}`
+        }
+        if (Array.isArray(parsed)) {
+          const bytes = parsed.map((n: unknown) => Number(n)).filter((n) => Number.isInteger(n) && n >= 0 && n <= 255)
+          if (bytes.length) return `0x${bytesToHex(new Uint8Array(bytes))}`
+        }
       }
     }
     return null

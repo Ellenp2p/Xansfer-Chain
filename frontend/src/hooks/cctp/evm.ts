@@ -62,7 +62,7 @@ function buildCctpForwarderHookData(forwardRecipient: string): Hex {
 // CCTP Forwarder contract addresses on Stellar
 const STELLAR_CCTP_FORWARDER: Record<string, string> = {
   testnet: 'CA66Q2WFBND6V4UEB7RD4SAXSVIWMD6RA4X3U32ELVFGXV5PJK4T4VSZ',
-  // mainnet: TODO — add when available
+  mainnet: 'CBZL2IH7F6BIDAA3WBNXYKIXSATJGMSW7K5P5MJ6STX5RXN47TZJDF5T',
 }
 
 export function useEvmAdapter(): ChainAdapter {
