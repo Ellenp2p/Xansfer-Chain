@@ -209,7 +209,8 @@
           "explorer_url": "https://explorer.aptoslabs.com",
           "usdc_address": "0xbae207659db88bea0cbead6da0ed00aac12edcdda169e591cd41c94180b46f3b",
           "cctp_versions": [
-            1
+            1,
+            2
           ],
           "chain_type": "aptos",
           "supports_fast_transfer": true,
@@ -485,6 +486,7 @@
             "5": "CCTPV2vPZJS2u2BBsUoscuikbYjnpFmbFsvVuJdgUMQe",
             "6": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
             "7": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+            "9": "0x551e32781793c30bf1580d11e4f5171e8d068c3d45c3a5b20ae240bfdad99af8",
             "10": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
             "11": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
             "12": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
@@ -514,6 +516,7 @@
             "5": "CCTPV2Sm4AdWt5296sk4P66VBZ7bEhcARwFaaS9YPbeC",
             "6": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
             "7": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
+            "9": "0x1b3f6d749cb835451202f9a1932e49014266f7e3d51611a9a763d156cb4bdaf6",
             "10": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
             "11": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
             "12": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
@@ -815,7 +818,8 @@
           "explorer_url": "https://explorer.aptoslabs.com/?network=testnet",
           "usdc_address": "0x69091fbab5f7d635ee7ac5098cf0c1efbe31d68fec0f2cd565e8d168daf52832",
           "cctp_versions": [
-            1
+            1,
+            2
           ],
           "chain_type": "aptos",
           "supports_fast_transfer": true,
@@ -834,6 +838,7 @@
             "5": "CCTPV2vPZJS2u2BBsUoscuikbYjnpFmbFsvVuJdgUMQe",
             "6": "0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA",
             "7": "0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA",
+            "9": "0xc601d3f7b89b77b552726d5d84cbf2a6d3e8a73adbbee3f09fad169a3286bb59",
             "10": "0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA",
             "11": "0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA",
             "13": "0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA",
@@ -850,6 +855,7 @@
             "5": "CCTPV2Sm4AdWt5296sk4P66VBZ7bEhcARwFaaS9YPbeC",
             "6": "0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275",
             "7": "0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275",
+            "9": "0xa582dc019ae17b0485f7d3fcc4ca85bea7941e3b70a4b682cea22759f36e711f",
             "10": "0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275",
             "11": "0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275",
             "13": "0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275",

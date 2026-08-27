@@ -1,7 +1,6 @@
 import { useCallback } from 'react'
 import { useWallet, type InputTransactionData } from '@aptos-labs/wallet-adapter-react'
 import { MoveVector, U64, U32, AccountAddress } from '@aptos-labs/ts-sdk'
-import { getCctpContracts } from '../../config/chains'
 import { useNetworkMode } from '../../stores/networkMode'
 import type { ChainAdapter, SourceBurnParams, ClaimParams } from './types'
 import type { ChainConfig } from '../../types'
@@ -25,6 +24,12 @@ function normalizeMintRecipient(addr: string): string {
   return `0x${clean.padStart(64, '0')}`
 }
 
+const ZERO_ADDRESS = '0x' + '0'.repeat(64)
+
+function emptyU8Vector() {
+  return MoveVector.U8([])
+}
+
 // Pre-compiled CCTP V1 Move script bytecode from
 // https://github.com/circlefin/aptos-cctp/tree/master/typescript/example/precompiled-move-scripts
 // On Aptos neither deposit_for_burn nor receive_message is a plain entry
@@ -43,6 +48,22 @@ const RECEIVE_SCRIPT_BYTECODE: Record<string, string> = {
     'oRzrCwcAAAoGAQAEAgQEAwgMBRQWBypTCH1AAAABAQACAAAAAwIDAAEBBAMEAAEDBgwKAgoCAAMGDAYKAgYKAgEIAAEBE21lc3NhZ2VfdHJhbnNtaXR0ZXIPdG9rZW5fbWVzc2VuZ2VyB1JlY2VpcHQPcmVjZWl2ZV9tZXNzYWdlFmhhbmRsZV9yZWNlaXZlX21lc3NhZ2UIHobOv0V6DGAE81vWSKJ5Rpj1Lg3eCaSGGdzT1Mwj2V+bk3QZ3akKoGwYNreEf2W7vj8SF1Z3WNwkiL4xpHe5AAABBwsADgEOAhEAEQEBAg==',
   mainnet:
     'oRzrCwcAAAoGAQAEAgQEAwgMBRQWBypTCH1AAAABAQACAAAAAwIDAAEBBAMEAAEDBgwKAgoCAAMGDAYKAgYKAgEIAAEBE21lc3NhZ2VfdHJhbnNtaXR0ZXIPdG9rZW5fbWVzc2VuZ2VyB1JlY2VpcHQPcmVjZWl2ZV9tZXNzYWdlFmhhbmRsZV9yZWNlaXZlX21lc3NhZ2UXfhd1GCDktDcYc8qMMCeb5jvepjuI7Q8iOcLuoQ8XcpvOZzT3tj6DUQjjvYw2dD1HCf5DX0R5GRiAHQmJZAqdAAABBwsADgEOAhEAEQEBAg==',
+}
+
+// CCTP V2 scripts from
+// https://github.com/circlefin/aptos-cctp/tree/master/typescript/example/precompiled-move-scripts/v2
+const BURN_SCRIPT_BYTECODE_V2: Record<string, string> = {
+  testnet:
+    'oRzrCwkAAAoIAQAKAgoSAxwiBD4EBUI/B4EBsAEIsQKAARCxAx8BAwEEAQcCCgMMAAILAAEGBwEAAQAJAAADCwAAAQUDBAEIAQEBAggFBgEIAQEBAwEICQABAQEEDQkBAAEBAQACAQIIBgwDDgUFBQMOAAEIAAEFAQsBAQkAAwYMCwEBCQADAQgCAQIIBgwIAg4FBQMOCgICCAMIAgMLAQEIAAgCCAMIPFNFTEY+XzAQZGVwb3NpdF9mb3JfYnVybghNZXRhZGF0YQ5mdW5naWJsZV9hc3NldAZvYmplY3QRYWRkcmVzc190b19vYmplY3QGT2JqZWN0FnByaW1hcnlfZnVuZ2libGVfc3RvcmUId2l0aGRyYXcNRnVuZ2libGVBc3NldBZ0b2tlbl9tZXNzZW5nZXJfbWludGVyC0J1cm5SZWNlaXB0B2hhbmRsZXIEYnVybv//////////////////////////////////////////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHGAdP3uJt3tVJybV2Ey/Km0+inOtu+4/CfrRaaMoa7WeXRnE624eQsVDWQH8YVP9GfZhVlG+Dmzv4PByJtSmhGFGNvbXBpbGF0aW9uX21ldGFkYXRhCQADMi4wAzIuMwAAAQoTCwU4AAwICgALCAsBOAEMCQsACwkLAgsDCwQLBgsHQAcAAAAAAAAAABECEQMC',
+  mainnet:
+    'oRzrCwkAAAoIAQAKAgoSAxwiBD4EBUI/B4EBsAEIsQKAARCxAx8BAwEEAQcCCgMMAAILAAEGBwEAAQAJAAADCwAAAQUDBAEIAQEBAggFBgEIAQEBAwEICQABAQEEDQkBAAEBAQACAQIIBgwDDgUFBQMOAAEIAAEFAQsBAQkAAwYMCwEBCQADAQgCAQIIBgwIAg4FBQMOCgICCAMIAgMLAQEIAAgCCAMIPFNFTEY+XzAQZGVwb3NpdF9mb3JfYnVybghNZXRhZGF0YQ5mdW5naWJsZV9hc3NldAZvYmplY3QRYWRkcmVzc190b19vYmplY3QGT2JqZWN0FnByaW1hcnlfZnVuZ2libGVfc3RvcmUId2l0aGRyYXcNRnVuZ2libGVBc3NldBZ0b2tlbl9tZXNzZW5nZXJfbWludGVyC0J1cm5SZWNlaXB0B2hhbmRsZXIEYnVybv//////////////////////////////////////////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFVHjJ4F5PDC/FYDRHk9RcejQaMPUXDpbIK4kC/2tma+CuWP4qii4FdLodb2FoaAdXy00bwj1ufz4lTx3aAc1ryFGNvbXBpbGF0aW9uX21ldGFkYXRhCQADMi4wAzIuMwAAAQoTCwU4AAwICgALCAsBOAEMCQsACwkLAgsDCwQLBgsHQAcAAAAAAAAAABECEQMC',
+}
+
+const RECEIVE_SCRIPT_BYTECODE_V2: Record<string, string> = {
+  testnet:
+    'oRzrCwkAAAoHAQAGAgYIAw4YBSYXBz1yCK8BgAEQrwIfAQICBAMHAAMAAAEGAAAAAQIDAAEBAQEFAwQAAQEBAggEAQABAQEDBgwKAgoCAAMGDAYKAgYKAgEIAAEIAQg8U0VMRj5fMw9yZWNlaXZlX21lc3NhZ2UTbWVzc2FnZV90cmFuc21pdHRlcgdSZWNlaXB0FnRva2VuX21lc3Nlbmdlcl9taW50ZXIMcHJlcGFyZV9taW50C01pbnRSZWNlaXB0B2hhbmRsZXIEbWludP//////////////////////////////////////////pYLcAZrhewSF99P8xMqFvqeUHjtwpLaCzqInWfNucR/GAdP3uJt3tVJybV2Ey/Km0+inOtu+4/CfrRaaMoa7WeXRnE624eQsVDWQH8YVP9GfZhVlG+Dmzv4PByJtSmhGFGNvbXBpbGF0aW9uX21ldGFkYXRhCQADMi4wAzIuMwAAAQEHCwAOAQ4CEQARARECAg==',
+  mainnet:
+    'oRzrCwkAAAoHAQAGAgYIAw4YBSYXBz1yCK8BgAEQrwIfAQICBAMHAAMAAAEGAAAAAQIDAAEBAQEFAwQAAQEBAggEAQABAQEDBgwKAgoCAAMGDAYKAgYKAgEIAAEIAQg8U0VMRj5fMw9yZWNlaXZlX21lc3NhZ2UTbWVzc2FnZV90cmFuc21pdHRlcgdSZWNlaXB0FnRva2VuX21lc3Nlbmdlcl9taW50ZXIMcHJlcGFyZV9taW50C01pbnRSZWNlaXB0B2hhbmRsZXIEbWludP//////////////////////////////////////////Gz9tdJy4NUUSAvmhky5JAUJm9+PVFhGpp2PRVstL2vZVHjJ4F5PDC/FYDRHk9RcejQaMPUXDpbIK4kC/2tma+CuWP4qii4FdLodb2FoaAdXy00bwj1ufz4lTx3aAc1ryFGNvbXBpbGF0aW9uX21ldGFkYXRhCQADMi4wAzIuMwAAAQEHCwAOAQ4CEQARARECAg==',
 }
 
 function decodeBytecode(b64: string): Uint8Array {
@@ -65,15 +86,60 @@ export function useAptosAdapter(): ChainAdapter {
   }, [])
 
   const burnUsdc = useCallback(
-    async ({ chainConfig, amount, destDomain, destAddress }: SourceBurnParams): Promise<string> => {
+    async ({ chainConfig, amount, destDomain, destAddress, cctpVersion = 1, transferType }: SourceBurnParams): Promise<string> => {
       if (!connected || !account?.address) {
         throw new Error('Aptos wallet not connected')
       }
 
       const amountRaw = Math.floor(parseFloat(amount) * 1_000_000)
+      const isFast = transferType === 'fast'
+      const minFinalityThreshold = isFast ? 1000 : 2000
 
-      // Aptos is CCTP V1-only. deposit_for_burn takes a FungibleAsset, so it is
-      // executed via the pre-compiled Move script, not an entry function call.
+      if (cctpVersion === 2) {
+        const bytecode = BURN_SCRIPT_BYTECODE_V2[mode]
+        if (!bytecode) throw new Error(`No CCTP v2 deposit_for_burn script for network "${mode}"`)
+
+        // Query Circle fee API for fast transfers (standard threshold fee is usually 0).
+        let maxFee = 0n
+        try {
+          const feeBase = mode === 'testnet'
+            ? 'https://iris-api-sandbox.circle.com'
+            : 'https://iris-api.circle.com'
+          const feeResp = await fetch(`${feeBase}/v2/burn/USDC/fees/${chainConfig.domain}/${destDomain}`)
+          if (feeResp.ok) {
+            const feeData = await feeResp.json()
+            const feeEntry = feeData.find((f: any) => f.finalityThreshold === minFinalityThreshold)
+            if (feeEntry && feeEntry.minimumFee > 0) {
+              const raw = BigInt(Math.ceil(feeEntry.minimumFee * 1_000_000))
+              maxFee = (raw * 120n) / 100n
+            }
+          }
+        } catch (e) {
+          console.warn('[aptos burnUsdc] Failed to fetch fee, using 0:', e)
+        }
+
+        const payload: InputTransactionData = {
+          data: {
+            bytecode: decodeBytecode(bytecode),
+            functionArguments: [
+              new U64(amountRaw),
+              new U32(destDomain),
+              AccountAddress.from(normalizeMintRecipient(destAddress)),
+              AccountAddress.from(ZERO_ADDRESS),
+              AccountAddress.from(chainConfig.usdc_address),
+              new U64(Number(maxFee)),
+              new U32(minFinalityThreshold),
+              emptyU8Vector(),
+            ],
+          },
+        }
+
+        const result = await signAndSubmitTransaction(payload)
+        return result.hash
+      }
+
+      // CCTP v1: deposit_for_burn takes a FungibleAsset, so it is executed via a
+      // pre-compiled Move script, not a plain entry function call.
       const bytecode = BURN_SCRIPT_BYTECODE[mode]
       if (!bytecode) throw new Error(`No CCTP v1 deposit_for_burn script for network "${mode}"`)
 
@@ -120,18 +186,32 @@ export function useAptosAdapter(): ChainAdapter {
   )
 
   const claimOnDest = useCallback(
-    async ({ destDomain, message, attestation }: ClaimParams): Promise<string> => {
+    async ({ destDomain: _destDomain, message, attestation, cctpVersion = 1 }: ClaimParams): Promise<string> => {
       if (!connected || !account?.address) {
         throw new Error('Aptos wallet not connected')
       }
 
-      const contracts = getCctpContracts(destDomain, 1, mode as 'mainnet' | 'testnet')
-      if (!contracts) throw new Error(`No CCTP v1 contracts configured for domain ${destDomain}`)
+      // receive_message is NOT an entry function — it returns a hot-potato
+      // Receipt that must be consumed by prepare_mint + handler::mint in the
+      // SAME transaction, which can only be done via a pre-compiled Move script.
+      if (cctpVersion === 2) {
+        const bytecode = RECEIVE_SCRIPT_BYTECODE_V2[mode]
+        if (!bytecode) throw new Error(`No CCTP v2 receive script for network "${mode}"`)
 
-      // Aptos is CCTP V1-only. receive_message is NOT an entry function — it
-      // returns a hot-potato Receipt that must be consumed by
-      // handle_receive_message + complete_receive_message in the SAME
-      // transaction, which can only be done via a pre-compiled Move script.
+        const payload: InputTransactionData = {
+          data: {
+            bytecode: decodeBytecode(bytecode),
+            functionArguments: [
+              MoveVector.U8(hexToBytes(message)),
+              MoveVector.U8(hexToBytes(attestation)),
+            ],
+          },
+        }
+
+        const result = await signAndSubmitTransaction(payload)
+        return result.hash
+      }
+
       const bytecode = RECEIVE_SCRIPT_BYTECODE[mode]
       if (!bytecode) throw new Error(`No CCTP v1 receive script for network "${mode}"`)
 
