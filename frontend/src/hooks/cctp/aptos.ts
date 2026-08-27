@@ -26,10 +26,6 @@ function normalizeMintRecipient(addr: string): string {
 
 const ZERO_ADDRESS = '0x' + '0'.repeat(64)
 
-function emptyU8Vector() {
-  return MoveVector.U8([])
-}
-
 // Pre-compiled CCTP V1 Move script bytecode from
 // https://github.com/circlefin/aptos-cctp/tree/master/typescript/example/precompiled-move-scripts
 // On Aptos neither deposit_for_burn nor receive_message is a plain entry
@@ -129,7 +125,6 @@ export function useAptosAdapter(): ChainAdapter {
               AccountAddress.from(chainConfig.usdc_address),
               new U64(Number(maxFee)),
               new U32(minFinalityThreshold),
-              emptyU8Vector(),
             ],
           },
         }
