@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react'
 import { useEvmAdapter } from './cctp/evm'
 import { useAptosAdapter } from './cctp/aptos'
 import { useStellarAdapter } from './cctp/stellar'
+import { useSuiAdapter } from './cctp/sui'
 import type { ChainAdapter } from './cctp/types'
 import { getChainByDomain, getSupportedVersions } from '../config/chains'
 import { useNetworkMode } from '../stores/networkMode'
@@ -55,6 +56,7 @@ export function useCctpTransfer() {
   const evmAdapter = useEvmAdapter()
   const aptosAdapter = useAptosAdapter()
   const stellarAdapter = useStellarAdapter()
+  const suiAdapter = useSuiAdapter()
   const mode = useNetworkMode((s) => s.mode)
   const wallet = useWalletState()
 
@@ -63,6 +65,7 @@ export function useCctpTransfer() {
       case 'evm': return evmAdapter
       case 'aptos': return aptosAdapter
       case 'stellar': return stellarAdapter
+      case 'sui': return suiAdapter
       default: throw new Error(`${chainType} chain type not supported for CCTP transfers yet`)
     }
   }
@@ -206,7 +209,7 @@ export function useCctpTransfer() {
         setStep('error')
       }
     },
-    [mode, wallet, evmAdapter, aptosAdapter, stellarAdapter],
+    [mode, wallet, evmAdapter, aptosAdapter, stellarAdapter, suiAdapter],
   )
 
   const claimOnDestination = useCallback(
@@ -269,7 +272,7 @@ export function useCctpTransfer() {
         setStep('error')
       }
     },
-    [mode, sourceTxHash, evmAdapter, aptosAdapter, stellarAdapter],
+    [mode, sourceTxHash, evmAdapter, aptosAdapter, stellarAdapter, suiAdapter],
   )
 
   const reset = useCallback(() => {
