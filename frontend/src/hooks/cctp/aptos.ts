@@ -1,6 +1,7 @@
 import { useCallback } from 'react'
 import { useWallet, type InputTransactionData } from '@aptos-labs/wallet-adapter-react'
 import { MoveVector, U64, U32, AccountAddress } from '@aptos-labs/ts-sdk'
+import { toHex, stringToBytes } from 'viem'
 import { useNetworkMode } from '../../stores/networkMode'
 import type { ChainAdapter, SourceBurnParams, ClaimParams } from './types'
 import type { ChainConfig } from '../../types'
@@ -25,6 +26,57 @@ function normalizeMintRecipient(addr: string): string {
 }
 
 const ZERO_ADDRESS = '0x' + '0'.repeat(64)
+
+// Stellar StrKey decoding helpers for Aptos → Stellar CCTP forwarding.
+const STELLAR_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
+
+function stellarStrKeyDecode(strkey: string): Uint8Array {
+  let bits = 0
+  let value = 0
+  const output: number[] = []
+  for (const char of strkey.toUpperCase()) {
+    const idx = STELLAR_ALPHABET.indexOf(char)
+    if (idx === -1) throw new Error(`Invalid character in Stellar strkey: ${char}`)
+    value = (value << 5) | idx
+    bits += 5
+    if (bits >= 8) {
+      output.push((value >>> (bits - 8)) & 0xff)
+      bits -= 8
+    }
+  }
+  return new Uint8Array(output)
+}
+
+/** Convert Stellar contract strkey (C...) to bytes32 hex. */
+function contractStrKeyToBytes32(strkey: string): string {
+  if (!strkey.startsWith('C') || strkey.length !== 56) {
+    throw new Error(`Invalid Stellar contract strkey: ${strkey}`)
+  }
+  const decoded = stellarStrKeyDecode(strkey)
+  const contractId = decoded.slice(1, 33)
+  return toHex(contractId, { size: 32 })
+}
+
+/**
+ * Build hookData for CCTP Forwarder.
+ * Layout: [24-byte zero padding][4-byte hook version (0)][4-byte recipient length][recipient UTF-8 bytes]
+ */
+function buildCctpForwarderHookData(forwardRecipient: string): string {
+  const recipientBytes = stringToBytes(forwardRecipient)
+  const hookData = new Uint8Array(32 + recipientBytes.length)
+  hookData[28] = (recipientBytes.length >>> 24) & 0xff
+  hookData[29] = (recipientBytes.length >>> 16) & 0xff
+  hookData[30] = (recipientBytes.length >>> 8) & 0xff
+  hookData[31] = recipientBytes.length & 0xff
+  hookData.set(recipientBytes, 32)
+  return toHex(hookData)
+}
+
+// CCTP Forwarder contract addresses on Stellar.
+const STELLAR_CCTP_FORWARDER: Record<string, string> = {
+  testnet: 'CA66Q2WFBND6V4UEB7RD4SAXSVIWMD6RA4X3U32ELVFGXV5PJK4T4VSZ',
+  // mainnet: TODO — add when available
+}
 
 // Pre-compiled CCTP V1 Move script bytecode from
 // https://github.com/circlefin/aptos-cctp/tree/master/typescript/example/precompiled-move-scripts
@@ -62,6 +114,13 @@ const RECEIVE_SCRIPT_BYTECODE_V2: Record<string, string> = {
     'oRzrCwkAAAoHAQAGAgYIAw4YBSYXBz1yCK8BgAEQrwIfAQICBAMHAAMAAAEGAAAAAQIDAAEBAQEFAwQAAQEBAggEAQABAQEDBgwKAgoCAAMGDAYKAgYKAgEIAAEIAQg8U0VMRj5fMw9yZWNlaXZlX21lc3NhZ2UTbWVzc2FnZV90cmFuc21pdHRlcgdSZWNlaXB0FnRva2VuX21lc3Nlbmdlcl9taW50ZXIMcHJlcGFyZV9taW50C01pbnRSZWNlaXB0B2hhbmRsZXIEbWludP//////////////////////////////////////////Gz9tdJy4NUUSAvmhky5JAUJm9+PVFhGpp2PRVstL2vZVHjJ4F5PDC/FYDRHk9RcejQaMPUXDpbIK4kC/2tma+CuWP4qii4FdLodb2FoaAdXy00bwj1ufz4lTx3aAc1ryFGNvbXBpbGF0aW9uX21ldGFkYXRhCQADMi4wAzIuMwAAAQEHCwAOAQ4CEQARARECAg==',
 }
 
+const BURN_SCRIPT_BYTECODE_V2_WITH_HOOK: Record<string, string> = {
+  testnet:
+    'oRzrCwkAAAoIAQAMAgwSAx4qBEgEBUxDB48B4gEI8QKAARDxAx8BAwEEAQcCCgMNAQ8AAgsAAQYHAQABAAkAAAMMAAABBQQFAQgBAQECCAYHAQgBAQEDCwgJAAEBAQQOCQEAAQEBBRAKCgABAQEAAwEDCQYMAw4FBQUDDgoCAAECAQgAAQUBCwEBCQADBgwLAQEJAAMBCAIIBgwIAg4FBQMOCgICCAMIAgEDAwsBAQgACAIIAwg8U0VMRj5fMRpkZXBvc2l0X2Zvcl9idXJuX3dpdGhfaG9vawhNZXRhZGF0YQ5mdW5naWJsZV9hc3NldAZvYmplY3QRYWRkcmVzc190b19vYmplY3QGT2JqZWN0FnByaW1hcnlfZnVuZ2libGVfc3RvcmUId2l0aGRyYXcNRnVuZ2libGVBc3NldBZ0b2tlbl9tZXNzZW5nZXJfbWludGVyEGRlcG9zaXRfZm9yX2J1cm4LQnVyblJlY2VpcHQHaGFuZGxlcgRidXJuBWVycm9yEGludmFsaWRfYXJndW1lbnT//////////////////////////////////////////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABxgHT97ibd7VScm1dhMvyptPopzrbvuPwn60WmjKGu1nl0ZxOtuHkLFQ1kB/GFT/Rn2YVZRvg5s7+DwcibUpoRhRjb21waWxhdGlvbl9tZXRhZGF0YQkAAzIuMAMyLjMAAAELHQ4IQQIGAAAAAAAAAAAkBBgLBTgADAkKAAsJCwE4AQwKCwALCgsCCwMLBAsGCwcLCBECEQMCCwABBgEAAAAAAAAAEQQn',
+  mainnet:
+    'oRzrCwkAAAoIAQAMAgwSAx4qBEgEBUxDB48B4gEI8QKAARDxAx8BAwEEAQcCCgMNAQ8AAgsAAQYHAQABAAkAAAMMAAABBQQFAQgBAQECCAYHAQgBAQEDCwgJAAEBAQQOCQEAAQEBBRAKCgABAQEAAwEDCQYMAw4FBQUDDgoCAAECAQgAAQUBCwEBCQADBgwLAQEJAAMBCAIIBgwIAg4FBQMOCgICCAMIAgEDAwsBAQgACAIIAwg8U0VMRj5fMRpkZXBvc2l0X2Zvcl9idXJuX3dpdGhfaG9vawhNZXRhZGF0YQ5mdW5naWJsZV9hc3NldAZvYmplY3QRYWRkcmVzc190b19vYmplY3QGT2JqZWN0FnByaW1hcnlfZnVuZ2libGVfc3RvcmUId2l0aGRyYXcNRnVuZ2libGVBc3NldBZ0b2tlbl9tZXNzZW5nZXJfbWludGVyEGRlcG9zaXRfZm9yX2J1cm4LQnVyblJlY2VpcHQHaGFuZGxlcgRidXJuBWVycm9yEGludmFsaWRfYXJndW1lbnT//////////////////////////////////////////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABVR4yeBeTwwvxWA0R5PUXHo0GjD1Fw6WyCuJAv9rZmvgrlj+KoouBXS6HW9haGgHV8tNG8I9bn8+JU8d2gHNa8hRjb21waWxhdGlvbl9tZXRhZGF0YQkAAzIuMAMyLjMAAAELHQ4IQQIGAAAAAAAAAAAkBBgLBTgADAkKAAsJCwE4AQwKCwALCgsCCwMLBAsGCwcLCBECEQMCCwABBgEAAAAAAAAAEQQn',
+}
+
 function decodeBytecode(b64: string): Uint8Array {
   const bin = atob(b64)
   const out = new Uint8Array(bin.length)
@@ -82,7 +141,7 @@ export function useAptosAdapter(): ChainAdapter {
   }, [])
 
   const burnUsdc = useCallback(
-    async ({ chainConfig, amount, destDomain, destAddress, cctpVersion = 1, transferType }: SourceBurnParams): Promise<string> => {
+    async ({ chainConfig, amount, destDomain, destAddress, destChainType, cctpVersion = 1, transferType }: SourceBurnParams): Promise<string> => {
       if (!connected || !account?.address) {
         throw new Error('Aptos wallet not connected')
       }
@@ -91,28 +150,60 @@ export function useAptosAdapter(): ChainAdapter {
       const isFast = transferType === 'fast'
       const minFinalityThreshold = isFast ? 1000 : 2000
 
+      // Query Circle fee API (v2 only; v1 does not use maxFee).
+      let maxFee = 0n
+      try {
+        const feeBase = mode === 'testnet'
+          ? 'https://iris-api-sandbox.circle.com'
+          : 'https://iris-api.circle.com'
+        const feeResp = await fetch(`${feeBase}/v2/burn/USDC/fees/${chainConfig.domain}/${destDomain}`)
+        if (feeResp.ok) {
+          const feeData = await feeResp.json()
+          const feeEntry = feeData.find((f: any) => f.finalityThreshold === minFinalityThreshold)
+          if (feeEntry && feeEntry.minimumFee > 0) {
+            const raw = BigInt(Math.ceil(feeEntry.minimumFee * 1_000_000))
+            maxFee = (raw * 120n) / 100n
+          }
+        }
+      } catch (e) {
+        console.warn('[aptos burnUsdc] Failed to fetch fee, using 0:', e)
+      }
+
       if (cctpVersion === 2) {
+        const isStellarDest = destChainType === 'stellar' || destAddress.startsWith('G')
+
+        // Aptos → Stellar uses CCTP Forwarder + hook data.
+        if (isStellarDest) {
+          const forwarderAddr = STELLAR_CCTP_FORWARDER[mode]
+          if (!forwarderAddr) throw new Error('Stellar CCTP Forwarder not configured for this network')
+
+          const forwarderAptosAddr = AccountAddress.from(contractStrKeyToBytes32(forwarderAddr))
+          const hookData = buildCctpForwarderHookData(destAddress)
+          const bytecode = BURN_SCRIPT_BYTECODE_V2_WITH_HOOK[mode]
+          if (!bytecode) throw new Error(`No CCTP v2 deposit_for_burn_with_hook script for network "${mode}"`)
+
+          const payload: InputTransactionData = {
+            data: {
+              bytecode: decodeBytecode(bytecode),
+              functionArguments: [
+                new U64(amountRaw),
+                new U32(destDomain),
+                forwarderAptosAddr,        // mintRecipient = CCTP Forwarder
+                forwarderAptosAddr,        // destinationCaller = CCTP Forwarder
+                AccountAddress.from(chainConfig.usdc_address),
+                new U64(Number(maxFee)),
+                new U32(minFinalityThreshold),
+                MoveVector.U8(hexToBytes(hookData)),
+              ],
+            },
+          }
+
+          const result = await signAndSubmitTransaction(payload)
+          return result.hash
+        }
+
         const bytecode = BURN_SCRIPT_BYTECODE_V2[mode]
         if (!bytecode) throw new Error(`No CCTP v2 deposit_for_burn script for network "${mode}"`)
-
-        // Query Circle fee API for fast transfers (standard threshold fee is usually 0).
-        let maxFee = 0n
-        try {
-          const feeBase = mode === 'testnet'
-            ? 'https://iris-api-sandbox.circle.com'
-            : 'https://iris-api.circle.com'
-          const feeResp = await fetch(`${feeBase}/v2/burn/USDC/fees/${chainConfig.domain}/${destDomain}`)
-          if (feeResp.ok) {
-            const feeData = await feeResp.json()
-            const feeEntry = feeData.find((f: any) => f.finalityThreshold === minFinalityThreshold)
-            if (feeEntry && feeEntry.minimumFee > 0) {
-              const raw = BigInt(Math.ceil(feeEntry.minimumFee * 1_000_000))
-              maxFee = (raw * 120n) / 100n
-            }
-          }
-        } catch (e) {
-          console.warn('[aptos burnUsdc] Failed to fetch fee, using 0:', e)
-        }
 
         const payload: InputTransactionData = {
           data: {
