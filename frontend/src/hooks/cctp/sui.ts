@@ -137,10 +137,44 @@ async function waitForTransaction(mode: string, digest: string): Promise<{ sende
   throw new Error(`Sui transaction ${digest} did not confirm in time`)
 }
 
+async function executeTransactionViaGraphQL(
+  mode: string,
+  { bytes, signature }: { bytes: string; signature: string },
+): Promise<{ digest: string }> {
+  const endpoint = GRAPHQL_ENDPOINTS[mode]
+  if (!endpoint) throw new Error(`No Sui GraphQL endpoint for mode "${mode}"`)
+  const query = `
+    mutation ExecuteTx($tx: Base64!, $sigs: [String!]!) {
+      executeTransaction(transactionDataBcs: $tx, signatures: $sigs) {
+        effects { digest status }
+      }
+    }
+  `
+  const resp = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query, variables: { tx: bytes, sigs: [signature] } }),
+  })
+  if (!resp.ok) throw new Error(`Sui GraphQL execute failed: ${resp.status}`)
+  const json = await resp.json()
+  if (json.errors) throw new Error(`Sui GraphQL execute errors: ${JSON.stringify(json.errors)}`)
+  const digest = json.data?.executeTransaction?.effects?.digest
+  if (!digest) throw new Error('Sui GraphQL execute did not return a digest')
+  return { digest }
+}
+
+function useGraphqlSignAndExecute(mode: string) {
+  const execute = useCallback(
+    async (input: { bytes: string; signature: string }) => executeTransactionViaGraphQL(mode, input),
+    [mode],
+  )
+  return useSignAndExecuteTransaction({ execute })
+}
+
 export function useSuiAdapter(): ChainAdapter {
   const account = useCurrentAccount()
-  const { mutateAsync: signAndExecute } = useSignAndExecuteTransaction()
   const mode = useNetworkMode((s) => s.mode)
+  const { mutateAsync: signAndExecute } = useGraphqlSignAndExecute(mode)
 
   const switchChain = useCallback(async (_domain: number) => {
     // Sui has a single network per provider — no EVM-style chain switching.
