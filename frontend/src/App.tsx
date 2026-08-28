@@ -7,7 +7,7 @@ import Lookup from './pages/Lookup'
 import type { Mode } from './config/chains'
 
 export default function App({ mode }: { mode: Mode }) {
-  const prefix = mode === 'testnet' ? '/testnet' : ''
+  const prefix = mode === 'mainnet' ? '/mainnet' : ''
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">

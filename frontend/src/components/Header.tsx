@@ -34,8 +34,8 @@ export default function Header({ mode }: { mode: Mode }) {
         <Link to={withModePrefix(mode, '/')} className="flex items-center gap-1.5 sm:gap-2 text-base sm:text-lg font-bold text-white shrink-0">
           <Layers className="h-5 w-5 sm:h-6 sm:w-6 text-brand-500" />
           <span className="hidden sm:inline">Xansfer</span>
-          {mode === 'testnet' && (
-            <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-400">TESTNET</span>
+          {mode === 'mainnet' && (
+            <span className="rounded-full bg-green-500/15 px-2 py-0.5 text-[10px] font-semibold text-green-400">MAINNET</span>
           )}
         </Link>
 
@@ -84,6 +84,29 @@ export default function Header({ mode }: { mode: Mode }) {
                 </NavLink>
               ))}
             </nav>
+
+            {/* Mobile network switcher — duplicated here so it is obvious and reachable from the drawer */}
+            <div className="border-t border-gray-800 p-4">
+              <div className="mb-2 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Network
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-sm text-gray-300">
+                  {mode === 'mainnet' ? (
+                    <span className="flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-green-400" />
+                      Mainnet mode
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-amber-400" />
+                      Testnet mode
+                    </span>
+                  )}
+                </div>
+                <NetworkToggle size="compact" />
+              </div>
+            </div>
           </div>
         </div>
       )}

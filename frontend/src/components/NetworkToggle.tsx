@@ -1,42 +1,72 @@
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Globe } from 'lucide-react'
-import { modeFromPath } from '../config/chains'
+import { modeFromPath, type Mode } from '../config/chains'
 import { useNetworkMode } from '../stores/networkMode'
 
+interface NetworkToggleProps {
+  /** Optional size variant. `compact` keeps the pill narrow on very small screens. */
+  size?: 'default' | 'compact'
+}
+
 /**
- * Switches network by navigating between "/" (mainnet) and "/testnet" paths,
- * keeping the current page.
+ * Segmented network switcher.
+ *
+ * On mobile it shows abbreviated labels (Main / Test) inside a clear two-state
+ * pill, so the active network is obvious and switching is a single tap. On
+ * desktop it expands to full labels (Mainnet / Testnet).
  */
-export default function NetworkToggle() {
+export default function NetworkToggle({ size = 'default' }: NetworkToggleProps) {
   const navigate = useNavigate()
   const location = useLocation()
   const mode = modeFromPath(location.pathname)
   const isTestnet = mode === 'testnet'
 
-  const toggle = () => {
-    const base = location.pathname.replace(/^\/testnet/, '') || '/'
-    const target = isTestnet ? base : `/testnet${base}`
+  const switchTo = (targetMode: Mode) => {
+    if (targetMode === mode) return
+    const base = location.pathname.replace(/^\/mainnet/, '') || '/'
+    const target = targetMode === 'mainnet' ? `/mainnet${base}` : base
     // Update the store synchronously so adapters (e.g. Stellar RPC selection)
     // never use a stale mode between navigation and the location effect.
-    useNetworkMode.getState().setMode(isTestnet ? 'mainnet' : 'testnet')
+    useNetworkMode.getState().setMode(targetMode)
     navigate(target, { replace: true })
   }
 
+  const pillBase =
+    'inline-flex items-center rounded-full border bg-gray-900 p-1 transition'
+  const segmentBase =
+    'rounded-full px-2.5 py-1 text-xs font-semibold transition sm:px-3'
+
   return (
-    <button
-      onClick={toggle}
-      title={`Switch to ${isTestnet ? 'Mainnet' : 'Testnet'}`}
-      className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-medium transition ${
-        isTestnet
-          ? 'border-amber-500/40 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20'
-          : 'border-green-500/40 bg-green-500/10 text-green-400 hover:bg-green-500/20'
-      }`}
+    <div
+      className={`${pillBase} ${
+        isTestnet ? 'border-amber-500/40' : 'border-green-500/40'
+      } ${size === 'compact' ? 'scale-95 origin-right' : ''}`}
+      role="group"
+      aria-label="Network mode"
     >
-      <Globe className="h-3.5 w-3.5" />
-      <span className="hidden sm:inline">{isTestnet ? 'Testnet' : 'Mainnet'}</span>
-      <span
-        className={`h-1.5 w-1.5 rounded-full ${isTestnet ? 'bg-amber-400' : 'bg-green-400'}`}
-      />
-    </button>
+      <button
+        onClick={() => switchTo('mainnet')}
+        aria-pressed={!isTestnet}
+        className={`${segmentBase} ${
+          !isTestnet
+            ? 'bg-green-500 text-white shadow'
+            : 'text-gray-400 hover:text-gray-200'
+        }`}
+      >
+        <span className="sm:hidden">Main</span>
+        <span className="hidden sm:inline">Mainnet</span>
+      </button>
+      <button
+        onClick={() => switchTo('testnet')}
+        aria-pressed={isTestnet}
+        className={`${segmentBase} ${
+          isTestnet
+            ? 'bg-amber-500 text-white shadow'
+            : 'text-gray-400 hover:text-gray-200'
+        }`}
+      >
+        <span className="sm:hidden">Test</span>
+        <span className="hidden sm:inline">Testnet</span>
+      </button>
+    </div>
   )
 }
