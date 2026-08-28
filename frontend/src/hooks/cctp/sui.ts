@@ -228,7 +228,7 @@ export function useSuiAdapter(): ChainAdapter {
         ],
       })
 
-      const [stampTicket, _burnMessage] = tx.moveCall({
+      const stampReceiptTicketWithBurnMessage = tx.moveCall({
         target: `${contracts.tokenMessenger}::handle_receive_message::handle_receive_message`,
         typeArguments: [usdcType],
         arguments: [
@@ -239,9 +239,15 @@ export function useSuiAdapter(): ChainAdapter {
         ],
       })
 
-      const [stampedReceipt] = tx.moveCall({
+      const [stampTicket, _burnMessage] = tx.moveCall({
+        target: `${contracts.tokenMessenger}::handle_receive_message::deconstruct_stamp_receipt_ticket_with_burn_message`,
+        arguments: [stampReceiptTicketWithBurnMessage],
+      })
+
+      const authenticatorType = `${contracts.tokenMessenger}::message_transmitter_authenticator::MessageTransmitterAuthenticator`
+      const stampedReceipt = tx.moveCall({
         target: `${contracts.messageTransmitter}::receive_message::stamp_receipt`,
-        typeArguments: [`${contracts.messageTransmitter}::message_transmitter_authenticator::MessageTransmitterAuthenticator`],
+        typeArguments: [authenticatorType],
         arguments: [stampTicket, tx.object(objects.messageTransmitterState)],
       })
 
