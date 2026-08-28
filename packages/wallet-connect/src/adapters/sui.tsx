@@ -34,7 +34,7 @@ export function SuiAdapter({ mode = 'mainnet', rpcUrl, setSlot, registerActions,
       networks={{ mainnet: { url: SUI_RPC_URLS.mainnet, network: 'mainnet' }, testnet: { url: SUI_RPC_URLS.testnet, network: 'testnet' } }}
       defaultNetwork={network}
     >
-      <WalletProvider>
+      <WalletProvider autoConnect>
         <SuiSync setSlot={setSlot} registerActions={registerActions} />
         {children}
       </WalletProvider>
