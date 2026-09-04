@@ -3,6 +3,7 @@ import { useCctpTransfer } from '../hooks/useCctpTransfer'
 import { useAttestationStatus } from '../hooks/useAttestationStatus'
 import { useNetworkMode } from '../stores/networkMode'
 import { isPlausibleDestTxHash } from '../lib/api'
+import { formatSeconds } from '../lib/estimate'
 import { CheckCircle2, Clock, Loader2, AlertCircle, RefreshCw, Send, Search } from 'lucide-react'
 
 const STEPS = ['pending', 'attested', 'complete'] as const
@@ -11,13 +12,6 @@ function stepIndex(status: string, claimComplete: boolean) {
   if (claimComplete) return STEPS.length - 1
   const i = STEPS.indexOf(status as typeof STEPS[number])
   return i >= 0 ? i : -1
-}
-
-function formatSeconds(s: number): string {
-  if (s < 60) return `${s}s`
-  const m = Math.floor(s / 60)
-  const sec = s % 60
-  return sec > 0 ? `${m}m ${sec}s` : `${m}m`
 }
 
 // CCTP message: 116-byte header (version, domains, nonce, sender, recipient,

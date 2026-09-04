@@ -5,11 +5,12 @@ import { useTransferStore } from '../stores/transferStore'
 import { useNetworkMode } from '../stores/networkMode'
 import { useCctpTransfer } from '../hooks/useCctpTransfer'
 import { getTransferTypes, getChainTypeForDomain, getSupportedVersions, withModePrefix } from '../config/chains'
+import { estimateTransferSeconds, formatSeconds } from '../lib/estimate'
 import ChainSelector from './ChainSelector'
 import { getDestinationAddressError } from '../lib/address'
 import { getUsdcAmountError } from '../lib/fees'
 import type { TransferType, ChainType } from '../types'
-import { ArrowDownUp, Zap, Send, Radio, AlertCircle, Wallet, Layers, Loader2 } from 'lucide-react'
+import { ArrowDownUp, Zap, Send, Radio, AlertCircle, Wallet, Layers, Loader2, Clock } from 'lucide-react'
 
 const TRANSFER_META: Record<TransferType, { label: string; icon: typeof Zap; desc: string }> = {
   standard: { label: 'Standard', icon: Send, desc: 'Standard CCTP transfer' },
@@ -140,6 +141,19 @@ export default function TransferForm() {
     () => (store.amount ? getUsdcAmountError(store.amount) : null),
     [store.amount],
   )
+
+  // Estimated time from a confirmed source burn to destination mint,
+  // based on source-chain finality + Circle attestation + 1 dest block.
+  const estimateSeconds = useMemo(() => {
+    if (store.sourceDomain == null || store.destDomain == null) return null
+    return estimateTransferSeconds({
+      sourceDomain: store.sourceDomain,
+      destDomain: store.destDomain,
+      cctpVersion,
+      transferType: store.transferType,
+      mode,
+    })
+  }, [store.sourceDomain, store.destDomain, cctpVersion, store.transferType, mode])
 
   const addressError = useMemo(() => {
     if (!dstChainType || store.destDomain == null) return null
@@ -395,6 +409,17 @@ export default function TransferForm() {
             {srcChainType != null && `（源 ${srcChainType} v${srcVersions.join('/')}`}
             {dstChainType != null && `，目标 ${dstChainType} v${dstVersions.join('/')}`}
             {')'}，无法转账。
+          </span>
+        </div>
+      )}
+
+      {/* Estimated arrival time */}
+      {estimateSeconds != null && (
+        <div className="flex items-center gap-2 rounded-lg border border-gray-700 bg-gray-800 px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm text-gray-300">
+          <Clock className="h-4 w-4 shrink-0 text-brand-400" />
+          <span>
+            Estimated arrival: ~{formatSeconds(estimateSeconds)}
+            <span className="text-gray-500"> (after source transaction confirms)</span>
           </span>
         </div>
       )}
