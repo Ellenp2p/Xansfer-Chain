@@ -101,7 +101,9 @@ export function getTransferTypes(sourceDomain: number, destDomain: number, mode:
 
   const types: string[] = ['standard']
   if (src.supports_fast_transfer) types.push('fast')
-  if (src.supports_forwarding && dst.supports_forwarding) types.push('forward')
+  // 'forward' (Circle Forwarding Service) is not wired up: the burn is identical
+  // to standard and nothing auto-forwards the attestation, so offering it would
+  // mislead users into thinking no manual claim is needed.
   return types
 }
 
