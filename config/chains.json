@@ -738,7 +738,7 @@
             2
           ],
           "chain_type": "evm",
-          "supports_fast_transfer": true,
+          "supports_fast_transfer": false,
           "supports_forwarding": true,
           "block_time_ms": 1000,
           "finality_blocks": 1
