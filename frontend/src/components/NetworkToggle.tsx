@@ -1,6 +1,7 @@
 import { useLocation, useNavigate } from 'react-router-dom'
 import { modeFromPath, type Mode } from '../config/chains'
 import { useNetworkMode } from '../stores/networkMode'
+import { useTransferStore } from '../stores/transferStore'
 
 interface NetworkToggleProps {
   /** Optional size variant. `compact` keeps the pill narrow on very small screens. */
@@ -19,9 +20,12 @@ export default function NetworkToggle({ size = 'default' }: NetworkToggleProps) 
   const location = useLocation()
   const mode = modeFromPath(location.pathname)
   const isTestnet = mode === 'testnet'
+  // A mid-flight burn/claim must not hop modes — the adapters captured the old
+  // mode's contracts and RPCs for this transfer.
+  const inFlight = useTransferStore((s) => s.inFlight)
 
   const switchTo = (targetMode: Mode) => {
-    if (targetMode === mode) return
+    if (targetMode === mode || inFlight) return
     const base = location.pathname.replace(/^\/mainnet/, '') || '/'
     const target = targetMode === 'mainnet' ? `/mainnet${base}` : base
     // Update the store synchronously so adapters (e.g. Stellar RPC selection)
@@ -46,7 +50,9 @@ export default function NetworkToggle({ size = 'default' }: NetworkToggleProps) 
       <button
         onClick={() => switchTo('mainnet')}
         aria-pressed={!isTestnet}
-        className={`${segmentBase} ${
+        disabled={inFlight}
+        title={inFlight ? 'Finish the in-flight transfer before switching networks' : undefined}
+        className={`${segmentBase} disabled:cursor-not-allowed disabled:opacity-50 ${
           !isTestnet
             ? 'bg-green-500 text-white shadow'
             : 'text-gray-400 hover:text-gray-200'
@@ -58,7 +64,9 @@ export default function NetworkToggle({ size = 'default' }: NetworkToggleProps) 
       <button
         onClick={() => switchTo('testnet')}
         aria-pressed={isTestnet}
-        className={`${segmentBase} ${
+        disabled={inFlight}
+        title={inFlight ? 'Finish the in-flight transfer before switching networks' : undefined}
+        className={`${segmentBase} disabled:cursor-not-allowed disabled:opacity-50 ${
           isTestnet
             ? 'bg-amber-500 text-white shadow'
             : 'text-gray-400 hover:text-gray-200'

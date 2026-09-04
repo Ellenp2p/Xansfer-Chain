@@ -7,9 +7,9 @@ import configJson from '../../../config/chains.json'
 
 export type Mode = 'mainnet' | 'testnet'
 
-/** Network mode is driven by the URL path: `/mainnet/*` → mainnet, anything else → testnet. */
+/** Network mode is driven by the URL path: `/mainnet` and `/mainnet/*` → mainnet, anything else → testnet. */
 export function modeFromPath(pathname: string): Mode {
-  return pathname.startsWith('/mainnet') ? 'mainnet' : 'testnet'
+  return pathname === '/mainnet' || pathname.startsWith('/mainnet/') ? 'mainnet' : 'testnet'
 }
 
 /** Prefix a route path for the given network mode (mainnet lives under /mainnet). */

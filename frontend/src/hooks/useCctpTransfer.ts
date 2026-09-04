@@ -6,8 +6,11 @@ import { useSuiAdapter } from './cctp/sui'
 import type { ChainAdapter } from './cctp/types'
 import { getChainByDomain, getSupportedVersions } from '../config/chains'
 import { useNetworkMode } from '../stores/networkMode'
+import { useTransferStore } from '../stores/transferStore'
 import { useWalletState } from '@xansfer/wallet-connect'
 import * as api from '../lib/api'
+import { assertDestinationAddress } from '../lib/address'
+import { parseUsdcUnits } from '../lib/fees'
 import type { TransferType } from '../types'
 
 export type TransferStep =
@@ -106,6 +109,22 @@ export function useCctpTransfer() {
         return
       }
 
+      const destChain = getChainByDomain(destDomain, mode)
+      if (!destChain) {
+        setError('Invalid destination chain')
+        setStep('error')
+        return
+      }
+
+      try {
+        parseUsdcUnits(amount)
+        assertDestinationAddress(destAddress, destChain.chain_type, mode)
+      } catch (e) {
+        setError(friendlyError(e))
+        setStep('error')
+        return
+      }
+
       const chainWallet = srcChain.chain_type === 'evm' ? wallet.evm
         : srcChain.chain_type === 'aptos' ? wallet.aptos
         : srcChain.chain_type === 'stellar' ? wallet.stellar
@@ -127,6 +146,7 @@ export function useCctpTransfer() {
         return
       }
 
+      useTransferStore.getState().setInFlight(true)
       try {
         // Step 1: Switch to source chain
         setStep('switching-chain')
@@ -153,7 +173,6 @@ export function useCctpTransfer() {
 
         // Step 3: Burn via depositForBurn
         setStep('burning')
-        const destChain = getChainByDomain(destDomain, mode)
         let txHash: string
         try {
           txHash = await adapter.burnUsdc({
@@ -161,7 +180,7 @@ export function useCctpTransfer() {
             amount,
             destDomain,
             destAddress,
-            destChainType: destChain?.chain_type,
+            destChainType: destChain.chain_type,
             cctpVersion,
             transferType,
           })
@@ -185,21 +204,34 @@ export function useCctpTransfer() {
         // Step 5: Register with backend (falls back to local storage when the
         // backend is unreachable — the frontend works standalone).
         setStep('registering')
-        const { transaction } = await api.createTransaction(
-          {
-            source_domain: sourceDomain,
-            dest_domain: destDomain,
-            source_tx_hash: receipt.transactionHash ?? txHash,
-            source_address: sourceAddress,
-            dest_address: destAddress,
-            amount,
-            transfer_type: transferType,
-            cctp_version: cctpVersion,
-            network_mode: mode,
-          },
-          mode,
-        )
-        setSourceTxHash(transaction.source_tx_hash)
+        try {
+          const { transaction } = await api.createTransaction(
+            {
+              source_domain: sourceDomain,
+              dest_domain: destDomain,
+              source_tx_hash: receipt.transactionHash ?? txHash,
+              source_address: sourceAddress,
+              dest_address: destAddress,
+              amount,
+              transfer_type: transferType,
+              cctp_version: cctpVersion,
+              network_mode: mode,
+            },
+            mode,
+          )
+          setSourceTxHash(transaction.source_tx_hash)
+        } catch (e) {
+          // The burn already succeeded on-chain — a failed registration must
+          // not be presented as a failed transfer (funds are recoverable).
+          console.error('[register]', e)
+          const hash = receipt.transactionHash ?? txHash
+          setSourceTxHash(hash)
+          setError(
+            `Burn succeeded, but registering the transfer failed — your funds are not lost. Use Lookup with tx ${hash} to track and claim it.`,
+          )
+          setStep('submitted')
+          return
+        }
 
         // Done — backend poller handles attestation in background.
         // User can check status and claim from the transaction status page.
@@ -207,6 +239,8 @@ export function useCctpTransfer() {
       } catch (e) {
         setError(friendlyError(e))
         setStep('error')
+      } finally {
+        useTransferStore.getState().setInFlight(false)
       }
     },
     [mode, wallet, evmAdapter, aptosAdapter, stellarAdapter, suiAdapter],
@@ -230,6 +264,7 @@ export function useCctpTransfer() {
         return
       }
 
+      useTransferStore.getState().setInFlight(true)
       try {
         setStep('switching-dest-chain')
         try {
@@ -258,6 +293,17 @@ export function useCctpTransfer() {
           return
         }
 
+        setStep('waiting-claim')
+        try {
+          await adapter.waitForSourceTx(claimTxHash, destChain)
+        } catch (e) {
+          console.error('[waitForClaim]', e)
+          setDestTxHash(claimTxHash)
+          setError('Claim transaction was submitted, but its confirmation could not be verified — check the destination chain before trying again')
+          setStep('error')
+          return
+        }
+
         setDestTxHash(claimTxHash)
         setStep('complete')
 
@@ -270,6 +316,8 @@ export function useCctpTransfer() {
       } catch (e) {
         setError(friendlyError(e))
         setStep('error')
+      } finally {
+        useTransferStore.getState().setInFlight(false)
       }
     },
     [mode, sourceTxHash, evmAdapter, aptosAdapter, stellarAdapter, suiAdapter],

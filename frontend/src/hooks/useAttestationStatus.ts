@@ -5,7 +5,8 @@ import * as api from '../lib/api'
 
 /**
  * Estimated attestation wait times in seconds, by source chain + CCTP version + speed.
- * Source: Circle CCTP documentation (v1 & v2 finality tables), 2025.
+ * Source: Circle CCTP documentation (v1 & v2 finality tables), 2025. Values are
+ * mainnet attestation times unless noted otherwise.
  */
 const ESTIMATED_WAIT_BY_CHAIN: Record<string, Record<number, { fast?: number; standard: number }>> = {
   // ── CCTP v1 ──────────────────────────────────────────────────────

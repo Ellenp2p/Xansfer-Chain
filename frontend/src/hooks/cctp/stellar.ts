@@ -3,9 +3,11 @@ import { signTransaction } from '@stellar/freighter-api'
 import { rpc, Contract, TransactionBuilder, Address, nativeToScVal, xdr, Networks, BASE_FEE } from '@stellar/stellar-sdk'
 import { useNetworkMode } from '../../stores/networkMode'
 import { useWalletState } from '@xansfer/wallet-connect'
-import { getCctpContracts } from '../../config/chains'
+import { getCctpContracts, getChainTypeForDomain } from '../../config/chains'
 import type { ChainAdapter, SourceBurnParams, ClaimParams } from './types'
-import type { ChainConfig } from '../../types'
+import type { ChainConfig, ChainType } from '../../types'
+import { assertDestinationAddress } from '../../lib/address'
+import { parseUsdcUnits, fetchCircleMaxFee } from '../../lib/fees'
 
 // Stellar Soroban RPC endpoints (Horizon doesn't support Soroban calls)
 const SOROBAN_RPC: Record<string, Record<string, string>> = {
@@ -170,11 +172,11 @@ export function useStellarAdapter(): ChainAdapter {
   const approveUsdc = useCallback(async (chainConfig: ChainConfig, amount: string, _cctpVersion?: number) => {
     // Stellar USDC is a classic asset bridged via SAC. TokenMessengerMinterV2 needs
     // an allowance from the user before it can burn. Approve the messenger for
-    // i128 MAX only if current allowance is insufficient for the requested amount.
+    // the exact amount only if current allowance is insufficient.
     const usdcSacAddr = chainConfig.usdc_sac
     if (!usdcSacAddr) throw new Error('Stellar chain config missing usdc_sac — check chains.ts')
 
-    const amountRaw = BigInt(Math.round(parseFloat(amount) * 10_000_000))
+    const amountRaw = parseUsdcUnits(amount) * 10n
     const publicKey = await getPublicKey()
     const contracts = getCctpContracts(chainConfig.domain, 2, mode as 'mainnet' | 'testnet')
     if (!contracts) throw new Error(`No CCTP v2 contracts configured for domain ${chainConfig.domain}`)
@@ -186,7 +188,6 @@ export function useStellarAdapter(): ChainAdapter {
       return
     }
 
-    const maxApprove = (1n << 127n) - 1n  // i128 MAX
     // expirationLedger = latest + 100_000 ledgers (~6 days on Stellar)
     const sorobanUrl = getSorobanUrl(chainConfig.domain, mode)
     const server = new rpc.Server(sorobanUrl, { allowHttp: false })
@@ -196,37 +197,43 @@ export function useStellarAdapter(): ChainAdapter {
     await buildAndSubmitContract(chainConfig.domain, usdcSacAddr, 'approve', [
       new Address(publicKey).toScVal(),
       new Address(contracts.tokenMessenger).toScVal(),
-      nativeToScVal(maxApprove, { type: 'i128' }),
+      nativeToScVal(amountRaw, { type: 'i128' }),
       nativeToScVal(expirationLedger, { type: 'u32' }),
     ])
   }, [mode, buildAndSubmitContract, getPublicKey, getAllowance])
 
   const burnUsdc = useCallback(
-    async ({ chainConfig, amount, destDomain, destAddress, transferType }: SourceBurnParams): Promise<string> => {
+    async ({ chainConfig, amount, destDomain, destAddress, transferType, destChainType }: SourceBurnParams): Promise<string> => {
       // Stellar SAC operates in 7-decimal subunits natively. The Circle deposit_for_burn
       // call takes i128 amount in Stellar 7-decimal subunits (e.g., 10_000_000n = 1 USDC).
       // The CCTP protocol message itself stores 6-decimal amount per Circle docs, but
       // the Stellar contract call parameter uses 7-decimal — the contract handles the
       // 6→7 scaling internally. So pass the user amount * 10^7.
-      const amountRaw = BigInt(Math.round(parseFloat(amount) * 10_000_000))
+      const amountUnits = parseUsdcUnits(amount)
+      const amountRaw = amountUnits * 10n
 
-      // CCTP v2 on Stellar testnet currently only accepts min_finality_threshold=1000
-      // for source burns. The reference successful tx (Stellar → Base Sepolia) used
-      // threshold=1000; passing 2000 triggers WasmVm UnreachableCodeReached.
-      // See: https://developers.circle.com/cctp/references/technical-guide
+      // Circle finality thresholds: fast = 1000, standard = 2000. CCTP v2 on Stellar
+      // testnet currently only accepts 1000 (threshold=2000 triggers WasmVm
+      // UnreachableCodeReached), so testnet burns always use 1000.
       const isFast = transferType === 'fast'
-      if (isFast) {
-        console.warn('[burnUsdc] Fast transfer requested, but Stellar source currently uses threshold=1000')
-      }
-      const minFinalityThreshold = 1000
+      const minFinalityThreshold = mode === 'mainnet' ? (isFast ? 1000 : 2000) : 1000
+
+      const destType = (destChainType ?? getChainTypeForDomain(destDomain, mode)) as ChainType
+      assertDestinationAddress(destAddress, destType, mode)
 
       const publicKey = await getPublicKey()
 
-      // Circle's Stellar→Arc example uses MAX_FEE = 100_000n (0.01 USDC in 7-decimal
-      // Stellar subunits). The earlier assumption that max_fee must be 0 was wrong;
-      // passing 0 causes the TokenMessengerMinterV2 contract to panic with
-      // UnreachableCodeReached on testnet.
-      const maxFee = 100_000n
+      // max_fee bounds the fee Circle deducts during mint; unit is Stellar 7-decimal
+      // subunits (API fee is 6-decimal units). 100_000n = 0.01 USDC per Circle example,
+      // used when the fee API has no entry for this threshold.
+      const feeUnits = await fetchCircleMaxFee({
+        mode,
+        srcDomain: chainConfig.domain,
+        destDomain,
+        finalityThreshold: minFinalityThreshold,
+        amountUnits,
+      })
+      const maxFee = feeUnits > 0n ? feeUnits * 10n : 100_000n
 
       // mint_recipient: EVM address → bytes32, Stellar C-addr → Address ScVal, G-addr → MUST go through CctpForwarder with hook
       let mintRecipientScVal: xdr.ScVal
@@ -246,11 +253,10 @@ export function useStellarAdapter(): ChainAdapter {
         mintRecipientScVal = contractAddr(destAddress)
         destinationCallerScVal = xdr.ScVal.scvBytes(Buffer.alloc(32))
       } else if ((destAddress.startsWith('G') || destAddress.startsWith('M')) && destAddress.length === 56) {
-        // G/M Stellar destination — proper flow needs deposit_for_burn_with_hook +
-        // CctpForwarder (out of scope). As a stub, encode the strkey as bytes32.
-        // Soroban cannot distinguish G (account) from C (contract) when used as
-        // mint_recipient, so funds end up "stuck" at a non-existent contract — but
-        // this lets us run past validation. The UI should warn the user.
+        // Testnet-only stub (assertDestinationAddress rejects G/M on mainnet):
+        // proper flow needs deposit_for_burn_with_hook + CctpForwarder (out of
+        // scope). Encode the strkey as bytes32 hookData; funds end up "stuck" at
+        // a non-existent contract. The UI warns the user.
         const recipientBytes = Buffer.from(destAddress, 'utf8')
         const hookData = Buffer.alloc(32 + recipientBytes.length)
         hookData.writeUInt32BE(0, 24) // hook version = 0

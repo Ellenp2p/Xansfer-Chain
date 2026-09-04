@@ -6,7 +6,9 @@ import { useNetworkMode } from '../stores/networkMode'
 import { useCctpTransfer } from '../hooks/useCctpTransfer'
 import { getTransferTypes, getChainTypeForDomain, getSupportedVersions, withModePrefix } from '../config/chains'
 import ChainSelector from './ChainSelector'
-import type { TransferType } from '../types'
+import { getDestinationAddressError } from '../lib/address'
+import { getUsdcAmountError } from '../lib/fees'
+import type { TransferType, ChainType } from '../types'
 import { ArrowDownUp, Zap, Send, Radio, AlertCircle, Wallet, Layers, Loader2 } from 'lucide-react'
 
 const TRANSFER_META: Record<TransferType, { label: string; icon: typeof Zap; desc: string }> = {
@@ -34,6 +36,7 @@ export default function TransferForm() {
     store.setSourceDomain(null)
     store.setDestDomain(null)
     store.setTransferType('standard')
+    store.setAmount('')
     setCctpVersion(2)
     setDestAddress('')
     setUseCustomDestAddress(false)
@@ -133,12 +136,24 @@ export default function TransferForm() {
     }
   }
 
+  const amountError = useMemo(
+    () => (store.amount ? getUsdcAmountError(store.amount) : null),
+    [store.amount],
+  )
+
+  const addressError = useMemo(() => {
+    if (!dstChainType || store.destDomain == null) return null
+    return getDestinationAddressError(destAddress, dstChainType as ChainType, mode)
+  }, [dstChainType, store.destDomain, destAddress, mode])
+
   const ready =
     store.sourceDomain != null &&
     store.destDomain != null &&
     commonVersions.length > 0 &&
     store.amount &&
+    !amountError &&
     destAddress &&
+    !addressError &&
     srcWalletReady &&
     dstWalletReady
 
@@ -184,6 +199,8 @@ export default function TransferForm() {
         if (!dstWalletReady) return `Connect ${dstChainType ?? ''} Wallet (Destination)`
         if (!store.amount) return 'Enter Amount'
         if (!destAddress) return 'Enter Destination Address'
+        if (amountError) return amountError
+        if (addressError) return addressError
         return 'Create Transfer'
       }
     }
@@ -273,6 +290,9 @@ export default function TransferForm() {
           onChange={(e) => store.setAmount(e.target.value)}
           className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 sm:px-4 py-2.5 sm:py-3 font-mono text-xl sm:text-2xl text-white placeholder-gray-600 outline-none transition focus:border-brand-500"
         />
+        {amountError && store.amount && (
+          <p className="mt-1 text-xs text-red-400">{amountError}</p>
+        )}
       </div>
 
       {/* Destination address */}
@@ -297,6 +317,9 @@ export default function TransferForm() {
           disabled={!useCustomDestAddress}
           className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 sm:px-4 py-2.5 sm:py-3 font-mono text-sm text-white placeholder-gray-600 outline-none transition focus:border-brand-500 disabled:cursor-not-allowed disabled:bg-gray-900/50 disabled:text-gray-500"
         />
+        {addressError && (
+          <p className="mt-1 text-xs text-red-400">{addressError}</p>
+        )}
       </div>
 
       {/* Transfer type cards */}
