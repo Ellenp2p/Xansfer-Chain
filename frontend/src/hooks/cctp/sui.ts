@@ -1,10 +1,12 @@
 import { useCallback } from 'react'
-import { useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit'
+import { useCurrentAccount, useSignAndExecuteTransaction, useSuiClientContext } from '@mysten/dapp-kit'
 import { Transaction } from '@mysten/sui/transactions'
 import { useNetworkMode } from '../../stores/networkMode'
 import { getCctpContracts, getChainByDomain } from '../../config/chains'
+import { assertDestinationAddress } from '../../lib/address'
+import { parseUsdcUnits } from '../../lib/fees'
 import type { ChainAdapter, SourceBurnParams, ClaimParams } from './types'
-import type { ChainConfig } from '../../types'
+import type { ChainConfig, ChainType } from '../../types'
 
 const GRAPHQL_ENDPOINTS: Record<string, string> = {
   mainnet: 'https://graphql.mainnet.sui.io/graphql',
@@ -86,8 +88,21 @@ interface FindUsdcCoinResponse {
         }
       }
     }[]
+    pageInfo: {
+      hasNextPage: boolean
+      endCursor: string | null
+    }
   }
 }
+
+const FIND_USDC_COIN_QUERY = `
+  query FindUsdcCoin($owner: SuiAddress!, $type: String!, $after: String) {
+    objects(filter: {owner: $owner, type: $type}, first: 50, after: $after) {
+      nodes { address asMoveObject { contents { json } } }
+      pageInfo { hasNextPage endCursor }
+    }
+  }
+`
 
 interface WaitForTxResponse {
   transactionEffects: {
@@ -107,16 +122,22 @@ async function findUsdcCoin(
   requiredAmount: bigint,
 ): Promise<SuiCoin> {
   const type = `0x0000000000000000000000000000000000000000000000000000000000000002::coin::Coin<${coinType}>`
-  const data = await graphqlQuery<FindUsdcCoinResponse>(
-    mode,
-    `{ objects(filter: {owner: "${owner}", type: "${type}"}, first: 50) { nodes { address asMoveObject { contents { json } } } } } }`,
-  )
-  const coins = data.objects.nodes
-    .map((n) => ({ objectId: n.address, balance: n.asMoveObject.contents.json.balance }))
-    .sort((a, b) => Number(BigInt(b.balance) - BigInt(a.balance)))
-  const coin = coins.find((c) => BigInt(c.balance) >= requiredAmount)
-  if (!coin) throw new Error('Insufficient USDC balance or no USDC coin object found')
-  return coin
+  let after: string | null = null
+  for (;;) {
+    const data: FindUsdcCoinResponse = await graphqlQuery<FindUsdcCoinResponse>(
+      mode,
+      FIND_USDC_COIN_QUERY,
+      { owner, type, after },
+    )
+    const coins = data.objects.nodes
+      .map((n) => ({ objectId: n.address, balance: n.asMoveObject.contents.json.balance }))
+      .sort((a, b) => Number(BigInt(b.balance) - BigInt(a.balance)))
+    const coin = coins.find((c) => BigInt(c.balance) >= requiredAmount)
+    if (coin) return coin
+    if (!data.objects.pageInfo.hasNextPage) break
+    after = data.objects.pageInfo.endCursor
+  }
+  throw new Error('Insufficient USDC balance or no USDC coin object found')
 }
 
 async function waitForTransaction(mode: string, digest: string): Promise<{ sender: string }> {
@@ -174,7 +195,14 @@ function useGraphqlSignAndExecute(mode: string) {
 export function useSuiAdapter(): ChainAdapter {
   const account = useCurrentAccount()
   const mode = useNetworkMode((s) => s.mode)
+  const { network: suiNetwork } = useSuiClientContext()
   const { mutateAsync: signAndExecute } = useGraphqlSignAndExecute(mode)
+
+  const assertWalletNetwork = useCallback(() => {
+    if (suiNetwork !== mode) {
+      throw new Error(`Sui wallet is on "${suiNetwork}" but the app is in ${mode} mode — switch the wallet network and retry`)
+    }
+  }, [suiNetwork, mode])
 
   const switchChain = useCallback(async (_domain: number) => {
     // Sui has a single network per provider — no EVM-style chain switching.
@@ -189,13 +217,15 @@ export function useSuiAdapter(): ChainAdapter {
       if (!account?.address) throw new Error('Sui wallet not connected')
       if (cctpVersion !== 1) throw new Error('Sui CCTP only supports v1')
       if (destChainType === 'stellar') throw new Error('Sui -> Stellar forwarding is not supported')
+      assertWalletNetwork()
+      assertDestinationAddress(destAddress, destChainType as ChainType, mode)
 
       const contracts = getCctpContracts(chainConfig.domain, cctpVersion, mode)
       if (!contracts) throw new Error(`No CCTP v1 contracts configured for Sui domain ${chainConfig.domain}`)
       const objects = CCTP_OBJECTS[mode]
       if (!objects) throw new Error(`No known CCTP shared objects for Sui mode "${mode}"`)
 
-      const amountRaw = BigInt(Math.floor(parseFloat(amount) * 1_000_000))
+      const amountRaw = parseUsdcUnits(amount)
       const usdcType = usdcCoinType(chainConfig.usdc_address.split('::')[0])
       const coin = await findUsdcCoin(mode, account.address, usdcType, amountRaw)
 
@@ -218,10 +248,10 @@ export function useSuiAdapter(): ChainAdapter {
         ],
       })
 
-      const result = await signAndExecute({ transaction: tx })
+      const result = await signAndExecute({ transaction: tx, chain: `sui:${mode}` })
       return result.digest
     },
-    [account, mode, signAndExecute],
+    [account, mode, signAndExecute, assertWalletNetwork],
   )
 
   const waitForSourceTx = useCallback(
@@ -236,6 +266,7 @@ export function useSuiAdapter(): ChainAdapter {
     async ({ message, attestation, destDomain, cctpVersion }: ClaimParams): Promise<string> => {
       if (!account?.address) throw new Error('Sui wallet not connected')
       if (cctpVersion !== 1) throw new Error('Sui CCTP only supports v1')
+      assertWalletNetwork()
 
       const chainConfig = getChainByDomain(destDomain, mode)
       if (!chainConfig || chainConfig.chain_type !== 'sui') throw new Error('Destination chain is not Sui')
@@ -290,10 +321,10 @@ export function useSuiAdapter(): ChainAdapter {
         arguments: [stampedReceipt, tx.object(objects.messageTransmitterState)],
       })
 
-      const result = await signAndExecute({ transaction: tx })
+      const result = await signAndExecute({ transaction: tx, chain: `sui:${mode}` })
       return result.digest
     },
-    [account, mode, signAndExecute],
+    [account, mode, signAndExecute, assertWalletNetwork],
   )
 
   return {

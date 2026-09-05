@@ -13,8 +13,52 @@ import {
   markLocalClaimed,
 } from './localTx'
 import type { Mode } from '../config/chains'
+import { getChainByDomain } from '../config/chains'
 
 const BASE = '/api'
+
+const EVM_TX_HASH_RE = /^0x[0-9a-fA-F]{64}$/
+const STELLAR_TX_HASH_RE = /^[0-9a-f]{64}$/
+const SOLANA_TX_HASH_RE = /^[1-9A-HJ-NP-Za-km-z]{80,95}$/
+
+export function isPlausibleDestTxHash(destTxHash: string, destDomain: number, mode: Mode): boolean {
+  switch (getChainByDomain(destDomain, mode)?.chain_type) {
+    case 'evm':
+    case 'starknet':
+    case 'aptos':
+    case 'sui':
+      return EVM_TX_HASH_RE.test(destTxHash)
+    case 'stellar':
+      return STELLAR_TX_HASH_RE.test(destTxHash)
+    case 'solana':
+      return SOLANA_TX_HASH_RE.test(destTxHash)
+    default:
+      return true
+  }
+}
+
+// The backend claim endpoint is unauthenticated, so a "complete" status is not
+// proof of minting. Downgrade completions whose destination tx hash is absent
+// or malformed for the destination chain — the user can still claim for real.
+function sanitizeBackendStatus(res: TransactionStatusResponse, mode: Mode): TransactionStatusResponse {
+  const tx = res.transaction
+  if (tx.network_mode && tx.network_mode !== mode) {
+    throw new Error(`Transaction belongs to ${tx.network_mode}, not ${mode}`)
+  }
+  if (tx.status !== 'complete') return res
+  const hasProof = !!tx.dest_tx_hash || !!tx.claimed_at
+  const hashOk = !tx.dest_tx_hash || isPlausibleDestTxHash(tx.dest_tx_hash, tx.dest_domain, mode)
+  if (hasProof && hashOk) return res
+  const attestationReady = isAttestationReady(tx.attestation)
+  const status = attestationReady ? 'attested' : 'pending'
+  return {
+    ...res,
+    transaction: { ...tx, status },
+    attestation_ready: attestationReady,
+    can_claim: attestationReady && status === 'attested',
+    claimed: false,
+  }
+}
 
 // ── Backend availability probe ───────────────────────────────────────────────
 // The frontend works standalone: when the backend is unreachable it degrades to
@@ -111,7 +155,8 @@ export async function getTransactionStatus(
 ): Promise<TransactionStatusResponse> {
   if (await probeBackend()) {
     try {
-      return await fetchJson(`/transactions/${sourceTxHash}/status`)
+      const res = await fetchJson<TransactionStatusResponse>(`/transactions/${sourceTxHash}/status?mode=${mode}`)
+      return sanitizeBackendStatus(res, mode)
     } catch {
       // fall through to local
     }
@@ -163,7 +208,9 @@ export async function listTransactions(
     try {
       const params = new URLSearchParams()
       addresses.forEach((a) => params.append('address', a))
-      return await fetchJson(`/transactions/address?${params.toString()}`)
+      params.set('mode', mode)
+      const res = await fetchJson<{ transactions: Transaction[] }>(`/transactions/address?${params.toString()}`)
+      return { transactions: res.transactions.filter((tx) => !tx.network_mode || tx.network_mode === mode) }
     } catch {
       // fall through to local
     }
@@ -193,7 +240,11 @@ export async function lookupTransaction(
       if (cctpVersion) params.set('cctp_version', String(cctpVersion))
       if (destDomain) params.set('dest_domain', String(destDomain))
       if (amount) params.set('amount', amount)
-      return await fetchJson(`/lookup?${params}`)
+      const res = await fetchJson<LookupResponse>(`/lookup?${params}`)
+      if (res.transaction && res.transaction.network_mode && res.transaction.network_mode !== netMode) {
+        return { transaction: null, circle_status: res.circle_status }
+      }
+      return res
     } catch {
       // fall through to local
     }
@@ -263,7 +314,7 @@ export async function reportClaim(
 ): Promise<void> {
   if (await probeBackend()) {
     try {
-      await fetchJson(`/transactions/${sourceTxHash}/claim`, {
+      await fetchJson(`/transactions/${sourceTxHash}/claim?mode=${mode}`, {
         method: 'POST',
         body: JSON.stringify({ dest_tx_hash: destTxHash }),
       })

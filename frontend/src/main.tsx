@@ -38,8 +38,9 @@ function Root() {
 }
 
 /**
- * Network mode is bound to the URL: "/" = mainnet, "/testnet" = testnet.
- * Wallet state is reset on a network switch (key=mode).
+ * Network mode is bound to the URL: "/mainnet" and "/mainnet/*" = mainnet,
+ * everything else (including "/") = testnet. Wallet state is reset on a
+ * network switch (key=mode) because the provider's chain list changes.
  */
 function ModeBound() {
   const location = useLocation()

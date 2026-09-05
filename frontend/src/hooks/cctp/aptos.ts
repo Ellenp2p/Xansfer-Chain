@@ -3,8 +3,10 @@ import { useWallet, type InputTransactionData } from '@aptos-labs/wallet-adapter
 import { MoveVector, U64, U32, AccountAddress } from '@aptos-labs/ts-sdk'
 import { toHex, stringToBytes } from 'viem'
 import { useNetworkMode } from '../../stores/networkMode'
+import { assertDestinationAddress } from '../../lib/address'
+import { parseUsdcUnits, fetchCircleMaxFee } from '../../lib/fees'
 import type { ChainAdapter, SourceBurnParams, ClaimParams } from './types'
-import type { ChainConfig } from '../../types'
+import type { ChainConfig, ChainType } from '../../types'
 
 function hexToBytes(hex: string): number[] {
   const clean = hex.startsWith('0x') ? hex.slice(2) : hex
@@ -129,8 +131,14 @@ function decodeBytecode(b64: string): Uint8Array {
 }
 
 export function useAptosAdapter(): ChainAdapter {
-  const { signAndSubmitTransaction, account, connected } = useWallet()
+  const { signAndSubmitTransaction, account, connected, network } = useWallet()
   const mode = useNetworkMode((s) => s.mode)
+
+  const assertWalletNetwork = useCallback(() => {
+    if (network && network.name !== mode) {
+      throw new Error(`Aptos wallet is on "${network.name}" but the app is in ${mode} mode — switch the wallet network and retry`)
+    }
+  }, [network, mode])
 
   const switchChain = useCallback(async (_domain: number) => {
     // Aptos has a single network — no EVM-style chain switching needed
@@ -145,28 +153,24 @@ export function useAptosAdapter(): ChainAdapter {
       if (!connected || !account?.address) {
         throw new Error('Aptos wallet not connected')
       }
+      assertWalletNetwork()
+      assertDestinationAddress(destAddress, destChainType as ChainType, mode)
 
-      const amountRaw = Math.floor(parseFloat(amount) * 1_000_000)
+      const amountUnits = parseUsdcUnits(amount)
       const isFast = transferType === 'fast'
       const minFinalityThreshold = isFast ? 1000 : 2000
 
       // Query Circle fee API (v2 only; v1 does not use maxFee).
+      // minimumFee is in basis points of the burn amount.
       let maxFee = 0n
-      try {
-        const feeBase = mode === 'testnet'
-          ? 'https://iris-api-sandbox.circle.com'
-          : 'https://iris-api.circle.com'
-        const feeResp = await fetch(`${feeBase}/v2/burn/USDC/fees/${chainConfig.domain}/${destDomain}`)
-        if (feeResp.ok) {
-          const feeData = await feeResp.json()
-          const feeEntry = feeData.find((f: any) => f.finalityThreshold === minFinalityThreshold)
-          if (feeEntry && feeEntry.minimumFee > 0) {
-            const raw = BigInt(Math.ceil(feeEntry.minimumFee * 1_000_000))
-            maxFee = (raw * 120n) / 100n
-          }
-        }
-      } catch (e) {
-        console.warn('[aptos burnUsdc] Failed to fetch fee, using 0:', e)
+      if (cctpVersion === 2) {
+        maxFee = await fetchCircleMaxFee({
+          mode,
+          srcDomain: chainConfig.domain,
+          destDomain,
+          finalityThreshold: minFinalityThreshold,
+          amountUnits,
+        })
       }
 
       if (cctpVersion === 2) {
@@ -186,12 +190,12 @@ export function useAptosAdapter(): ChainAdapter {
             data: {
               bytecode: decodeBytecode(bytecode),
               functionArguments: [
-                new U64(amountRaw),
+                new U64(amountUnits),
                 new U32(destDomain),
                 forwarderAptosAddr,        // mintRecipient = CCTP Forwarder
                 forwarderAptosAddr,        // destinationCaller = CCTP Forwarder
                 AccountAddress.from(chainConfig.usdc_address),
-                new U64(Number(maxFee)),
+                new U64(maxFee),
                 new U32(minFinalityThreshold),
                 MoveVector.U8(hexToBytes(hookData)),
               ],
@@ -209,12 +213,12 @@ export function useAptosAdapter(): ChainAdapter {
           data: {
             bytecode: decodeBytecode(bytecode),
             functionArguments: [
-              new U64(amountRaw),
+              new U64(amountUnits),
               new U32(destDomain),
               AccountAddress.from(normalizeMintRecipient(destAddress)),
               AccountAddress.from(ZERO_ADDRESS),
               AccountAddress.from(chainConfig.usdc_address),
-              new U64(Number(maxFee)),
+              new U64(maxFee),
               new U32(minFinalityThreshold),
             ],
           },
@@ -233,7 +237,7 @@ export function useAptosAdapter(): ChainAdapter {
         data: {
           bytecode: decodeBytecode(bytecode),
           functionArguments: [
-            new U64(amountRaw),
+            new U64(amountUnits),
             new U32(destDomain),
             AccountAddress.from(normalizeMintRecipient(destAddress)),
             AccountAddress.from(chainConfig.usdc_address),
@@ -244,7 +248,7 @@ export function useAptosAdapter(): ChainAdapter {
       const result = await signAndSubmitTransaction(payload)
       return result.hash
     },
-    [signAndSubmitTransaction, account, connected, mode],
+    [signAndSubmitTransaction, account, connected, mode, assertWalletNetwork],
   )
 
   const waitForSourceTx = useCallback(
@@ -258,7 +262,12 @@ export function useAptosAdapter(): ChainAdapter {
           const resp = await fetch(`${base}/transactions/by_hash/${txHash}`)
           if (resp.ok) {
             const tx = await resp.json()
-            if (tx.type === 'user_transaction') return tx
+            if (tx.type === 'user_transaction') {
+              if (!tx.success) {
+                throw new Error(`Aptos transaction failed: ${tx.vm_status ?? 'unknown VM status'}`)
+              }
+              return tx
+            }
           }
         } catch {
           // retry
@@ -276,6 +285,7 @@ export function useAptosAdapter(): ChainAdapter {
       if (!connected || !account?.address) {
         throw new Error('Aptos wallet not connected')
       }
+      assertWalletNetwork()
 
       // receive_message is NOT an entry function — it returns a hot-potato
       // Receipt that must be consumed by prepare_mint + handler::mint in the
@@ -314,7 +324,7 @@ export function useAptosAdapter(): ChainAdapter {
       const result = await signAndSubmitTransaction(payload)
       return result.hash
     },
-    [signAndSubmitTransaction, account, connected, mode],
+    [signAndSubmitTransaction, account, connected, mode, assertWalletNetwork],
   )
 
   return { switchChain, approveUsdc, burnUsdc, waitForSourceTx, claimOnDest }

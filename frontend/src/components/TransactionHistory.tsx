@@ -139,6 +139,9 @@ export default function TransactionHistory() {
                 </p>
               </div>
               <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+                <span className="rounded-full bg-gray-800 px-2 py-1 text-[10px] uppercase tracking-wide text-gray-500">
+                  {tx.network_mode ?? 'mainnet'}
+                </span>
                 <span className={`rounded-full px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-medium ${STATUS_COLORS[tx.status] ?? ''}`}>
                   {tx.status}
                 </span>

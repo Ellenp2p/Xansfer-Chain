@@ -1,6 +1,7 @@
 import type { Chain } from 'viem'
 import {
   mainnet, avalanche, optimism, arbitrum, base, polygon, linea, sonic,
+  worldchain, sei, bsc, hyperEvm, ink, plumeMainnet, morph, xdc,
   sepolia, optimismSepolia, arbitrumSepolia, baseSepolia, polygonAmoy, avalancheFuji,
 } from 'wagmi/chains'
 import type { ChainType } from '../types'
@@ -10,7 +11,7 @@ import { getChains, getChainByDomain } from './chains'
 
 function makeCustomChain(domain: number, mode: 'mainnet' | 'testnet'): Chain | null {
   const chain = getChainByDomain(domain, mode)
-  if (!chain || chain.chain_id == null) return null
+  if (!chain || !chain.chain_id) return null
 
   return {
     id: chain.chain_id,
@@ -30,6 +31,14 @@ const lineaSepolia = makeCustomChain(11, 'testnet')!
 const sonicTestnet = makeCustomChain(13, 'testnet')!
 const arcTestnet = makeCustomChain(26, 'testnet')!
 
+// Built from config: viem's own definitions for these networks carry different
+// chain IDs than chains.json (and EDGE has none), so config stays authoritative.
+const codex = makeCustomChain(12, 'mainnet')!
+const monad = makeCustomChain(15, 'mainnet')!
+const injective = makeCustomChain(29, 'mainnet')!
+const edge = makeCustomChain(28, 'mainnet')!
+const pharos = makeCustomChain(31, 'mainnet')!
+
 const bnbTestnet: Chain = {
   id: 97,
   name: 'BNB Smart Chain Testnet',
@@ -42,6 +51,8 @@ const bnbTestnet: Chain = {
 export const MAINNET_WAGMI_CHAINS: Chain[] = [
   mainnet, avalanche, optimism, arbitrum, base, polygon, linea, sonic,
   cronos, unichain,
+  worldchain, sei, bsc, hyperEvm, ink, plumeMainnet, morph, xdc,
+  codex, monad, injective, edge, pharos,
 ]
 
 export const TESTNET_WAGMI_CHAINS: Chain[] = [

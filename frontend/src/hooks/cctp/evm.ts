@@ -1,14 +1,16 @@
 import { useWriteContract, useSwitchChain, useAccount } from 'wagmi'
 import { readContract } from 'wagmi/actions'
 import { useCallback } from 'react'
-import { parseUnits, type Hex, toHex, stringToBytes } from 'viem'
+import { type Hex, toHex, stringToBytes } from 'viem'
 import { ERC20_ABI, TOKEN_MESSENGER_V1_ABI, TOKEN_MESSENGER_V2_ABI, MESSAGE_TRANSMITTER_V1_ABI, MESSAGE_TRANSMITTER_V2_ABI } from '../../config/cctp-abi'
 import { getCctpContracts } from '../../config/chains'
 import { getChainIdForDomain, isChainSupportedByWagmi } from '../../config/wagmi'
 import { useNetworkMode } from '../../stores/networkMode'
 import { useWalletState, useWagmiConfig } from '@xansfer/wallet-connect'
+import { assertDestinationAddress } from '../../lib/address'
+import { parseUsdcUnits, fetchCircleMaxFee } from '../../lib/fees'
 import type { ChainAdapter, SourceBurnParams, ClaimParams } from './types'
-import type { ChainConfig } from '../../types'
+import type { ChainConfig, ChainType } from '../../types'
 
 // Stellar StrKey decoding
 const STELLAR_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
@@ -76,7 +78,9 @@ export function useEvmAdapter(): ChainAdapter {
   const switchChain = useCallback(
     async (domain: number) => {
       const chainId = getChainIdForDomain(domain, mode)
-      if (!chainId || !isChainSupportedByWagmi(domain, mode)) return
+      if (!chainId || !isChainSupportedByWagmi(domain, mode)) {
+        throw new Error(`Domain ${domain} is not supported by the wallet connector on ${mode}`)
+      }
       if (currentChainId === chainId) return
       await switchChainAsync({ chainId })
     },
@@ -87,7 +91,8 @@ export function useEvmAdapter(): ChainAdapter {
     async (chainConfig: ChainConfig, amount: string, cctpVersion: number = 2) => {
       const contracts = getCctpContracts(chainConfig.domain, cctpVersion, mode)
       if (!contracts) throw new Error(`CCTP v${cctpVersion} not available for ${chainConfig.name}`)
-      const amountBigInt = parseUnits(amount, 6)
+      if (chainConfig.chain_id == null) throw new Error(`chain_id not configured for ${chainConfig.name}`)
+      const amountBigInt = parseUsdcUnits(amount)
 
       if (!evmAddress) throw new Error('EVM wallet not connected')
 
@@ -97,6 +102,7 @@ export function useEvmAdapter(): ChainAdapter {
       // but TypeScript sees two @wagmi/core copies (workspace vs frontend). The
       // runtime object is the same one readContract accepts, so the cast is safe.
       const allowance = await readContract(wagmiConfig as never, {
+        chainId: chainConfig.chain_id as never,
         address: chainConfig.usdc_address as Hex,
         abi: ERC20_ABI,
         functionName: 'allowance',
@@ -109,6 +115,7 @@ export function useEvmAdapter(): ChainAdapter {
       }
 
       await writeContractAsync({
+        chainId: chainConfig.chain_id,
         address: chainConfig.usdc_address as Hex,
         abi: ERC20_ABI,
         functionName: 'approve',
@@ -122,32 +129,23 @@ export function useEvmAdapter(): ChainAdapter {
     async ({ chainConfig, amount, destDomain, destAddress, destChainType, cctpVersion, transferType }: SourceBurnParams): Promise<string> => {
       const contracts = getCctpContracts(chainConfig.domain, cctpVersion, mode)
       if (!contracts) throw new Error(`CCTP v${cctpVersion} not available for ${chainConfig.name}`)
+      if (chainConfig.chain_id == null) throw new Error(`chain_id not configured for ${chainConfig.name}`)
 
-      const amountBigInt = parseUnits(amount, 6)
+      const amountBigInt = parseUsdcUnits(amount)
       const isFast = transferType === 'fast'
       const minFinalityThreshold = isFast ? 1000 : 2000
 
-      // Query Circle fee API
-      let maxFee = 0n
-      try {
-        const feeBase = mode === 'testnet'
-          ? 'https://iris-api-sandbox.circle.com'
-          : 'https://iris-api.circle.com'
-        const feeUrl = `${feeBase}/v2/burn/USDC/fees/${chainConfig.domain}/${destDomain}`
-        const feeResp = await fetch(feeUrl)
-        if (feeResp.ok) {
-          const feeData = await feeResp.json()
-          const feeEntry = feeData.find((f: any) => f.finalityThreshold === minFinalityThreshold)
-          if (feeEntry && feeEntry.minimumFee > 0) {
-            const minimumFeeBps = feeEntry.minimumFee
-            const protocolFee = (amountBigInt * BigInt(Math.round(minimumFeeBps * 100))) / 1_000_000n
-            const bufferedFee = (protocolFee * 120n) / 100n
-            maxFee = bufferedFee > 0n ? bufferedFee : BigInt(minimumFeeBps)
-          }
-        }
-      } catch (e) {
-        console.warn('[burnUsdc] Failed to fetch fee, using 0:', e)
-      }
+      if (!destChainType) throw new Error('Destination chain type unknown')
+      assertDestinationAddress(destAddress, destChainType as ChainType, mode)
+
+      // Query Circle fee API — throws on network failure instead of burning with maxFee=0
+      const maxFee = await fetchCircleMaxFee({
+        mode,
+        srcDomain: chainConfig.domain,
+        destDomain,
+        finalityThreshold: minFinalityThreshold,
+        amountUnits: amountBigInt,
+      })
 
       // Stellar destination: MUST use depositForBurnWithHook + CCTP Forwarder
       const isStellarDest = destChainType === 'stellar' || destAddress.startsWith('G')
@@ -160,6 +158,7 @@ export function useEvmAdapter(): ChainAdapter {
         const hookData = buildCctpForwarderHookData(destAddress)
 
         return await writeContractAsync({
+          chainId: chainConfig.chain_id,
           address: contracts.tokenMessenger as Hex,
           abi: TOKEN_MESSENGER_V2_ABI,
           functionName: 'depositForBurnWithHook',
@@ -188,6 +187,7 @@ export function useEvmAdapter(): ChainAdapter {
       // CCTP v1 depositForBurn(uint256,uint32,bytes32,address) — no destinationCaller/maxFee.
       if (cctpVersion === 1) {
         return await writeContractAsync({
+          chainId: chainConfig.chain_id,
           address: contracts.tokenMessenger as Hex,
           abi: TOKEN_MESSENGER_V1_ABI,
           functionName: 'depositForBurn',
@@ -201,6 +201,7 @@ export function useEvmAdapter(): ChainAdapter {
       }
 
       return await writeContractAsync({
+        chainId: chainConfig.chain_id,
         address: contracts.tokenMessenger as Hex,
         abi: TOKEN_MESSENGER_V2_ABI,
         functionName: 'depositForBurn',
@@ -244,6 +245,9 @@ export function useEvmAdapter(): ChainAdapter {
       }
 
       if (!receipt) throw new Error('Transaction timed out waiting for confirmation')
+      if (receipt.status !== 'success') {
+        throw new Error(`Source transaction failed on-chain: ${txHash}`)
+      }
       return receipt
     },
     [],
@@ -253,8 +257,13 @@ export function useEvmAdapter(): ChainAdapter {
     async ({ destDomain, message, attestation, cctpVersion }: ClaimParams): Promise<string> => {
       const contracts = getCctpContracts(destDomain, cctpVersion, mode)
       if (!contracts) throw new Error(`CCTP v${cctpVersion} not available for dest domain ${destDomain}`)
+      const chainId = getChainIdForDomain(destDomain, mode)
+      if (chainId == null || !isChainSupportedByWagmi(destDomain, mode)) {
+        throw new Error(`Destination domain ${destDomain} is not supported by the wallet connector on ${mode}`)
+      }
 
       const claimTxHash = await writeContractAsync({
+        chainId,
         address: contracts.messageTransmitter as Hex,
         abi: cctpVersion === 1 ? MESSAGE_TRANSMITTER_V1_ABI : MESSAGE_TRANSMITTER_V2_ABI,
         functionName: 'receiveMessage',

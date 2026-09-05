@@ -5,9 +5,12 @@ import { useTransferStore } from '../stores/transferStore'
 import { useNetworkMode } from '../stores/networkMode'
 import { useCctpTransfer } from '../hooks/useCctpTransfer'
 import { getTransferTypes, getChainTypeForDomain, getSupportedVersions, withModePrefix } from '../config/chains'
+import { estimateTransferSeconds, formatSeconds } from '../lib/estimate'
 import ChainSelector from './ChainSelector'
-import type { TransferType } from '../types'
-import { ArrowDownUp, Zap, Send, Radio, AlertCircle, Wallet, Layers, Loader2 } from 'lucide-react'
+import { getDestinationAddressError } from '../lib/address'
+import { getUsdcAmountError } from '../lib/fees'
+import type { TransferType, ChainType } from '../types'
+import { ArrowDownUp, Zap, Send, Radio, AlertCircle, Wallet, Layers, Loader2, Clock } from 'lucide-react'
 
 const TRANSFER_META: Record<TransferType, { label: string; icon: typeof Zap; desc: string }> = {
   standard: { label: 'Standard', icon: Send, desc: 'Standard CCTP transfer' },
@@ -34,6 +37,7 @@ export default function TransferForm() {
     store.setSourceDomain(null)
     store.setDestDomain(null)
     store.setTransferType('standard')
+    store.setAmount('')
     setCctpVersion(2)
     setDestAddress('')
     setUseCustomDestAddress(false)
@@ -133,12 +137,37 @@ export default function TransferForm() {
     }
   }
 
+  const amountError = useMemo(
+    () => (store.amount ? getUsdcAmountError(store.amount) : null),
+    [store.amount],
+  )
+
+  // Estimated time from a confirmed source burn to destination mint,
+  // based on source-chain finality + Circle attestation + 1 dest block.
+  const estimateSeconds = useMemo(() => {
+    if (store.sourceDomain == null || store.destDomain == null) return null
+    return estimateTransferSeconds({
+      sourceDomain: store.sourceDomain,
+      destDomain: store.destDomain,
+      cctpVersion,
+      transferType: store.transferType,
+      mode,
+    })
+  }, [store.sourceDomain, store.destDomain, cctpVersion, store.transferType, mode])
+
+  const addressError = useMemo(() => {
+    if (!dstChainType || store.destDomain == null) return null
+    return getDestinationAddressError(destAddress, dstChainType as ChainType, mode)
+  }, [dstChainType, store.destDomain, destAddress, mode])
+
   const ready =
     store.sourceDomain != null &&
     store.destDomain != null &&
     commonVersions.length > 0 &&
     store.amount &&
+    !amountError &&
     destAddress &&
+    !addressError &&
     srcWalletReady &&
     dstWalletReady
 
@@ -184,6 +213,8 @@ export default function TransferForm() {
         if (!dstWalletReady) return `Connect ${dstChainType ?? ''} Wallet (Destination)`
         if (!store.amount) return 'Enter Amount'
         if (!destAddress) return 'Enter Destination Address'
+        if (amountError) return amountError
+        if (addressError) return addressError
         return 'Create Transfer'
       }
     }
@@ -273,6 +304,9 @@ export default function TransferForm() {
           onChange={(e) => store.setAmount(e.target.value)}
           className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 sm:px-4 py-2.5 sm:py-3 font-mono text-xl sm:text-2xl text-white placeholder-gray-600 outline-none transition focus:border-brand-500"
         />
+        {amountError && store.amount && (
+          <p className="mt-1 text-xs text-red-400">{amountError}</p>
+        )}
       </div>
 
       {/* Destination address */}
@@ -297,6 +331,9 @@ export default function TransferForm() {
           disabled={!useCustomDestAddress}
           className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 sm:px-4 py-2.5 sm:py-3 font-mono text-sm text-white placeholder-gray-600 outline-none transition focus:border-brand-500 disabled:cursor-not-allowed disabled:bg-gray-900/50 disabled:text-gray-500"
         />
+        {addressError && (
+          <p className="mt-1 text-xs text-red-400">{addressError}</p>
+        )}
       </div>
 
       {/* Transfer type cards */}
@@ -372,6 +409,17 @@ export default function TransferForm() {
             {srcChainType != null && `（源 ${srcChainType} v${srcVersions.join('/')}`}
             {dstChainType != null && `，目标 ${dstChainType} v${dstVersions.join('/')}`}
             {')'}，无法转账。
+          </span>
+        </div>
+      )}
+
+      {/* Estimated arrival time */}
+      {estimateSeconds != null && (
+        <div className="flex items-center gap-2 rounded-lg border border-gray-700 bg-gray-800 px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm text-gray-300">
+          <Clock className="h-4 w-4 shrink-0 text-brand-400" />
+          <span>
+            Estimated arrival: ~{formatSeconds(estimateSeconds)}
+            <span className="text-gray-500"> (after source transaction confirms)</span>
           </span>
         </div>
       )}

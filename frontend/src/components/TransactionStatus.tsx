@@ -1,6 +1,9 @@
 import { useParams, Link } from 'react-router-dom'
 import { useCctpTransfer } from '../hooks/useCctpTransfer'
 import { useAttestationStatus } from '../hooks/useAttestationStatus'
+import { useNetworkMode } from '../stores/networkMode'
+import { isPlausibleDestTxHash } from '../lib/api'
+import { formatSeconds } from '../lib/estimate'
 import { CheckCircle2, Clock, Loader2, AlertCircle, RefreshCw, Send, Search } from 'lucide-react'
 
 const STEPS = ['pending', 'attested', 'complete'] as const
@@ -11,16 +14,41 @@ function stepIndex(status: string, claimComplete: boolean) {
   return i >= 0 ? i : -1
 }
 
-function formatSeconds(s: number): string {
-  if (s < 60) return `${s}s`
-  const m = Math.floor(s / 60)
-  const sec = s % 60
-  return sec > 0 ? `${m}m ${sec}s` : `${m}m`
+// CCTP message: 116-byte header (version, domains, nonce, sender, recipient,
+// destinationCaller) + burn body (version, burnToken, mintRecipient, amount,
+// messageSender). Decoded so the user can verify what they are about to sign.
+interface DecodedBurnMessage {
+  amount: string
+  mintRecipient: string
+}
+
+function decodeCctpBurnMessage(messageHex: string): DecodedBurnMessage | null {
+  try {
+    const clean = messageHex.replace(/^0x/, '').toLowerCase()
+    // body: 4 (version) + 32 (burnToken) + 32 (mintRecipient) + 32 (amount) + 32 (messageSender)
+    if (!/^[0-9a-f]+$/.test(clean) || clean.length < (116 + 4 + 32 + 32 + 32) * 2) return null
+    const body = clean.slice(116 * 2)
+    const mintRecipient = `0x${body.slice(72, 136)}`
+    const amountUnits = BigInt(`0x${body.slice(136, 200)}`)
+    return { amount: (Number(amountUnits) / 1_000_000).toString(), mintRecipient }
+  } catch {
+    return null
+  }
+}
+
+/** Compare the decoded mint recipient against the recorded destination address. */
+function recipientMatches(mintRecipient: string, destAddress: string): boolean {
+  const rec = mintRecipient.replace(/^0x/, '').toLowerCase()
+  const dest = destAddress.replace(/^0x/i, '').toLowerCase()
+  if (dest.length === 64) return rec === dest
+  if (dest.length === 40) return rec.startsWith('000000000000000000000000') && rec.endsWith(dest)
+  return false
 }
 
 export default function TransactionStatus() {
   const { id } = useParams<{ id: string }>()
   const { step: claimStep, error: claimError, claimOnDestination, reset } = useCctpTransfer()
+  const { mode } = useNetworkMode()
 
   // Single fetch source — hook handles all polling
   const { data, isLoading, error, refetch, elapsed, estimatedWait } = useAttestationStatus(
@@ -53,7 +81,8 @@ export default function TransactionStatus() {
   }
 
   const tx = data.transaction
-  const claimComplete = (claimStep as string) === 'complete' || data.claimed
+  const destHashOk = !tx.dest_tx_hash || isPlausibleDestTxHash(tx.dest_tx_hash, tx.dest_domain, mode)
+  const claimComplete = ((claimStep as string) === 'complete' || data.claimed) && destHashOk
   const si = stepIndex(tx.status, claimComplete)
   const isClaiming = claimStep !== 'idle' && claimStep !== 'error' && claimStep !== 'complete'
   const canShowClaim = data.can_claim && tx.transfer_type !== 'relay' && tx.status !== 'complete' && !data.claimed && !claimComplete && !isClaiming
@@ -151,12 +180,53 @@ export default function TransactionStatus() {
           </div>
         </div>
       )}
+      {tx.status === 'complete' && !destHashOk && (
+        <div className="rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-4 sm:p-6">
+          <div className="flex items-center gap-3">
+            <AlertCircle className="h-6 w-6 text-yellow-400 shrink-0" />
+            <div>
+              <h2 className="text-lg font-semibold text-yellow-400">Completion Unverified</h2>
+              <p className="text-sm text-gray-400 break-words">
+                The server reports this transfer as complete, but the destination transaction hash is missing or
+                malformed. Verify the destination balance before assuming the funds arrived.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
       {(canShowClaim || isClaiming) && !claimComplete && (
         <div className="rounded-2xl border border-gray-800 bg-gray-900 p-4 sm:p-6">
           <h2 className="mb-3 text-lg font-semibold">Claim USDC</h2>
           <p className="mb-4 text-sm text-gray-400">
             Your USDC has been attested. Switch to the destination chain and call receiveMessage to mint USDC.
           </p>
+          {tx.message && (() => {
+            const decoded = decodeCctpBurnMessage(tx.message)
+            if (!decoded) return null
+            const amountOk = decoded.amount === tx.amount
+            const recipientOk = recipientMatches(decoded.mintRecipient, tx.dest_address)
+            return (
+              <div className="mb-4 rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-2 text-xs">
+                <div className="flex justify-between gap-3 py-0.5">
+                  <span className="text-gray-500">Message Amount</span>
+                  <span className={amountOk ? 'text-gray-300' : 'text-yellow-400'}>
+                    {decoded.amount} USDC{!amountOk && ' (differs from recorded amount)'}
+                  </span>
+                </div>
+                <div className="flex justify-between gap-3 py-0.5">
+                  <span className="text-gray-500 shrink-0">Mint Recipient</span>
+                  <span className={`font-mono truncate ${recipientOk ? 'text-gray-300' : 'text-yellow-400'}`}>
+                    {decoded.mintRecipient}{!recipientOk && ' (!)'}
+                  </span>
+                </div>
+                {(!amountOk || !recipientOk) && (
+                  <p className="mt-1 text-yellow-400">
+                    The signed message does not match this transfer's records — do not claim unless you verified it yourself.
+                  </p>
+                )}
+              </div>
+            )
+          })()}
           {claimError && (
             <div className="mb-3 rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-400 break-words">
               {claimError}

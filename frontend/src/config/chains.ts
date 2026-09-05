@@ -7,9 +7,9 @@ import configJson from '../../../config/chains.json'
 
 export type Mode = 'mainnet' | 'testnet'
 
-/** Network mode is driven by the URL path: `/mainnet/*` → mainnet, anything else → testnet. */
+/** Network mode is driven by the URL path: `/mainnet` and `/mainnet/*` → mainnet, anything else → testnet. */
 export function modeFromPath(pathname: string): Mode {
-  return pathname.startsWith('/mainnet') ? 'mainnet' : 'testnet'
+  return pathname === '/mainnet' || pathname.startsWith('/mainnet/') ? 'mainnet' : 'testnet'
 }
 
 /** Prefix a route path for the given network mode (mainnet lives under /mainnet). */
@@ -101,7 +101,9 @@ export function getTransferTypes(sourceDomain: number, destDomain: number, mode:
 
   const types: string[] = ['standard']
   if (src.supports_fast_transfer) types.push('fast')
-  if (src.supports_forwarding && dst.supports_forwarding) types.push('forward')
+  // 'forward' (Circle Forwarding Service) is not wired up: the burn is identical
+  // to standard and nothing auto-forwards the attestation, so offering it would
+  // mislead users into thinking no manual claim is needed.
   return types
 }
 

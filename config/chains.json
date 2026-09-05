@@ -347,29 +347,13 @@
           "finality_blocks": 1
         },
         {
-          "domain": 26,
-          "name": "Arc",
-          "chain_id": 252,
-          "rpc_url": "https://rpc.arc.org",
-          "explorer_url": "https://explorer.arc.org",
-          "usdc_address": "0x0000000000000000000000000000000000000000",
-          "cctp_versions": [
-            2
-          ],
-          "chain_type": "evm",
-          "supports_fast_transfer": false,
-          "supports_forwarding": true,
-          "block_time_ms": 1000,
-          "finality_blocks": 1
-        },
-        {
           "domain": 27,
           "name": "Stellar",
           "chain_id": null,
           "rpc_url": "https://soroban-rpc.stellar.org",
           "explorer_url": "https://stellar.expert/explorer/public",
           "usdc_address": "USDC:GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
-          "usdc_sac": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
+          "usdc_sac": "CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75",
           "cctp_versions": [
             2
           ],
@@ -430,9 +414,9 @@
         {
           "domain": 31,
           "name": "Pharos",
-          "chain_id": 0,
-          "rpc_url": "https://rpc.pharos.org",
-          "explorer_url": "https://explorer.pharos.org",
+          "chain_id": 1672,
+          "rpc_url": "https://rpc.pharos.xyz",
+          "explorer_url": "https://pharos.socialscan.io",
           "usdc_address": "0xC879C018dB60520F4355C26eD1a6D572cdAC1815",
           "cctp_versions": [
             2
@@ -500,7 +484,6 @@
             "21": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
             "22": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
             "25": "0x07d421B9cA8aA32DF259965cDA8ACb93F7599F69209A41872AE84638B2A20F2a",
-            "26": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
             "27": "CAE2G5Z77UP7GYPYGFOWFGW7C7J6I4YP2AFGSADRKQY62SYUFLPNFTXL",
             "28": "0x98706A006bc632Df31CAdFCBD43F38887ce2ca5c",
             "29": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
@@ -530,7 +513,6 @@
             "21": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
             "22": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
             "25": "0x02EBB5777B6dD8B26ea11D68Fdf1D2c85cD2099335328Be845a28c77A8AEf183",
-            "26": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
             "27": "CACMENFFJPJMSDAJQLX4R7K3SFZIW2LJSE3R2UMLGSWHFHS353FVXAZV",
             "28": "0x5b61381Fc9e58E70EfC13a4A97516997019198ee",
             "29": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
@@ -756,7 +738,7 @@
             2
           ],
           "chain_type": "evm",
-          "supports_fast_transfer": true,
+          "supports_fast_transfer": false,
           "supports_forwarding": true,
           "block_time_ms": 1000,
           "finality_blocks": 1
@@ -805,7 +787,7 @@
             1
           ],
           "chain_type": "sui",
-          "supports_fast_transfer": true,
+          "supports_fast_transfer": false,
           "supports_forwarding": false,
           "block_time_ms": 500,
           "finality_blocks": 1

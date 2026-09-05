@@ -50,22 +50,36 @@ async function resolveSourceMessage(
   }
 
   if (chain.chain_type === 'sui') {
-    const res = await fetch(chain.rpc_url, {
+    const endpoint = mode === 'mainnet'
+      ? 'https://graphql.mainnet.sui.io/graphql'
+      : 'https://graphql.testnet.sui.io/graphql'
+    const res = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'sui_getTransactionBlock',
-        params: [sourceTxHash, { showEvents: true }],
+        query: `query ($digest: String!) {
+          transaction(digest: $digest) {
+            effects {
+              events {
+                nodes {
+                  type { repr }
+                  contents { json }
+                }
+              }
+            }
+          }
+        }`,
+        variables: { digest: sourceTxHash },
       }),
     })
     if (!res.ok) return null
     const json = await res.json()
-    const events = json?.result?.events ?? []
+    if (json?.errors) return null
+    const events = json?.data?.transaction?.effects?.events?.nodes ?? []
     for (const evt of events) {
-      if (typeof evt?.type === 'string' && evt.type.endsWith('::message_transmitter::MessageSent')) {
-        const parsed = evt?.parsedJson?.message
+      const type = evt?.type?.repr
+      if (typeof type === 'string' && type.endsWith('::message_transmitter::MessageSent')) {
+        const parsed = evt?.contents?.json?.message
         if (typeof parsed === 'string' && parsed) {
           return parsed.startsWith('0x') ? parsed : `0x${parsed}`
         }
@@ -127,7 +141,7 @@ export async function queryIris(
     if (!message) return null
     const hash = keccak256(message as `0x${string}`)
     try {
-      const res = await fetch(`${base}/attestations/${hash}`)
+      const res = await fetch(`${base}/attestations/${hash}${mode === 'mainnet' ? '?mainnet=true' : ''}`)
       if (!res.ok) return null
       const data = await res.json()
       // v1 /attestations does not echo the message body — attach the parsed one.
