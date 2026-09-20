@@ -3,8 +3,10 @@ import { modeFromPath } from '../config/chains'
 
 export type NetworkMode = 'mainnet' | 'testnet'
 
+// HashRouter keeps the app route in location.hash (`#/mainnet/tx/…`), so the
+// initial mode must come from the hash, not pathname.
 const initialMode: NetworkMode =
-  typeof window !== 'undefined' ? modeFromPath(window.location.pathname) : 'mainnet'
+  typeof window !== 'undefined' ? modeFromPath(window.location.hash.replace(/^#/, '')) : 'mainnet'
 
 interface NetworkModeState {
   mode: NetworkMode

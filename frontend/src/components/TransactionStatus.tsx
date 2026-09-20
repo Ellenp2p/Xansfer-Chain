@@ -4,6 +4,7 @@ import { useAttestationStatus } from '../hooks/useAttestationStatus'
 import { useNetworkMode } from '../stores/networkMode'
 import { isPlausibleDestTxHash } from '../lib/api'
 import { formatSeconds } from '../lib/estimate'
+import { formatUsdcUnits, parseUsdcUnits } from '../lib/fees'
 import { CheckCircle2, Clock, Loader2, AlertCircle, RefreshCw, Send, Search } from 'lucide-react'
 
 const STEPS = ['pending', 'attested', 'complete'] as const
@@ -18,7 +19,7 @@ function stepIndex(status: string, claimComplete: boolean) {
 // destinationCaller) + burn body (version, burnToken, mintRecipient, amount,
 // messageSender). Decoded so the user can verify what they are about to sign.
 interface DecodedBurnMessage {
-  amount: string
+  amountUnits: bigint
   mintRecipient: string
 }
 
@@ -30,10 +31,32 @@ function decodeCctpBurnMessage(messageHex: string): DecodedBurnMessage | null {
     const body = clean.slice(116 * 2)
     const mintRecipient = `0x${body.slice(72, 136)}`
     const amountUnits = BigInt(`0x${body.slice(136, 200)}`)
-    return { amount: (Number(amountUnits) / 1_000_000).toString(), mintRecipient }
+    return { amountUnits, mintRecipient }
   } catch {
     return null
   }
+}
+
+/** Compare the decoded amount against the recorded amount, both as exact units. */
+function amountsMatch(amountUnits: bigint, recordedAmount: string): boolean {
+  try {
+    return parseUsdcUnits(recordedAmount) === amountUnits
+  } catch {
+    return false
+  }
+}
+
+/** Shorten a 32-byte hex recipient to its EVM address form (last 20 bytes) when padded. */
+function formatMintRecipient(mintRecipient: string): string {
+  const rec = mintRecipient.replace(/^0x/, '').toLowerCase()
+  if (rec.length === 64 && rec.startsWith('000000000000000000000000')) {
+    return `0x${rec.slice(24)}`
+  }
+  return mintRecipient
+}
+
+function truncateMiddle(value: string, head = 10, tail = 8): string {
+  return value.length <= head + tail + 3 ? value : `${value.slice(0, head)}…${value.slice(-tail)}`
 }
 
 /** Compare the decoded mint recipient against the recorded destination address. */
@@ -51,7 +74,7 @@ export default function TransactionStatus() {
   const { mode } = useNetworkMode()
 
   // Single fetch source — hook handles all polling
-  const { data, isLoading, error, refetch, elapsed, estimatedWait } = useAttestationStatus(
+  const { data, isLoading, isRefetching, error, refetch, elapsed, estimatedWait } = useAttestationStatus(
     id ?? null,
     !!id,
   )
@@ -64,7 +87,9 @@ export default function TransactionStatus() {
     )
   }
 
-  if (error || !data) {
+  // Only a missing first load is fatal — a failed refresh must not discard
+  // data we are already showing.
+  if (!data) {
     return (
       <div className="py-20 text-center">
         <AlertCircle className="mx-auto mb-2 h-8 w-8 text-red-400" />
@@ -203,24 +228,28 @@ export default function TransactionStatus() {
           {tx.message && (() => {
             const decoded = decodeCctpBurnMessage(tx.message)
             if (!decoded) return null
-            const amountOk = decoded.amount === tx.amount
+            const amountOk = amountsMatch(decoded.amountUnits, tx.amount)
             const recipientOk = recipientMatches(decoded.mintRecipient, tx.dest_address)
+            const displayRecipient = formatMintRecipient(decoded.mintRecipient)
             return (
               <div className="mb-4 rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-2 text-xs">
-                <div className="flex justify-between gap-3 py-0.5">
+                <div className="flex flex-wrap justify-between gap-x-3 py-0.5">
                   <span className="text-gray-500">Message Amount</span>
-                  <span className={amountOk ? 'text-gray-300' : 'text-yellow-400'}>
-                    {decoded.amount} USDC{!amountOk && ' (differs from recorded amount)'}
+                  <span className={`min-w-0 break-all ${amountOk ? 'text-gray-300' : 'text-yellow-400'}`}>
+                    {formatUsdcUnits(decoded.amountUnits)} USDC{!amountOk && ' (differs from recorded amount)'}
                   </span>
                 </div>
-                <div className="flex justify-between gap-3 py-0.5">
+                <div className="flex flex-wrap justify-between gap-x-3 py-0.5">
                   <span className="text-gray-500 shrink-0">Mint Recipient</span>
-                  <span className={`font-mono truncate ${recipientOk ? 'text-gray-300' : 'text-yellow-400'}`}>
-                    {decoded.mintRecipient}{!recipientOk && ' (!)'}
+                  <span
+                    className={`min-w-0 break-all font-mono ${recipientOk ? 'text-gray-300' : 'text-yellow-400'}`}
+                    title={displayRecipient}
+                  >
+                    {truncateMiddle(displayRecipient)}{!recipientOk && ' (!)'}
                   </span>
                 </div>
                 {(!amountOk || !recipientOk) && (
-                  <p className="mt-1 text-yellow-400">
+                  <p className="mt-1 break-words text-yellow-400">
                     The signed message does not match this transfer's records — do not claim unless you verified it yourself.
                   </p>
                 )}
@@ -270,9 +299,15 @@ export default function TransactionStatus() {
           <h2 className="text-lg font-semibold">Details</h2>
           <button
             onClick={() => refetch()}
-            className="rounded-lg p-2 text-gray-400 transition hover:bg-gray-800 hover:text-white"
+            disabled={isRefetching}
+            title={isRefetching ? 'Refreshing…' : 'Refresh'}
+            className="rounded-lg p-2 text-gray-400 transition hover:bg-gray-800 hover:text-white disabled:opacity-50"
           >
-            <RefreshCw className="h-4 w-4" />
+            {isRefetching ? (
+              <Loader2 className="h-4 w-4 animate-spin text-brand-400" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
           </button>
         </div>
         <dl className="mt-4 space-y-3 text-sm">
