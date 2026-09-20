@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import ReactDOM from 'react-dom/client'
-import { BrowserRouter, useLocation } from 'react-router-dom'
+import { HashRouter, useLocation } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { WalletProvider } from '@xansfer/wallet-connect'
 import '@xansfer/wallet-connect/styles.css'
@@ -30,9 +30,9 @@ if (import.meta.env.DEV) {
 function Root() {
   return (
     <React.StrictMode>
-      <BrowserRouter basename={import.meta.env.BASE_URL}>
+      <HashRouter basename={import.meta.env.BASE_URL}>
         <ModeBound />
-      </BrowserRouter>
+      </HashRouter>
     </React.StrictMode>
   )
 }
