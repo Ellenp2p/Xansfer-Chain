@@ -74,7 +74,7 @@ export default function TransactionStatus() {
   const { mode } = useNetworkMode()
 
   // Single fetch source — hook handles all polling
-  const { data, isLoading, error, refetch, elapsed, estimatedWait } = useAttestationStatus(
+  const { data, isLoading, isRefetching, error, refetch, elapsed, estimatedWait } = useAttestationStatus(
     id ?? null,
     !!id,
   )
@@ -87,7 +87,9 @@ export default function TransactionStatus() {
     )
   }
 
-  if (error || !data) {
+  // Only a missing first load is fatal — a failed refresh must not discard
+  // data we are already showing.
+  if (!data) {
     return (
       <div className="py-20 text-center">
         <AlertCircle className="mx-auto mb-2 h-8 w-8 text-red-400" />
@@ -297,9 +299,15 @@ export default function TransactionStatus() {
           <h2 className="text-lg font-semibold">Details</h2>
           <button
             onClick={() => refetch()}
-            className="rounded-lg p-2 text-gray-400 transition hover:bg-gray-800 hover:text-white"
+            disabled={isRefetching}
+            title={isRefetching ? 'Refreshing…' : 'Refresh'}
+            className="rounded-lg p-2 text-gray-400 transition hover:bg-gray-800 hover:text-white disabled:opacity-50"
           >
-            <RefreshCw className="h-4 w-4" />
+            {isRefetching ? (
+              <Loader2 className="h-4 w-4 animate-spin text-brand-400" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
           </button>
         </div>
         <dl className="mt-4 space-y-3 text-sm">
