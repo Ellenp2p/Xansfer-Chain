@@ -8,3 +8,4 @@ target/
 *.log
 .claude/
 *.tsbuildinfo
+.canary-state.json

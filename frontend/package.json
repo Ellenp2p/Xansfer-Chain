@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "verify:chains": "bun scripts/verify-chains.ts"
+    "verify:chains": "bun scripts/verify-chains.ts",
+    "canary": "bun scripts/canary.ts"
   },
   "dependencies": {
     "@aptos-labs/ts-sdk": "^7.5.0",
