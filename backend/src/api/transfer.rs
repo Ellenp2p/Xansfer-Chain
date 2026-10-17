@@ -408,7 +408,7 @@ pub async fn list_transactions(
             "SELECT * FROM transactions WHERE source_address IN ({}) ORDER BY created_at DESC LIMIT 50",
             placeholders
         );
-        let mut query = sqlx::query_as(&sql);
+        let mut query = sqlx::query_as(sqlx::AssertSqlSafe(sql));
         for addr in &addresses {
             query = query.bind(*addr);
         }

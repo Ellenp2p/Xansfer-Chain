@@ -27,7 +27,7 @@ pub async fn init_db(database_url: &str) -> Result<SqlitePool> {
     ];
 
     for &(table, col, typedef) in desired_cols {
-        let existing: Vec<String> = sqlx::query(&format!("PRAGMA table_info({})", table))
+        let existing: Vec<String> = sqlx::query(sqlx::AssertSqlSafe(format!("PRAGMA table_info({})", table)))
             .fetch_all(&pool)
             .await
             .unwrap_or_default()
@@ -37,7 +37,7 @@ pub async fn init_db(database_url: &str) -> Result<SqlitePool> {
 
         if !existing.iter().any(|c| c == col) {
             let sql = format!("ALTER TABLE {} ADD COLUMN {} {}", table, col, typedef);
-            if let Err(e) = sqlx::query(&sql).execute(&pool).await {
+            if let Err(e) = sqlx::query(sqlx::AssertSqlSafe(sql)).execute(&pool).await {
                 tracing::warn!("Failed to add {}.{}: {}", table, col, e);
             }
         }
