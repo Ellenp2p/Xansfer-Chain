@@ -1,65 +1,17 @@
 import { useWriteContract, useSwitchChain, useAccount } from 'wagmi'
 import { readContract } from 'wagmi/actions'
 import { useCallback } from 'react'
-import { type Hex, toHex, stringToBytes } from 'viem'
+import type { Hex } from 'viem'
 import { ERC20_ABI, TOKEN_MESSENGER_V1_ABI, TOKEN_MESSENGER_V2_ABI, MESSAGE_TRANSMITTER_V1_ABI, MESSAGE_TRANSMITTER_V2_ABI } from '../../config/cctp-abi'
 import { getCctpContracts } from '../../config/chains'
 import { getChainIdForDomain, isChainSupportedByWagmi } from '../../config/wagmi'
 import { useNetworkMode } from '../../stores/networkMode'
 import { useWalletState, useWagmiConfig } from '@xansfer/wallet-connect'
 import { assertDestinationAddress } from '../../lib/address'
+import { buildCctpForwarderHookData, contractStrKeyToBytes32 } from '../../lib/cctpEncoding'
 import { parseUsdcUnits, fetchCircleMaxFee } from '../../lib/fees'
 import type { ChainAdapter, SourceBurnParams, ClaimParams } from './types'
 import type { ChainConfig, ChainType } from '../../types'
-
-// Stellar StrKey decoding
-const STELLAR_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
-
-function stellarStrKeyDecode(strkey: string): Uint8Array {
-  let bits = 0
-  let value = 0
-  const output: number[] = []
-  for (const char of strkey.toUpperCase()) {
-    const idx = STELLAR_ALPHABET.indexOf(char)
-    if (idx === -1) throw new Error(`Invalid character in Stellar strkey: ${char}`)
-    value = (value << 5) | idx
-    bits += 5
-    if (bits >= 8) {
-      output.push((value >>> (bits - 8)) & 0xff)
-      bits -= 8
-    }
-  }
-  return new Uint8Array(output)
-}
-
-/** Convert Stellar contract strkey (C...) to bytes32 hex */
-function contractStrKeyToBytes32(strkey: string): Hex {
-  if (!strkey.startsWith('C') || strkey.length !== 56) {
-    throw new Error(`Invalid Stellar contract strkey: ${strkey}`)
-  }
-  const decoded = stellarStrKeyDecode(strkey)
-  // Contract strkey: version(1) + contract_id(32) + checksum(2) = 35 bytes
-  const contractId = decoded.slice(1, 33)
-  return toHex(contractId, { size: 32 })
-}
-
-/**
- * Build hookData for CCTP Forwarder.
- * Layout: [24-byte zero padding][4-byte hook version (0)][4-byte recipient length][recipient UTF-8 bytes]
- */
-function buildCctpForwarderHookData(forwardRecipient: string): Hex {
-  const recipientBytes = stringToBytes(forwardRecipient)
-  const hookData = new Uint8Array(32 + recipientBytes.length)
-  // Bytes 24-27: hook version = 0 (already zero)
-  // Bytes 28-31: recipient byte length (big-endian uint32)
-  hookData[28] = (recipientBytes.length >>> 24) & 0xff
-  hookData[29] = (recipientBytes.length >>> 16) & 0xff
-  hookData[30] = (recipientBytes.length >>> 8) & 0xff
-  hookData[31] = recipientBytes.length & 0xff
-  // Bytes 32+: recipient strkey as UTF-8
-  hookData.set(recipientBytes, 32)
-  return toHex(hookData)
-}
 
 // CCTP Forwarder contract addresses on Stellar
 const STELLAR_CCTP_FORWARDER: Record<string, string> = {

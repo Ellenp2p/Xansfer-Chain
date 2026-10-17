@@ -4,6 +4,7 @@ import { Transaction } from '@mysten/sui/transactions'
 import { useNetworkMode } from '../../stores/networkMode'
 import { getCctpContracts, getChainByDomain } from '../../config/chains'
 import { assertDestinationAddress } from '../../lib/address'
+import { normalizeMintRecipient } from '../../lib/cctpEncoding'
 import { parseUsdcUnits } from '../../lib/fees'
 import type { ChainAdapter, SourceBurnParams, ClaimParams } from './types'
 import type { ChainConfig, ChainType } from '../../types'
@@ -41,16 +42,6 @@ const CCTP_OBJECTS: Record<string, SuiCctpObjects> = {
     messageTransmitterState: '0x98234bd0fa9ac12cc0a20a144a22e36d6a32f7e0a97baaeaf9c76cdc6d122d2e',
     treasury: '0x7170137d4a6431bf83351ac025baf462909bffe2877d87716374fb42b9629ebe',
   },
-}
-
-/**
- * CCTP mint_recipient for a non-Move destination must be a 32-byte address.
- * EVM addresses are left-padded to 32 bytes; Sui addresses are already 32 bytes.
- */
-function normalizeMintRecipient(addr: string): string {
-  const clean = addr.replace(/^0x/i, '')
-  if (clean.length === 64) return `0x${clean}`
-  return `0x${clean.padStart(64, '0')}`
 }
 
 function usdcCoinType(usdcPackage: string): string {

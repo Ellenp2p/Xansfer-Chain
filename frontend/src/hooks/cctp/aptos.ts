@@ -1,9 +1,9 @@
 import { useCallback } from 'react'
 import { useWallet, type InputTransactionData } from '@aptos-labs/wallet-adapter-react'
 import { MoveVector, U64, U32, AccountAddress } from '@aptos-labs/ts-sdk'
-import { toHex, stringToBytes } from 'viem'
 import { useNetworkMode } from '../../stores/networkMode'
 import { assertDestinationAddress } from '../../lib/address'
+import { buildCctpForwarderHookData, contractStrKeyToBytes32, normalizeMintRecipient } from '../../lib/cctpEncoding'
 import { parseUsdcUnits, fetchCircleMaxFee } from '../../lib/fees'
 import type { ChainAdapter, SourceBurnParams, ClaimParams } from './types'
 import type { ChainConfig, ChainType } from '../../types'
@@ -17,62 +17,7 @@ function hexToBytes(hex: string): number[] {
   return bytes
 }
 
-/**
- * CCTP mint_recipient for a non-Move destination (e.g. EVM) must be a
- * 32-byte (64 hex) address. EVM addresses are 20 bytes, so left-pad them.
- */
-function normalizeMintRecipient(addr: string): string {
-  const clean = addr.replace(/^0x/i, '')
-  if (clean.length === 64) return `0x${clean}`
-  return `0x${clean.padStart(64, '0')}`
-}
-
 const ZERO_ADDRESS = '0x' + '0'.repeat(64)
-
-// Stellar StrKey decoding helpers for Aptos → Stellar CCTP forwarding.
-const STELLAR_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
-
-function stellarStrKeyDecode(strkey: string): Uint8Array {
-  let bits = 0
-  let value = 0
-  const output: number[] = []
-  for (const char of strkey.toUpperCase()) {
-    const idx = STELLAR_ALPHABET.indexOf(char)
-    if (idx === -1) throw new Error(`Invalid character in Stellar strkey: ${char}`)
-    value = (value << 5) | idx
-    bits += 5
-    if (bits >= 8) {
-      output.push((value >>> (bits - 8)) & 0xff)
-      bits -= 8
-    }
-  }
-  return new Uint8Array(output)
-}
-
-/** Convert Stellar contract strkey (C...) to bytes32 hex. */
-function contractStrKeyToBytes32(strkey: string): string {
-  if (!strkey.startsWith('C') || strkey.length !== 56) {
-    throw new Error(`Invalid Stellar contract strkey: ${strkey}`)
-  }
-  const decoded = stellarStrKeyDecode(strkey)
-  const contractId = decoded.slice(1, 33)
-  return toHex(contractId, { size: 32 })
-}
-
-/**
- * Build hookData for CCTP Forwarder.
- * Layout: [24-byte zero padding][4-byte hook version (0)][4-byte recipient length][recipient UTF-8 bytes]
- */
-function buildCctpForwarderHookData(forwardRecipient: string): string {
-  const recipientBytes = stringToBytes(forwardRecipient)
-  const hookData = new Uint8Array(32 + recipientBytes.length)
-  hookData[28] = (recipientBytes.length >>> 24) & 0xff
-  hookData[29] = (recipientBytes.length >>> 16) & 0xff
-  hookData[30] = (recipientBytes.length >>> 8) & 0xff
-  hookData[31] = recipientBytes.length & 0xff
-  hookData.set(recipientBytes, 32)
-  return toHex(hookData)
-}
 
 // CCTP Forwarder contract addresses on Stellar.
 const STELLAR_CCTP_FORWARDER: Record<string, string> = {

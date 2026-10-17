@@ -4,6 +4,7 @@ import { rpc, Contract, TransactionBuilder, Address, nativeToScVal, scValToNativ
 import { useNetworkMode } from '../../stores/networkMode'
 import { useWalletState } from '@xansfer/wallet-connect'
 import { getCctpContracts, getChainTypeForDomain } from '../../config/chains'
+import { buildCctpForwarderHookDataBytes, mintRecipientBytes } from '../../lib/cctpEncoding'
 import type { ChainAdapter, SourceBurnParams, ClaimParams } from './types'
 import type { ChainConfig, ChainType } from '../../types'
 import { assertDestinationAddress } from '../../lib/address'
@@ -242,11 +243,8 @@ export function useStellarAdapter(): ChainAdapter {
       let destinationCallerScVal: xdr.ScVal
 
       if (destAddress.startsWith('0x')) {
-        // EVM destination: bytes32 recipient + zero destination_caller
-        // Strip 0x, lowercase, left-pad to 32 bytes (64 hex chars), then wrap in scvBytes.
-        const hexNoPrefix = destAddress.slice(2).toLowerCase()
-        const paddedHex = hexNoPrefix.padStart(64, '0')
-        mintRecipientScVal = xdr.ScVal.scvBytes(Buffer.from(paddedHex, 'hex'))
+        // EVM destination: bytes32 recipient + zero destination_caller.
+        mintRecipientScVal = xdr.ScVal.scvBytes(mintRecipientBytes(destAddress))
         destinationCallerScVal = xdr.ScVal.scvBytes(Buffer.alloc(32))
       } else if (destAddress.startsWith('C') && destAddress.length === 56) {
         // Stellar contract destination: CctpForwarder is required per Circle docs.
@@ -259,12 +257,7 @@ export function useStellarAdapter(): ChainAdapter {
         // proper flow needs deposit_for_burn_with_hook + CctpForwarder (out of
         // scope). Encode the strkey as bytes32 hookData; funds end up "stuck" at
         // a non-existent contract. The UI warns the user.
-        const recipientBytes = Buffer.from(destAddress, 'utf8')
-        const hookData = Buffer.alloc(32 + recipientBytes.length)
-        hookData.writeUInt32BE(0, 24) // hook version = 0
-        hookData.writeUInt32BE(recipientBytes.length, 28) // recipient byte length
-        recipientBytes.copy(hookData, 32) // recipient strkey as UTF-8
-        mintRecipientScVal = xdr.ScVal.scvBytes(hookData)
+        mintRecipientScVal = xdr.ScVal.scvBytes(buildCctpForwarderHookDataBytes(destAddress))
         destinationCallerScVal = xdr.ScVal.scvBytes(Buffer.alloc(32))
         console.warn('[burnUsdc] G/M destination: use CctpForwarder hook for actual transfer — current encoding is a stub')
       } else {
