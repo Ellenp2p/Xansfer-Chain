@@ -1,0 +1,38 @@
+name: Verify chain config
+
+on:
+  schedule:
+    # Daily at 03:00 UTC
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'config/chains.json'
+      - 'frontend/scripts/verify-chains.ts'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-chains-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: On-chain config checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Install dependencies (workspace)
+        run: bun install --frozen-lockfile
+
+      - name: Verify testnet addresses and contracts
+        working-directory: frontend
+        run: bun run verify:chains -- --mode testnet --allow-network-errors
+
+      - name: Verify mainnet addresses and contracts
+        working-directory: frontend
+        run: bun run verify:chains -- --mode mainnet --allow-network-errors

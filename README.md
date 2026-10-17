@@ -113,6 +113,18 @@ VITE_BASE=/Xansfer-Chain/ bun run build
 3. 以 `VITE_BASE=/Xansfer-Chain/` 构建前端
 4. 上传 `frontend/dist` 并部署到 GitHub Pages
 
+## 测试与验证
+
+- 每个 PR：`.github/workflows/ci.yml` 跑前端单测 + 构建，以及后端 `cargo check`
+- 每天 / 改链配置时：`.github/workflows/verify-chains.yml` 对 `config/chains.json` 做链上只读校验
+- 详细说明见 [`docs/TESTING.md`](docs/TESTING.md)
+
+```bash
+cd frontend
+bun run test                        # 确定性单测
+bun run verify:chains               # 链上地址/合约校验（默认 testnet）
+```
+
 ## 当前限制
 
 - **自动 claim / 转发服务尚未启用**。仓库里的 relay worker 仍是模拟实现，默认 `RELAY_ENABLED=false`；用户需要自己在目标链 claim。前端也刻意隐藏了 Forward 转账类型，避免误导。
