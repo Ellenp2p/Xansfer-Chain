@@ -43,6 +43,22 @@ describe('formatUsdcUnits', () => {
   })
 })
 
+describe('18-decimal tokens (BNB Smart Chain USDC)', () => {
+  it('parses and formats with an explicit decimals value', () => {
+    expect(parseUsdcUnits('1', 18)).toBe(10n ** 18n)
+    expect(parseUsdcUnits('0.29', 18)).toBe(290_000_000_000_000_000n)
+    expect(formatUsdcUnits(10n ** 18n, 18)).toBe('1')
+    expect(formatUsdcUnits(1n, 18)).toBe('0.000000000000000001')
+    expect(parseUsdcUnits(formatUsdcUnits(1234567890123456789n, 18), 18)).toBe(1234567890123456789n)
+  })
+
+  it('validates fraction digits against the token decimals', () => {
+    expect(getUsdcAmountError('1.123456789012345678', 18)).toBeNull()
+    expect(getUsdcAmountError('1.1234567890123456789', 18)).not.toBeNull()
+    expect(getUsdcAmountError('1.1234567', 6)).not.toBeNull()
+  })
+})
+
 describe('getUsdcAmountError', () => {
   it('accepts valid amounts', () => {
     expect(getUsdcAmountError('1')).toBeNull()

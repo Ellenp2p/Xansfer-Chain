@@ -216,7 +216,7 @@ export function useSuiAdapter(): ChainAdapter {
       const objects = CCTP_OBJECTS[mode]
       if (!objects) throw new Error(`No known CCTP shared objects for Sui mode "${mode}"`)
 
-      const amountRaw = parseUsdcUnits(amount)
+      const amountRaw = parseUsdcUnits(amount, chainConfig.usdc_decimals ?? 6)
       const usdcType = usdcCoinType(chainConfig.usdc_address.split('::')[0])
       const coin = await findUsdcCoin(mode, account.address, usdcType, amountRaw)
 

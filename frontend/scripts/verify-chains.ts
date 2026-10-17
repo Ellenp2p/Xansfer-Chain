@@ -27,6 +27,7 @@ interface ChainConfig {
   chain_id: number | null
   rpc_url: string
   usdc_address: string
+  usdc_decimals?: number
   usdc_sac?: string
   cctp_versions: number[]
   chain_type: ChainType
@@ -138,9 +139,10 @@ async function verifyEvm(mode: Mode, chain: ChainConfig): Promise<CheckResult[]>
       'latest',
     ])
     const decimals = Number.parseInt(decimalsHex, 16)
-    add('USDC decimals = 6', decimals === 6, `got ${decimals}`)
+    const expected = chain.usdc_decimals ?? 6
+    add(`USDC decimals = ${expected}`, decimals === expected, `got ${decimals}`)
   } catch (error) {
-    add('USDC decimals = 6', false, (error as Error).message, true)
+    add('USDC decimals', false, (error as Error).message, true)
   }
 
   for (const version of chain.cctp_versions) {
@@ -172,7 +174,8 @@ async function verifySolana(mode: Mode, chain: ChainConfig): Promise<CheckResult
   try {
     const supply = await rpc<{ value: { decimals: number } }>('getTokenSupply', [chain.usdc_address])
     add('USDC mint exists', true, chain.usdc_address)
-    add('USDC decimals = 6', supply.value.decimals === 6, `got ${supply.value.decimals}`)
+    const expected = chain.usdc_decimals ?? 6
+    add(`USDC decimals = ${expected}`, supply.value.decimals === expected, `got ${supply.value.decimals}`)
   } catch (error) {
     add('USDC mint exists', false, (error as Error).message, true)
   }
@@ -306,7 +309,8 @@ async function verifySui(mode: Mode, chain: ChainConfig): Promise<CheckResult[]>
       variables: { coinType: chain.usdc_address },
     })
     add('USDC coin metadata exists', !!data.coinMetadata, chain.usdc_address)
-    add('USDC decimals = 6', data.coinMetadata?.decimals === 6, `got ${data.coinMetadata?.decimals}`)
+    const expected = chain.usdc_decimals ?? 6
+    add(`USDC decimals = ${expected}`, data.coinMetadata?.decimals === expected, `got ${data.coinMetadata?.decimals}`)
   } catch (error) {
     add('USDC coin metadata exists', false, (error as Error).message, true)
   }

@@ -44,7 +44,7 @@ export function useEvmAdapter(): ChainAdapter {
       const contracts = getCctpContracts(chainConfig.domain, cctpVersion, mode)
       if (!contracts) throw new Error(`CCTP v${cctpVersion} not available for ${chainConfig.name}`)
       if (chainConfig.chain_id == null) throw new Error(`chain_id not configured for ${chainConfig.name}`)
-      const amountBigInt = parseUsdcUnits(amount)
+      const amountBigInt = parseUsdcUnits(amount, chainConfig.usdc_decimals ?? 6)
 
       if (!evmAddress) throw new Error('EVM wallet not connected')
 
@@ -83,7 +83,7 @@ export function useEvmAdapter(): ChainAdapter {
       if (!contracts) throw new Error(`CCTP v${cctpVersion} not available for ${chainConfig.name}`)
       if (chainConfig.chain_id == null) throw new Error(`chain_id not configured for ${chainConfig.name}`)
 
-      const amountBigInt = parseUsdcUnits(amount)
+      const amountBigInt = parseUsdcUnits(amount, chainConfig.usdc_decimals ?? 6)
       const isFast = transferType === 'fast'
       const minFinalityThreshold = isFast ? 1000 : 2000
 

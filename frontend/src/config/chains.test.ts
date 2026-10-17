@@ -128,6 +128,19 @@ describe.each(MODES)('chain config (%s)', (mode) => {
     }
   })
 
+  it('declares USDC decimals per chain (6 everywhere except BNB)', () => {
+    for (const chain of chains) {
+      const decimals = chain.usdc_decimals ?? 6
+      expect([6, 18], chain.name).toContain(decimals)
+    }
+  })
+
+  if (mode === 'mainnet') {
+    it('uses 18 decimals for BNB Smart Chain USDC', () => {
+      expect(getChainByDomain(17, 'mainnet')?.usdc_decimals).toBe(18)
+    })
+  }
+
   it('resolves CCTP contracts for every declared version', () => {
     for (const chain of chains) {
       const pattern = cctpAddressPattern(chain.chain_type)

@@ -133,7 +133,7 @@ bun run verify:chains               # 链上地址/合约校验（默认 testnet
 
 ## 开发约定
 
-- 金额一律使用整数单位 + `BigInt` / `parseUsdcUnits`，不要用 `Number` 处理 32 字节金额。
+- 金额一律使用整数单位 + `BigInt` / `parseUsdcUnits`，不要用 `Number` 处理 32 字节金额。金额的小数位必须取链配置的 `usdc_decimals`（默认 6，BNB Smart Chain 是 18），不要硬编码 6。
 - 链相关逻辑优先走 `config/chains.ts` 的解析函数，不要在组件里硬编码 domain / 合约地址。
 - CCTP v1 与 v2 的消息格式不同，改动 claim 逻辑时注意保持版本隔离。
 - 修改 `config/chains.json` 后，前端与后端都应以它为准，不要另建副本。

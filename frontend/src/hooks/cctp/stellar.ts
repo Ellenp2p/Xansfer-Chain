@@ -179,7 +179,7 @@ export function useStellarAdapter(): ChainAdapter {
     const usdcSacAddr = chainConfig.usdc_sac
     if (!usdcSacAddr) throw new Error('Stellar chain config missing usdc_sac — check chains.ts')
 
-    const amountRaw = parseUsdcUnits(amount) * 10n
+    const amountRaw = parseUsdcUnits(amount, chainConfig.usdc_decimals ?? 6) * 10n
     const publicKey = await getPublicKey()
     const contracts = getCctpContracts(chainConfig.domain, 2, mode as 'mainnet' | 'testnet')
     if (!contracts) throw new Error(`No CCTP v2 contracts configured for domain ${chainConfig.domain}`)
@@ -212,7 +212,7 @@ export function useStellarAdapter(): ChainAdapter {
       // The CCTP protocol message itself stores 6-decimal amount per Circle docs, but
       // the Stellar contract call parameter uses 7-decimal — the contract handles the
       // 6→7 scaling internally. So pass the user amount * 10^7.
-      const amountUnits = parseUsdcUnits(amount)
+      const amountUnits = parseUsdcUnits(amount, chainConfig.usdc_decimals ?? 6)
       const amountRaw = amountUnits * 10n
 
       // Circle finality thresholds: fast = 1000, standard = 2000. CCTP v2 on Stellar

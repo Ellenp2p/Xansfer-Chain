@@ -75,19 +75,35 @@ CI：`.github/workflows/verify-chains.yml`
 
 ## 加一条新链时
 
-1. 在 `config/chains.json` 里补 `domain`、`chain_id`、`rpc_url`、`usdc_address`、`cctp_versions` 和对应 CCTP 合约地址；
+1. 在 `config/chains.json` 里补 `domain`、`chain_id`、`rpc_url`、`usdc_address`、`cctp_versions` 和对应 CCTP 合约地址；如果该链 USDC 不是 6 位小数，再加 `usdc_decimals`；
 2. `bun run test`（`config/chains.test.ts` 会检查结构与 domain 映射）；
 3. `bun run verify:chains -- --type <chain_type>`（会去链上确认地址）；
 4. 合并后 CI 会再跑一遍完整校验。
 
-## 已知的 RPC 问题（本地网络实测）
+## 已知的 RPC / 校验问题
 
-2026-10 本地跑 testnet 校验时的结果，供排查参考：
+以下都是 2026-10 实测得到的结论，多数已经在同一次整理中修复：
 
-- Sui：公共 JSON-RPC 已废弃，脚本已改用 GraphQL，全部通过；
-- Starknet Sepolia：公共 RPC 返回 403，可能需要带 API key 的端点；
-- Stellar `soroban-testnet.stellar.org` / `soroban-rpc.stellar.org`：本地网络超时，需要换网络或换端点再确认；
-- Polygon Amoy、Sonic Testnet、Arc Testnet、Cronos Testnet：本地 DNS 解析失败（`ENOTFOUND`）；
-- OP Sepolia、Unichain Sepolia、Solana Devnet：本地请求超时。
+- **Sui**：公共 JSON-RPC 已废弃，脚本改用 GraphQL，全部通过。
+- **BNB Smart Chain**：USDC 是 **18 位小数**（不是 6 位）。现在 `config/chains.json` 支持 `usdc_decimals`，前端金额解析 / 格式化 / burn 参数都按链取小数位，校验脚本也按配置值比较。
+- **Starknet**：免费公共 RPC（drpc）只开放 `starknet_chainId`，其余方法需要 API key，因此 Starknet 的合约存在性校验在 CI 上会记为网络错误。要给 Starknet 完整校验需要配置带 key 的 RPC。
+- **EDGE**：本地请求证书校验失败（`rpc.edge.network`），CI 上可能正常，当前记为网络错误。
 
-能连上的链（Ethereum Sepolia、Avalanche Fuji、Arbitrum Sepolia、Base Sepolia、Linea Sepolia、Aptos Testnet、Sui Testnet）地址校验全部通过。以上"失败"多数是本地网络问题，GitHub Actions 的真实结果更准确。
+同一次整理中还修正了这些签名明显的配置错误：
+
+| 链 | 问题 | 修复 |
+| --- | --- | --- |
+| Codex | `chain_id` 8333，RPC 实际 81224 | → 81224 |
+| Monad | `chain_id` 10143（测试网值），RPC 实际 143 | → 143 |
+| Injective | `chain_id` 60808；RPC 用的是 Tendermint 端点 | → 1776 + EVM RPC |
+| Sonic Testnet | `chain_id` 57054 + 已失效 RPC | → 14601 + `rpc.testnet.soniclabs.com` |
+| Ethereum / Polygon / HyperEVM / Cronos | 公共 RPC 返回 403 / 401 / 404 | 换成可用的 publicnode / drpc 端点 |
+| Polygon Amoy / Cronos Testnet / Arc Testnet / Starknet | RPC 域名失效 | 换成 publicnode / drpc 端点 |
+| Stellar mainnet | `soroban-rpc.stellar.org` 解析失败 | → `mainnet.sorobanrpc.com` |
+
+修复后本地实测：
+
+- testnet 全量：**79/79 通过**
+- mainnet EVM：**117/119**，仅 2 个网络错误（EDGE 证书、Cronos 旧端点已修）
+- mainnet 非 EVM：17/20，仅 Starknet drpc 方法限制
+

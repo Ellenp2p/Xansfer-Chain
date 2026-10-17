@@ -7,7 +7,7 @@
           "domain": 0,
           "name": "Ethereum",
           "chain_id": 1,
-          "rpc_url": "https://eth.llamarpc.com",
+          "rpc_url": "https://ethereum-rpc.publicnode.com",
           "explorer_url": "https://etherscan.io",
           "usdc_address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
           "cctp_versions": [
@@ -108,7 +108,7 @@
           "domain": 7,
           "name": "Polygon PoS",
           "chain_id": 137,
-          "rpc_url": "https://polygon-rpc.com",
+          "rpc_url": "https://polygon-bor-rpc.publicnode.com",
           "explorer_url": "https://polygonscan.com",
           "usdc_address": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
           "cctp_versions": [
@@ -172,7 +172,7 @@
         {
           "domain": 12,
           "name": "Codex",
-          "chain_id": 8333,
+          "chain_id": 81224,
           "rpc_url": "https://rpc.codex.xyz",
           "explorer_url": "https://explorer.codex.xyz",
           "usdc_address": "0xd996633a415985DBd7D6D12f4A4343E31f5037cf",
@@ -221,7 +221,7 @@
         {
           "domain": 15,
           "name": "Monad",
-          "chain_id": 10143,
+          "chain_id": 143,
           "rpc_url": "https://rpc.monad.xyz",
           "explorer_url": "https://explorer.monad.xyz",
           "usdc_address": "0x754704Bc059F8C67012fEd69BC8A327a5aafb603",
@@ -264,7 +264,8 @@
           "supports_fast_transfer": false,
           "supports_forwarding": false,
           "block_time_ms": 3000,
-          "finality_blocks": 15
+          "finality_blocks": 15,
+          "usdc_decimals": 18
         },
         {
           "domain": 18,
@@ -286,7 +287,7 @@
           "domain": 19,
           "name": "HyperEVM",
           "chain_id": 999,
-          "rpc_url": "https://rpc.hyperliquid.xyz",
+          "rpc_url": "https://rpc.hyperliquid.xyz/evm",
           "explorer_url": "https://explorer.hyperliquid.xyz",
           "usdc_address": "0xb88339CB7199b77E23DB6E890353E22632Ba630f",
           "cctp_versions": [
@@ -334,7 +335,7 @@
           "domain": 25,
           "name": "Starknet",
           "chain_id": null,
-          "rpc_url": "https://starknet-mainnet.public.blastapi.io",
+          "rpc_url": "https://starknet.drpc.org",
           "explorer_url": "https://starkscan.co",
           "usdc_address": "0x033068F6539f8e6e6b131e6B2B814e6c34A5224bC66947c47DaB9dFeE93b35fb",
           "cctp_versions": [
@@ -350,7 +351,7 @@
           "domain": 27,
           "name": "Stellar",
           "chain_id": null,
-          "rpc_url": "https://soroban-rpc.stellar.org",
+          "rpc_url": "https://mainnet.sorobanrpc.com",
           "explorer_url": "https://stellar.expert/explorer/public",
           "usdc_address": "USDC:GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
           "usdc_sac": "CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75",
@@ -382,8 +383,8 @@
         {
           "domain": 29,
           "name": "Injective",
-          "chain_id": 60808,
-          "rpc_url": "https://sentry.tm.injective.network",
+          "chain_id": 1776,
+          "rpc_url": "https://sentry.evm-rpc.injective.network",
           "explorer_url": "https://explorer.injective.network",
           "usdc_address": "0xa00C59fF5a080D2b954d0c75e46E22a0c371235a",
           "cctp_versions": [
@@ -431,7 +432,7 @@
           "domain": 32,
           "name": "Cronos",
           "chain_id": 25,
-          "rpc_url": "https://evm.cronos.org",
+          "rpc_url": "https://cronos-evm-rpc.publicnode.com",
           "explorer_url": "https://cronoscan.com",
           "usdc_address": "0x3D7F2C478aAfdB65542BCB44bCeeC05849999d2D",
           "cctp_versions": [
@@ -651,7 +652,7 @@
           "domain": 7,
           "name": "Polygon Amoy",
           "chain_id": 80002,
-          "rpc_url": "https://rpc-amoy.polygon.technology",
+          "rpc_url": "https://polygon-amoy-bor-rpc.publicnode.com",
           "explorer_url": "https://amoy.polygonscan.com",
           "usdc_address": "0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582",
           "cctp_versions": [
@@ -698,8 +699,8 @@
         {
           "domain": 13,
           "name": "Sonic Testnet",
-          "chain_id": 57054,
-          "rpc_url": "https://rpc.testnet.sonicscan.org",
+          "chain_id": 14601,
+          "rpc_url": "https://rpc.testnet.soniclabs.com",
           "explorer_url": "https://testnet.sonicscan.org",
           "usdc_address": "0x0BA304580ee7c9a980CF72e55f5Ed2E9fd30Bc51",
           "cctp_versions": [
@@ -715,7 +716,7 @@
           "domain": 25,
           "name": "Starknet Sepolia",
           "chain_id": null,
-          "rpc_url": "https://starknet-sepolia.public.blastapi.io",
+          "rpc_url": "https://starknet-sepolia.drpc.org",
           "explorer_url": "https://sepolia.starkscan.co",
           "usdc_address": "0x0512feAc6339Ff7889822cb5aA2a86C848e9D392bB0E3E237C008674feeD8343",
           "cctp_versions": [
@@ -731,7 +732,7 @@
           "domain": 26,
           "name": "Arc Testnet",
           "chain_id": 5042002,
-          "rpc_url": "https://rpc.testnet.arc.network",
+          "rpc_url": "https://arc-testnet.drpc.org",
           "explorer_url": "https://testnet.arcscan.app",
           "usdc_address": "0x3600000000000000000000000000000000000000",
           "cctp_versions": [
@@ -764,7 +765,7 @@
           "domain": 32,
           "name": "Cronos Testnet",
           "chain_id": 338,
-          "rpc_url": "https://evm-croeseed-338.cronos.org",
+          "rpc_url": "https://cronos-testnet.drpc.org",
           "explorer_url": "https://cronos.org/explorer/testnet3",
           "usdc_address": "0xEb33dc5fac03833e132593659e1dE7256aB59794",
           "cctp_versions": [

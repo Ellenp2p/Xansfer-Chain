@@ -101,7 +101,7 @@ export function useAptosAdapter(): ChainAdapter {
       assertWalletNetwork()
       assertDestinationAddress(destAddress, destChainType as ChainType, mode)
 
-      const amountUnits = parseUsdcUnits(amount)
+      const amountUnits = parseUsdcUnits(amount, chainConfig.usdc_decimals ?? 6)
       const isFast = transferType === 'fast'
       const minFinalityThreshold = isFast ? 1000 : 2000
 
