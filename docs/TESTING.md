@@ -55,19 +55,19 @@ CI：`.github/workflows/verify-chains.yml`
 
 工作流使用 `--allow-network-errors`，避免公共 RPC 抖动误报，但只要出现真实配置问题就会红。
 
-## 第 3 层：真实跨链转账（尚未自动化）
+## 第 3 层：真实跨链转账 canary（已实现）
 
-这一层 CI 里默认不做，原因很现实：需要**有余额的测试网钱包**、测试网 USDC（Circle faucet 需要人工领取）、以及等待 attestation（几十秒到十几分钟），天然不稳定，不适合每次 PR 都跑。
+`frontend/scripts/canary.ts` + `.github/workflows/canary.yml`，用当前配置在测试网真实跑完整闭环：approve → depositForBurn → Circle Iris attestation → receiveMessage → 断言目标链余额增加。
 
-推荐做法是一个独立的 "canary" 工作流：
+默认 dry-run，仅测试网，单笔 ≤ 0.05 USDC、单次 ≤ 3 笔、每日 ≤ 1 笔，Iris 429 退避，串行执行。支持 `distribute`（分发）/ `collect`（归集）/ `roundtrip` 三种模式。
 
-1. 用 GitHub Secrets 保存一个专用测试网热钱包私钥（只放测试网）；
-2. 固定一条或两条路线，例如 `Base Sepolia -> Ethereum Sepolia`（EVM 路径）和 `Solana Devnet -> Base Sepolia`（非 EVM mint recipient 路径）；
-3. 步骤：查询余额 → burn → 轮询 Iris attestation → 目标链 claim → 断言目标地址余额增加；
-4. 触发方式：`schedule`（例如每天一次）+ `workflow_dispatch`，绝不放进 PR 必跑；
-5. 余额不足或 faucet 限流时，让工作流明确报 "insufficient testnet balance" 而不是失败重试。
+```bash
+cd frontend
+bun run canary                                    # dry run
+CANARY_PRIVATE_KEY=0x... CANARY_EXECUTE=true bun run canary
+```
 
-这条路线的价值是能真正验证 `depositForBurn` 参数、attestation 轮询和 claim 的完整闭环；要加的时候建议先只做 `Base Sepolia -> Ethereum Sepolia`，跑通后再扩展到 Solana / Aptos / Sui / Stellar。
+当前覆盖 EVM + CCTP v2 测试网；非 EVM（Solana / Sui / Aptos / Stellar）的真实 burn/claim 尚未实现。完整说明见 [`CANARY.md`](CANARY.md)。
 
 ## 第 4 层（可选）：浏览器冒烟测试
 

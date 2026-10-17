@@ -117,12 +117,14 @@ VITE_BASE=/Xansfer-Chain/ bun run build
 
 - 每个 PR：`.github/workflows/ci.yml` 跑前端单测 + 构建，以及后端 `cargo check`
 - 每天 / 改链配置时：`.github/workflows/verify-chains.yml` 对 `config/chains.json` 做链上只读校验
-- 详细说明见 [`docs/TESTING.md`](docs/TESTING.md)
+- 测试网真实转账：`.github/workflows/canary.yml`（默认 dry-run，每周一次，限额见下）
+- 详细说明见 [`docs/TESTING.md`](docs/TESTING.md) 和 [`docs/CANARY.md`](docs/CANARY.md)
 
 ```bash
 cd frontend
 bun run test                        # 确定性单测
 bun run verify:chains               # 链上地址/合约校验（默认 testnet）
+bun run canary                      # 跨链 canary 干跑（真实执行需要 CANARY_EXECUTE=true）
 ```
 
 ## 当前限制

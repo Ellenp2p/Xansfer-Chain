@@ -1,0 +1,79 @@
+name: CCTP canary
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'distribute | collect | roundtrip'
+        type: choice
+        options: [distribute, collect, roundtrip]
+        default: distribute
+      routes:
+        description: 'Comma-separated routes, e.g. base-sepolia->ethereum-sepolia'
+        type: string
+        default: base-sepolia->ethereum-sepolia
+      amount:
+        description: 'USDC per transfer (hard cap 0.05)'
+        type: string
+        default: '0.01'
+      execute:
+        description: 'Actually send transactions (off = dry run)'
+        type: boolean
+        default: false
+  schedule:
+    # Weekly canary. Runs only when CANARY_EVM_PRIVATE_KEY is configured.
+    - cron: '0 4 * * 1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cctp-canary
+  cancel-in-progress: false
+
+jobs:
+  canary:
+    name: Cross-chain canary
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Install dependencies (workspace)
+        run: bun install --frozen-lockfile
+
+      - name: Check canary wallet
+        id: wallet
+        env:
+          CANARY_PRIVATE_KEY: ${{ secrets.CANARY_EVM_PRIVATE_KEY }}
+        run: |
+          if [ -n "$CANARY_PRIVATE_KEY" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "CANARY_EVM_PRIVATE_KEY is not configured; running in dry-run mode."
+          fi
+
+      - name: Run canary (execute)
+        if: steps.wallet.outputs.configured == 'true'
+        working-directory: frontend
+        env:
+          CANARY_PRIVATE_KEY: ${{ secrets.CANARY_EVM_PRIVATE_KEY }}
+          CANARY_EXECUTE: ${{ github.event_name == 'schedule' && 'true' || (inputs.execute && 'true' || 'false') }}
+          CANARY_MODE: ${{ inputs.mode || 'distribute' }}
+          CANARY_ROUTE: ${{ inputs.routes || 'base-sepolia->ethereum-sepolia' }}
+          CANARY_AMOUNT_USDC: ${{ inputs.amount || '0.01' }}
+          CANARY_MAX_TRANSFERS: ${{ github.event_name == 'schedule' && '1' || '2' }}
+          CANARY_DAILY_LIMIT: '2'
+        run: bun run canary
+
+      - name: Run canary (dry run)
+        if: steps.wallet.outputs.configured != 'true'
+        working-directory: frontend
+        env:
+          CANARY_MODE: ${{ inputs.mode || 'distribute' }}
+          CANARY_ROUTE: ${{ inputs.routes || 'base-sepolia->ethereum-sepolia' }}
+          CANARY_AMOUNT_USDC: ${{ inputs.amount || '0.01' }}
+        run: bun run canary
