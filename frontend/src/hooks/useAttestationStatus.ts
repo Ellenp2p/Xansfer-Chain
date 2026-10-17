@@ -13,6 +13,7 @@ export function useAttestationStatus(
 ) {
   const [data, setData] = useState<TransactionStatusResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isRefetching, setIsRefetching] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [elapsed, setElapsed] = useState(0)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -99,14 +100,20 @@ export function useAttestationStatus(
     }, POLL_FAST)
   }, [elapsed, enabled, data, fetchStatus])
 
-  const refetch = useCallback(() => {
-    setIsLoading(true)
-    fetchStatus()
+  const refetch = useCallback(async () => {
+    // Keep the page mounted — a manual refresh must not swap the whole view
+    // for the full-screen spinner (and an error must not clobber good data).
+    setIsRefetching(true)
+    try {
+      await fetchStatus()
+    } finally {
+      setIsRefetching(false)
+    }
   }, [fetchStatus])
 
   const tx = data?.transaction
   const isFast = tx ? tx.transfer_type === 'fast' : false
   const estimatedWait = tx ? lookupEstimatedWait(tx.source_domain, tx.cctp_version, isFast) : null
 
-  return { data, isLoading, error, refetch, elapsed, estimatedWait }
+  return { data, isLoading, isRefetching, error, refetch, elapsed, estimatedWait }
 }

@@ -30,6 +30,13 @@ export function parseUsdcUnits(amount: string): bigint {
   return whole * USDC_UNITS_PER_COIN + fraction
 }
 
+/** Exact bigint → string conversion (whole.fraction, up to 6 decimals, trailing zeros trimmed). */
+export function formatUsdcUnits(units: bigint): string {
+  const whole = units / USDC_UNITS_PER_COIN
+  const fraction = (units % USDC_UNITS_PER_COIN).toString().padStart(USDC_DECIMALS, '0').replace(/0+$/, '')
+  return fraction ? `${whole}.${fraction}` : whole.toString()
+}
+
 // ── Circle Iris fee API ─────────────────────────────────────────────────────
 // GET {base}/v2/burn/USDC/fees/{srcDomain}/{dstDomain} returns entries of
 // { finalityThreshold, minimumFee } where minimumFee is in BASIS POINTS of the
