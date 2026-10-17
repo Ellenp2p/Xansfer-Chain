@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
 import { signTransaction } from '@stellar/freighter-api'
-import { rpc, Contract, TransactionBuilder, Address, nativeToScVal, xdr, Networks, BASE_FEE } from '@stellar/stellar-sdk'
+import { rpc, Contract, TransactionBuilder, Address, nativeToScVal, scValToNative, xdr, Networks, BASE_FEE } from '@stellar/stellar-sdk'
 import { useNetworkMode } from '../../stores/networkMode'
 import { useWalletState } from '@xansfer/wallet-connect'
 import { getCctpContracts, getChainTypeForDomain } from '../../config/chains'
@@ -93,10 +93,12 @@ export function useStellarAdapter(): ChainAdapter {
       }
       const retval = sim.result?.retval
       if (!retval) return 0n
-      const i128 = retval.i128()
-      const hi = BigInt.asIntN(64, BigInt(i128.hi().toString()))
-      const lo = BigInt.asUintN(64, BigInt(i128.lo().toString()))
-      return (hi << 64n) | lo
+      // v17: ScVal union arms are properties; scValToNative returns bigint for i128.
+      const value = scValToNative(retval)
+      if (typeof value === 'bigint') return value
+      if (typeof value === 'number') return BigInt(value)
+      if (typeof value === 'string') return BigInt(value)
+      return 0n
     },
     [mode],
   )
@@ -134,13 +136,13 @@ export function useStellarAdapter(): ChainAdapter {
 
         // Sign via Freighter
         const { signedTxXdr, error: signErr } = await signTransaction(
-          prepared.toXDR(),
+          prepared.toXdr(),
           { networkPassphrase: passphrase },
         )
         if (signErr) throw new Error(`Freighter sign failed: ${signErr}`)
 
         // Submit
-        const signedTx = TransactionBuilder.fromXDR(signedTxXdr, passphrase) as any
+        const signedTx = TransactionBuilder.fromXdr(signedTxXdr, passphrase) as any
         const sendRes = await server.sendTransaction(signedTx)
 
         if (sendRes.status === 'ERROR') {
@@ -444,12 +446,12 @@ export function useStellarAdapter(): ChainAdapter {
 
       const prepared = await server.prepareTransaction(tx)
       const { signedTxXdr, error: signErr } = await signTransaction(
-        prepared.toXDR(),
+        prepared.toXdr(),
         { networkPassphrase: passphrase },
       )
       if (signErr) throw new Error(`Freighter sign failed: ${signErr}`)
 
-      const signedTx = TransactionBuilder.fromXDR(signedTxXdr, passphrase) as any
+      const signedTx = TransactionBuilder.fromXdr(signedTxXdr, passphrase) as any
       const sendRes = await server.sendTransaction(signedTx)
       if (sendRes.status === 'ERROR') {
         throw new Error(`Claim submit failed: ${JSON.stringify(sendRes.errorResult ?? sendRes)}`)
