@@ -117,7 +117,7 @@ export function useCctpTransfer() {
       }
 
       try {
-        parseUsdcUnits(amount)
+        parseUsdcUnits(amount, srcChain.usdc_decimals ?? 6)
         assertDestinationAddress(destAddress, destChain.chain_type, mode)
       } catch (e) {
         setError(friendlyError(e))

@@ -85,7 +85,7 @@ async function resolveSourceMessage(
         }
         if (Array.isArray(parsed)) {
           const bytes = parsed.map((n: unknown) => Number(n)).filter((n) => Number.isInteger(n) && n >= 0 && n <= 255)
-          if (bytes.length) return `0x${bytesToHex(new Uint8Array(bytes))}`
+          if (bytes.length) return bytesToHex(new Uint8Array(bytes))
         }
       }
     }

@@ -49,6 +49,7 @@ interface RawChainConfig {
   rpc_url: ResolvableString
   explorer_url: ResolvableString
   usdc_address: ResolvableString
+  usdc_decimals?: number
   usdc_sac?: ResolvableString
   cctp_versions?: number[]
   chain_type: ChainConfig['chain_type']
@@ -66,6 +67,7 @@ function resolveChainConfig(raw: RawChainConfig): ChainConfig {
     rpc_url: resolveString(raw.rpc_url),
     explorer_url: resolveString(raw.explorer_url),
     usdc_address: resolveString(raw.usdc_address),
+    usdc_decimals: raw.usdc_decimals ?? 6,
     usdc_sac: raw.usdc_sac ? resolveString(raw.usdc_sac) : undefined,
     cctp_versions: raw.cctp_versions ?? [2],
     chain_type: raw.chain_type,

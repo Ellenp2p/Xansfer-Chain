@@ -4,7 +4,7 @@ import { useWalletState } from '@xansfer/wallet-connect'
 import { useTransferStore } from '../stores/transferStore'
 import { useNetworkMode } from '../stores/networkMode'
 import { useCctpTransfer } from '../hooks/useCctpTransfer'
-import { getTransferTypes, getChainTypeForDomain, getSupportedVersions, withModePrefix } from '../config/chains'
+import { getTransferTypes, getChainTypeForDomain, getSupportedVersions, getChainByDomain, withModePrefix } from '../config/chains'
 import { estimateTransferSeconds, formatSeconds } from '../lib/estimate'
 import ChainSelector from './ChainSelector'
 import { getDestinationAddressError } from '../lib/address'
@@ -137,9 +137,14 @@ export default function TransferForm() {
     }
   }
 
+  const sourceDecimals = useMemo(
+    () => (store.sourceDomain != null ? getChainByDomain(store.sourceDomain, mode)?.usdc_decimals ?? 6 : 6),
+    [store.sourceDomain, mode],
+  )
+
   const amountError = useMemo(
-    () => (store.amount ? getUsdcAmountError(store.amount) : null),
-    [store.amount],
+    () => (store.amount ? getUsdcAmountError(store.amount, sourceDecimals) : null),
+    [store.amount, sourceDecimals],
   )
 
   // Estimated time from a confirmed source burn to destination mint,

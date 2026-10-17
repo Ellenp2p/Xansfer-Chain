@@ -4,6 +4,7 @@ import { useAttestationStatus } from '../hooks/useAttestationStatus'
 import { useNetworkMode } from '../stores/networkMode'
 import { isPlausibleDestTxHash } from '../lib/api'
 import { formatSeconds } from '../lib/estimate'
+import { getChainByDomain } from '../config/chains'
 import { formatUsdcUnits, parseUsdcUnits } from '../lib/fees'
 import { CheckCircle2, Clock, Loader2, AlertCircle, RefreshCw, Send, Search } from 'lucide-react'
 
@@ -38,9 +39,9 @@ function decodeCctpBurnMessage(messageHex: string): DecodedBurnMessage | null {
 }
 
 /** Compare the decoded amount against the recorded amount, both as exact units. */
-function amountsMatch(amountUnits: bigint, recordedAmount: string): boolean {
+function amountsMatch(amountUnits: bigint, recordedAmount: string, decimals: number): boolean {
   try {
-    return parseUsdcUnits(recordedAmount) === amountUnits
+    return parseUsdcUnits(recordedAmount, decimals) === amountUnits
   } catch {
     return false
   }
@@ -106,6 +107,8 @@ export default function TransactionStatus() {
   }
 
   const tx = data.transaction
+  // The CCTP burn body stores the amount in the source chain's token decimals.
+  const sourceDecimals = getChainByDomain(tx.source_domain, mode)?.usdc_decimals ?? 6
   const destHashOk = !tx.dest_tx_hash || isPlausibleDestTxHash(tx.dest_tx_hash, tx.dest_domain, mode)
   const claimComplete = ((claimStep as string) === 'complete' || data.claimed) && destHashOk
   const si = stepIndex(tx.status, claimComplete)
@@ -228,7 +231,7 @@ export default function TransactionStatus() {
           {tx.message && (() => {
             const decoded = decodeCctpBurnMessage(tx.message)
             if (!decoded) return null
-            const amountOk = amountsMatch(decoded.amountUnits, tx.amount)
+            const amountOk = amountsMatch(decoded.amountUnits, tx.amount, sourceDecimals)
             const recipientOk = recipientMatches(decoded.mintRecipient, tx.dest_address)
             const displayRecipient = formatMintRecipient(decoded.mintRecipient)
             return (
@@ -236,7 +239,7 @@ export default function TransactionStatus() {
                 <div className="flex flex-wrap justify-between gap-x-3 py-0.5">
                   <span className="text-gray-500">Message Amount</span>
                   <span className={`min-w-0 break-all ${amountOk ? 'text-gray-300' : 'text-yellow-400'}`}>
-                    {formatUsdcUnits(decoded.amountUnits)} USDC{!amountOk && ' (differs from recorded amount)'}
+                    {formatUsdcUnits(decoded.amountUnits, sourceDecimals)} USDC{!amountOk && ' (differs from recorded amount)'}
                   </span>
                 </div>
                 <div className="flex flex-wrap justify-between gap-x-3 py-0.5">

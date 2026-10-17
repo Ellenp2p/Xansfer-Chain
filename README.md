@@ -113,6 +113,18 @@ VITE_BASE=/Xansfer-Chain/ bun run build
 3. 以 `VITE_BASE=/Xansfer-Chain/` 构建前端
 4. 上传 `frontend/dist` 并部署到 GitHub Pages
 
+## 测试与验证
+
+- 每个 PR：`.github/workflows/ci.yml` 跑前端单测 + 构建，以及后端 `cargo check`
+- 每天 / 改链配置时：`.github/workflows/verify-chains.yml` 对 `config/chains.json` 做链上只读校验
+- 详细说明见 [`docs/TESTING.md`](docs/TESTING.md)
+
+```bash
+cd frontend
+bun run test                        # 确定性单测
+bun run verify:chains               # 链上地址/合约校验（默认 testnet）
+```
+
 ## 当前限制
 
 - **自动 claim / 转发服务尚未启用**。仓库里的 relay worker 仍是模拟实现，默认 `RELAY_ENABLED=false`；用户需要自己在目标链 claim。前端也刻意隐藏了 Forward 转账类型，避免误导。
@@ -121,7 +133,7 @@ VITE_BASE=/Xansfer-Chain/ bun run build
 
 ## 开发约定
 
-- 金额一律使用整数单位 + `BigInt` / `parseUsdcUnits`，不要用 `Number` 处理 32 字节金额。
+- 金额一律使用整数单位 + `BigInt` / `parseUsdcUnits`，不要用 `Number` 处理 32 字节金额。金额的小数位必须取链配置的 `usdc_decimals`（默认 6，BNB Smart Chain 是 18），不要硬编码 6。
 - 链相关逻辑优先走 `config/chains.ts` 的解析函数，不要在组件里硬编码 domain / 合约地址。
 - CCTP v1 与 v2 的消息格式不同，改动 claim 逻辑时注意保持版本隔离。
 - 修改 `config/chains.json` 后，前端与后端都应以它为准，不要另建副本。

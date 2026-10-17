@@ -7,6 +7,8 @@ export interface ChainConfig {
   rpc_url: string
   explorer_url: string
   usdc_address: string
+  /** USDC token decimals on this chain. Defaults to 6; BNB Smart Chain uses 18. */
+  usdc_decimals?: number
   /** Stellar Asset Contract (SAC) address for native USDC token. Required for chain_type=stellar burn_token parameter. */
   usdc_sac?: string
   cctp_versions?: number[]

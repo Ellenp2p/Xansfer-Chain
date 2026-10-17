@@ -6,35 +6,47 @@ import type { Mode } from '../config/chains'
 // string → BigInt conversion instead.
 
 export const USDC_DECIMALS = 6
-const USDC_UNITS_PER_COIN = 1_000_000n
 
-/** Strict validation for user-typed amounts: plain decimal, up to 6 fraction digits, > 0. */
-export function getUsdcAmountError(amount: string): string | null {
+function unitsPerCoin(decimals: number): bigint {
+  return 10n ** BigInt(decimals)
+}
+
+/** Strict validation for user-typed amounts: plain decimal, up to `decimals` fraction digits, > 0. */
+export function getUsdcAmountError(amount: string, decimals: number = USDC_DECIMALS): string | null {
   const trimmed = amount.trim()
   if (!trimmed) return 'Amount is required'
   if (!/^\d+(\.\d+)?$/.test(trimmed)) return 'Amount must be a plain decimal number (e.g. 12.5)'
-  if (!/^\d+(\.\d{1,6})?$/.test(trimmed)) return 'USDC supports at most 6 decimal places'
-  const units = parseUsdcUnits(trimmed)
+  const pattern = decimals > 0
+    ? new RegExp(`^\\d+(?:\\.\\d{1,${decimals}})?$`)
+    : /^\d+$/
+  if (!pattern.test(trimmed)) return `USDC supports at most ${decimals} decimal places`
+  const units = parseUsdcUnits(trimmed, decimals)
   if (units <= 0n) return 'Amount must be greater than 0'
   return null
 }
 
-/** Exact string → bigint conversion. Throws on malformed input; callers in the
+/** Exact string -> bigint conversion. Throws on malformed input; callers in the
  *  adapters can rely on it because the form validates first. */
-export function parseUsdcUnits(amount: string): bigint {
+export function parseUsdcUnits(amount: string, decimals: number = USDC_DECIMALS): bigint {
   const trimmed = amount.trim()
-  const match = /^(\d+)(?:\.(\d{1,6}))?$/.exec(trimmed)
+  const pattern = decimals > 0
+    ? new RegExp(`^(\\d+)(?:\\.(\\d{1,${decimals}}))?$`)
+    : /^(\d+)$/
+  const match = pattern.exec(trimmed)
   if (!match) throw new Error(`Invalid USDC amount: "${amount}"`)
   const whole = BigInt(match[1])
-  const fraction = BigInt((match[2] ?? '').padEnd(USDC_DECIMALS, '0') || '0')
-  return whole * USDC_UNITS_PER_COIN + fraction
+  const fraction = match[2] ? BigInt(match[2].padEnd(decimals, '0')) : 0n
+  return whole * unitsPerCoin(decimals) + fraction
 }
 
-/** Exact bigint → string conversion (whole.fraction, up to 6 decimals, trailing zeros trimmed). */
-export function formatUsdcUnits(units: bigint): string {
-  const whole = units / USDC_UNITS_PER_COIN
-  const fraction = (units % USDC_UNITS_PER_COIN).toString().padStart(USDC_DECIMALS, '0').replace(/0+$/, '')
-  return fraction ? `${whole}.${fraction}` : whole.toString()
+/** Exact bigint -> string conversion (whole.fraction, up to `decimals` places, trailing zeros trimmed). */
+export function formatUsdcUnits(units: bigint, decimals: number = USDC_DECIMALS): string {
+  const perCoin = unitsPerCoin(decimals)
+  const whole = units / perCoin
+  const remainder = units % perCoin
+  if (remainder === 0n) return whole.toString()
+  const fraction = remainder.toString().padStart(decimals, '0').replace(/0+$/, '')
+  return `${whole}.${fraction}`
 }
 
 // ── Circle Iris fee API ─────────────────────────────────────────────────────
