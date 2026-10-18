@@ -807,7 +807,6 @@
           "explorer_url": "https://explorer.aptoslabs.com/?network=testnet",
           "usdc_address": "0x69091fbab5f7d635ee7ac5098cf0c1efbe31d68fec0f2cd565e8d168daf52832",
           "cctp_versions": [
-            1,
             2
           ],
           "chain_type": "aptos",

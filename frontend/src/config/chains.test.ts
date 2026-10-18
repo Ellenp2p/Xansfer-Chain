@@ -196,6 +196,10 @@ describe('Aptos CCTP v2 deployment', () => {
       const v2 = (configJson as unknown as {
         modes: Record<string, {
           cctp: {
+            v1: {
+              token_messenger: Record<string, string>
+              message_transmitter: Record<string, string>
+            }
             v2: {
               token_messenger: Record<string, string>
               message_transmitter: Record<string, string>
@@ -209,12 +213,23 @@ describe('Aptos CCTP v2 deployment', () => {
       const aptos = v2.chains.find((chain) => chain.chain_type === 'aptos')
 
       expect(aptos).toBeDefined()
-      expect(aptos!.cctp_versions).toContain(2)
+      // Circle removed the Aptos V1 packages from testnet (verified on-chain),
+      // so testnet is V2-only while mainnet keeps both versions.
+      expect(aptos!.cctp_versions).toEqual(mode === 'mainnet' ? [1, 2] : [2])
       expect(aptos!.usdc_address).toBe(expected[mode].stablecoin)
       expect(v2.cctp.v2.token_messenger['9']).toBe(expected[mode].tokenMessenger)
       expect(v2.cctp.v2.message_transmitter['9']).toBe(expected[mode].messageTransmitter)
       expect(v2.cctp.v2.cctp_extensions?.['9']).toBe(expected[mode].cctpExtensions)
       expect(v2.cctp.v2.stablecoin_handler?.['9']).toBe(expected[mode].stablecoinHandler)
+
+      if (mode === 'mainnet') {
+        expect(v2.cctp.v1.token_messenger['9']).toBe(
+          '0x9bce6734f7b63e835108e3bd8c36743d4709fe435f44791918801d0989640a9d',
+        )
+        expect(v2.cctp.v1.message_transmitter['9']).toBe(
+          '0x177e17751820e4b4371873ca8c30279be63bdea63b88ed0f2239c2eea10f1772',
+        )
+      }
     })
   }
 })
