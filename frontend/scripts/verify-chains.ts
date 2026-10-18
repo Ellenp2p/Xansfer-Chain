@@ -263,6 +263,37 @@ async function verifyAptos(mode: Mode, chain: ChainConfig): Promise<CheckResult[
     add('USDC module account exists', false, (error as Error).message, true)
   }
 
+  const checkInterface = async (
+    pkg: string | undefined,
+    moduleName: string,
+    fnName: string,
+    expectedParams: number,
+    label: string,
+  ) => {
+    if (!pkg) {
+      add(label, false, 'missing package address')
+      return
+    }
+    try {
+      const res = await get(`/accounts/${pkg}/module/${moduleName}`)
+      if (!res.ok) {
+        add(label, false, `HTTP ${res.status}`, true)
+        return
+      }
+      const json = await res.json() as {
+        abi?: { exposed_functions?: Array<{ name: string; params: string[] }> }
+      }
+      const fn = json.abi?.exposed_functions?.find((entry) => entry.name === fnName)
+      add(
+        label,
+        !!fn && fn.params.length === expectedParams,
+        fn ? `${fn.params.length} params (expected ${expectedParams})` : 'function missing',
+      )
+    } catch (error) {
+      add(label, false, (error as Error).message, true)
+    }
+  }
+
   for (const version of chain.cctp_versions) {
     const { tm, mt } = cctpContracts(mode, version, chain.domain)
     for (const [label, address] of [['TokenMessenger', tm], ['MessageTransmitter', mt]] as const) {
@@ -276,6 +307,12 @@ async function verifyAptos(mode: Mode, chain: ChainConfig): Promise<CheckResult[
       } catch (error) {
         add(`CCTP v${version} ${label} account exists`, false, (error as Error).message, true)
       }
+    }
+
+    if (version === 1) {
+      // V1: deposit_for_burn lives in the token_messenger module.
+      await checkInterface(tm, 'token_messenger', 'deposit_for_burn', 4, 'CCTP v1 deposit_for_burn interface')
+      await checkInterface(mt, 'message_transmitter', 'receive_message', 3, 'CCTP v1 receive_message interface')
     }
 
     if (version === 2) {
@@ -299,39 +336,7 @@ async function verifyAptos(mode: Mode, chain: ChainConfig): Promise<CheckResult[
         }
       }
 
-      // Verify the V2 interface itself: Circle upgraded Aptos to a unified
-      // 8-parameter deposit_for_burn and a 3-parameter receive_message.
-      const checkInterface = async (
-        pkg: string | undefined,
-        moduleName: string,
-        fnName: string,
-        expectedParams: number,
-        label: string,
-      ) => {
-        if (!pkg) {
-          add(label, false, 'missing package address')
-          return
-        }
-        try {
-          const res = await get(`/accounts/${pkg}/module/${moduleName}`)
-          if (!res.ok) {
-            add(label, false, `HTTP ${res.status}`, true)
-            return
-          }
-          const json = await res.json() as {
-            abi?: { exposed_functions?: Array<{ name: string; params: string[] }> }
-          }
-          const fn = json.abi?.exposed_functions?.find((entry) => entry.name === fnName)
-          add(
-            label,
-            !!fn && fn.params.length === expectedParams,
-            fn ? `${fn.params.length} params (expected ${expectedParams})` : 'function missing',
-          )
-        } catch (error) {
-          add(label, false, (error as Error).message, true)
-        }
-      }
-
+      // Circle upgraded Aptos V2 to a unified 8-parameter deposit_for_burn.
       await checkInterface(tm, 'token_messenger_minter', 'deposit_for_burn', 8, 'CCTP v2 deposit_for_burn interface')
       await checkInterface(mt, 'message_transmitter', 'receive_message', 3, 'CCTP v2 receive_message interface')
     }

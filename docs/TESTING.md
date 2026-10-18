@@ -75,12 +75,15 @@ CANARY_PRIVATE_KEY=0x... CANARY_EXECUTE=true bun run canary
 
 ## Aptos CCTP v2（已核对）
 
-Circle 的 Aptos 部署已经是 **CCTP v2**（四个 Move 包：`TokenMessengerMinterV2`、`MessageTransmitterV2`、`StablecoinHandler`、`CctpExtensions`）。本仓库的配置和脚本已经对齐：
+Circle 的 Aptos 部署已经升级到 **CCTP v2**，本仓库同时保留 v1 支持（按链上实际情况区分）。
 
 - 包地址与 Circle 文档一致（testnet / mainnet 的 TokenMessenger、MessageTransmitter、CctpExtensions、StablecoinHandler、Stablecoin object）。
 - 内嵌的 `deposit_for_burn` / `deposit_for_burn_with_hook` / `receive_message` Move 脚本与 Circle `aptos-cctp` master 的 precompiled `.mv` 完全一致。
 - V2 接口是 8 参数的 `deposit_for_burn`（含 `hook_data`）和 3 参数的 `receive_message`。
-- 前端默认使用 v2；v1 代码保留用于历史交易的 claim（以及 Sui v1 路线）。
+- 版本支持按链上事实区分：
+  - **Mainnet：同时支持 v1 和 v2**（v1 的 `token_messenger::deposit_for_burn` 是 4 参数）。
+  - **Testnet：只支持 v2**。Circle v1 文档里的 testnet 包地址在链上已经没有任何模块（`AptosExtensions` 还在，两个 CCTP v1 包已下线），所以配置里 testnet 的 `cctp_versions` 是 `[2]`。v1 的地址映射和脚本仍保留，Circle 恢复后可随时启用。
+- 前端默认使用 v2，仍可在主网选择 v1。
 
 自动防回归：
 
@@ -91,7 +94,7 @@ bun run verify:aptos-scripts   # 与 Circle aptos-cctp master 的 .mv 逐字节�
 
 - `aptosScripts.test.ts` 固定了当前脚本的 SHA-256，防止本地误改。
 - `verify-chains.yml` 每天/改配置时跑 `verify:aptos-scripts`，Circle 升级脚本会直接失败并提示更新。
-- `verify-chains.ts` 额外检查 Aptos v2 的包账户、`deposit_for_burn` 8 参数、`receive_message` 3 参数。
+- `verify-chains.ts` 对 v1 检查 `token_messenger::deposit_for_burn`（4 参数）与 `message_transmitter::receive_message`（3 参数），对 v2 检查 8/3 参数，并检查 V2 的 `CctpExtensions` / `StablecoinHandler` 账户。
 
 ## 加一条新链时
 
