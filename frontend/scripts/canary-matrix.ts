@@ -19,6 +19,7 @@ import {
   summarizeCoverage,
   type MatrixChain,
 } from '../src/lib/canaryMatrix'
+import { CANARY_DRIVER_TYPES, parseDriverList } from '../src/lib/canaryPlan'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const config = JSON.parse(readFileSync(resolve(here, '../../config/chains.json'), 'utf8')) as {
@@ -33,10 +34,8 @@ const chains: MatrixChain[] = config.modes.testnet.chains.map((raw) => ({
   cctp_versions: (raw.cctp_versions as number[] | undefined) ?? [2],
 }))
 
-const drivers = (process.env.CANARY_DRIVERS ?? 'evm')
-  .split(',')
-  .map((driver) => driver.trim())
-  .filter(Boolean)
+const drivers = parseDriverList(process.env.CANARY_DRIVERS)
+  .filter((driver) => (CANARY_DRIVER_TYPES as readonly string[]).includes(driver))
 
 const shardArg = process.env.CANARY_SHARD ?? '0/1'
 const [shardIndex, shardCount] = shardArg.split('/').map(Number)

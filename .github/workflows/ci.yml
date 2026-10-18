@@ -25,6 +25,9 @@ jobs:
       - name: Unit tests
         working-directory: frontend
         run: bun run test
+      - name: Canary route matrix (all drivers)
+        working-directory: frontend
+        run: bun run canary:matrix
       - name: Build wallet-connect package and frontend
         env:
           VITE_BASE: /Xansfer-Chain/

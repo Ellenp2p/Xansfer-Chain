@@ -12,6 +12,10 @@ on:
         description: 'Comma-separated routes, e.g. base-sepolia->ethereum-sepolia'
         type: string
         default: base-sepolia->ethereum-sepolia
+      drivers:
+        description: 'Comma-separated drivers or "all" (evm,aptos,sui,stellar,solana,starknet)'
+        type: string
+        default: all
       amount:
         description: 'USDC per transfer (hard cap 0.05)'
         type: string
@@ -21,7 +25,7 @@ on:
         type: boolean
         default: false
   schedule:
-    # Weekly canary. Runs only when CANARY_EVM_PRIVATE_KEY is configured.
+    # Weekly canary. Runs only when a route secret is configured.
     - cron: '0 4 * * 1'
 
 permissions:
@@ -35,7 +39,7 @@ jobs:
   canary:
     name: Cross-chain canary
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -44,23 +48,41 @@ jobs:
       - name: Install dependencies (workspace)
         run: bun install --frozen-lockfile
 
-      - name: Check canary wallet
+      - name: Canary route matrix
+        working-directory: frontend
+        env:
+          CANARY_DRIVERS: ${{ inputs.drivers || 'all' }}
+        run: bun run canary:matrix
+
+      - name: Check canary wallets
         id: wallet
         env:
-          CANARY_PRIVATE_KEY: ${{ secrets.CANARY_EVM_PRIVATE_KEY }}
+          CANARY_EVM_PRIVATE_KEY: ${{ secrets.CANARY_EVM_PRIVATE_KEY }}
+          CANARY_APTOS_PRIVATE_KEY: ${{ secrets.CANARY_APTOS_PRIVATE_KEY }}
+          CANARY_SUI_PRIVATE_KEY: ${{ secrets.CANARY_SUI_PRIVATE_KEY }}
+          CANARY_STELLAR_SECRET: ${{ secrets.CANARY_STELLAR_SECRET }}
+          CANARY_SOLANA_PRIVATE_KEY: ${{ secrets.CANARY_SOLANA_PRIVATE_KEY }}
+          CANARY_STARKNET_PRIVATE_KEY: ${{ secrets.CANARY_STARKNET_PRIVATE_KEY }}
         run: |
-          if [ -n "$CANARY_PRIVATE_KEY" ]; then
+          if [ -n "$CANARY_EVM_PRIVATE_KEY$CANARY_APTOS_PRIVATE_KEY$CANARY_SUI_PRIVATE_KEY$CANARY_STELLAR_SECRET$CANARY_SOLANA_PRIVATE_KEY$CANARY_STARKNET_PRIVATE_KEY" ]; then
             echo "configured=true" >> "$GITHUB_OUTPUT"
           else
             echo "configured=false" >> "$GITHUB_OUTPUT"
-            echo "CANARY_EVM_PRIVATE_KEY is not configured; running in dry-run mode."
+            echo "No canary key secrets configured; running in dry-run mode."
           fi
 
       - name: Run canary (execute)
         if: steps.wallet.outputs.configured == 'true'
         working-directory: frontend
         env:
-          CANARY_PRIVATE_KEY: ${{ secrets.CANARY_EVM_PRIVATE_KEY }}
+          CANARY_EVM_PRIVATE_KEY: ${{ secrets.CANARY_EVM_PRIVATE_KEY }}
+          CANARY_APTOS_PRIVATE_KEY: ${{ secrets.CANARY_APTOS_PRIVATE_KEY }}
+          CANARY_SUI_PRIVATE_KEY: ${{ secrets.CANARY_SUI_PRIVATE_KEY }}
+          CANARY_STELLAR_SECRET: ${{ secrets.CANARY_STELLAR_SECRET }}
+          CANARY_SOLANA_PRIVATE_KEY: ${{ secrets.CANARY_SOLANA_PRIVATE_KEY }}
+          CANARY_STARKNET_PRIVATE_KEY: ${{ secrets.CANARY_STARKNET_PRIVATE_KEY }}
+          CANARY_STARKNET_ADDRESS: ${{ secrets.CANARY_STARKNET_ADDRESS }}
+          CANARY_DRIVERS: ${{ inputs.drivers || 'all' }}
           CANARY_EXECUTE: ${{ github.event_name == 'schedule' && 'true' || (inputs.execute && 'true' || 'false') }}
           CANARY_MODE: ${{ inputs.mode || 'distribute' }}
           CANARY_ROUTE: ${{ inputs.routes || 'base-sepolia->ethereum-sepolia' }}
@@ -73,6 +95,7 @@ jobs:
         if: steps.wallet.outputs.configured != 'true'
         working-directory: frontend
         env:
+          CANARY_DRIVERS: ${{ inputs.drivers || 'all' }}
           CANARY_MODE: ${{ inputs.mode || 'distribute' }}
           CANARY_ROUTE: ${{ inputs.routes || 'base-sepolia->ethereum-sepolia' }}
           CANARY_AMOUNT_USDC: ${{ inputs.amount || '0.01' }}

@@ -15,15 +15,15 @@ const chains: MatrixChain[] = [
   { domain: 8, name: 'Sui Testnet', chain_type: 'sui', chain_id: null, cctp_versions: [1] },
   { domain: 27, name: 'Stellar Testnet', chain_type: 'stellar', chain_id: null, cctp_versions: [2] },
   { domain: 5, name: 'Solana Devnet', chain_type: 'solana', chain_id: null, cctp_versions: [2] },
+  { domain: 25, name: 'Starknet Sepolia', chain_type: 'starknet', chain_id: null, cctp_versions: [2] },
 ]
 
-const supported = ['evm', 'aptos', 'sui', 'stellar']
+const supported = ['evm', 'aptos', 'sui', 'stellar', 'solana', 'starknet']
 
 describe('enumerateRoutes', () => {
   it('enumerates every supported directed route/version pair', () => {
     const routes = enumerateRoutes(chains, supported)
-    expect(routes).toHaveLength(18)
-    expect(routes.some((r) => r.fromType === 'solana' || r.toType === 'solana')).toBe(false)
+    expect(routes).toHaveLength(36)
     expect(routes).toContainEqual({
       id: routeId(0, 9, 1),
       fromDomain: 0,
@@ -39,6 +39,14 @@ describe('enumerateRoutes', () => {
       version: 2,
       fromType: 'stellar',
       toType: 'evm',
+    })
+    expect(routes).toContainEqual({
+      id: routeId(5, 25, 2),
+      fromDomain: 5,
+      toDomain: 25,
+      version: 2,
+      fromType: 'solana',
+      toType: 'starknet',
     })
   })
 
@@ -92,11 +100,12 @@ describe('coverage', () => {
     const routes = enumerateRoutes(chains, supported)
     const covered = routes.slice(0, 3).map((r) => r.id)
     const summary = summarizeCoverage(routes, covered)
-    expect(summary.total).toBe(18)
+    expect(summary.total).toBe(36)
     expect(summary.covered).toBe(3)
-    expect(summary.missing).toBe(15)
+    expect(summary.missing).toBe(33)
     expect(summary.byPair['evm->evm']).toEqual({ total: 2, covered: 1 })
     expect(summary.byPair['evm->sui']).toEqual({ total: 1, covered: 1 })
-    expect(summary.byPair['evm->aptos']).toEqual({ total: 3, covered: 1 })
+    expect(summary.byPair['evm->solana']).toEqual({ total: 2, covered: 1 })
+    expect(summary.byPair['evm->aptos']).toEqual({ total: 3, covered: 0 })
   })
 })
