@@ -10,6 +10,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "verify:chains": "bun scripts/verify-chains.ts",
+    "verify:aptos-scripts": "bun scripts/verify-aptos-scripts.ts",
     "canary": "bun scripts/canary.ts",
     "canary:matrix": "bun scripts/canary-matrix.ts"
   },

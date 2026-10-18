@@ -73,6 +73,26 @@ CANARY_PRIVATE_KEY=0x... CANARY_EXECUTE=true bun run canary
 
 用 Playwright 加载前端、切 network、填地址、断言校验提示，可注入一个 mock EIP-1193 provider，不需要真实钱包。当前没做，优先级低于上面三层。
 
+## Aptos CCTP v2（已核对）
+
+Circle 的 Aptos 部署已经是 **CCTP v2**（四个 Move 包：`TokenMessengerMinterV2`、`MessageTransmitterV2`、`StablecoinHandler`、`CctpExtensions`）。本仓库的配置和脚本已经对齐：
+
+- 包地址与 Circle 文档一致（testnet / mainnet 的 TokenMessenger、MessageTransmitter、CctpExtensions、StablecoinHandler、Stablecoin object）。
+- 内嵌的 `deposit_for_burn` / `deposit_for_burn_with_hook` / `receive_message` Move 脚本与 Circle `aptos-cctp` master 的 precompiled `.mv` 完全一致。
+- V2 接口是 8 参数的 `deposit_for_burn`（含 `hook_data`）和 3 参数的 `receive_message`。
+- 前端默认使用 v2；v1 代码保留用于历史交易的 claim（以及 Sui v1 路线）。
+
+自动防回归：
+
+```bash
+cd frontend
+bun run verify:aptos-scripts   # 与 Circle aptos-cctp master 的 .mv 逐字节比较
+```
+
+- `aptosScripts.test.ts` 固定了当前脚本的 SHA-256，防止本地误改。
+- `verify-chains.yml` 每天/改配置时跑 `verify:aptos-scripts`，Circle 升级脚本会直接失败并提示更新。
+- `verify-chains.ts` 额外检查 Aptos v2 的包账户、`deposit_for_burn` 8 参数、`receive_message` 3 参数。
+
 ## 加一条新链时
 
 1. 在 `config/chains.json` 里补 `domain`、`chain_id`、`rpc_url`、`usdc_address`、`cctp_versions` 和对应 CCTP 合约地址；如果该链 USDC 不是 6 位小数，再加 `usdc_decimals`；

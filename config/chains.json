@@ -521,7 +521,13 @@
             "31": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
             "32": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64"
           },
-          "attestation_api": "https://iris-api.circle.com"
+          "attestation_api": "https://iris-api.circle.com",
+          "cctp_extensions": {
+            "9": "0x93c742af9a876b10c8e13584fb443597611f0efdb342530aa0ebc5ad208815ff"
+          },
+          "stablecoin_handler": {
+            "9": "0x2b963f8aa28b815d2e875bd85a1a01d5f2d346f08f5b9fcf8953c77680735af2"
+          }
         },
         "v1": {
           "token_messenger": {
@@ -847,7 +853,13 @@
             "27": "CBJ6MTCKKZG73PMDZCJMSFRD7DQEMI4FKDH7CGDSV4W6FHCRBCQAVVJY",
             "32": "0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275"
           },
-          "attestation_api": "https://iris-api-sandbox.circle.com"
+          "attestation_api": "https://iris-api-sandbox.circle.com",
+          "cctp_extensions": {
+            "9": "0x84010f184db7b60e0067f360b6f809c16cf72ae6ea061cf15ffff2ce9b9b6963"
+          },
+          "stablecoin_handler": {
+            "9": "0xe5d19c4eb6e1e42c5435901fc6153fd19f6615651be0e6cefe0f07226d4a6846"
+          }
         },
         "v1": {
           "token_messenger": {

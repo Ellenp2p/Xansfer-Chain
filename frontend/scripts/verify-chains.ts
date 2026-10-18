@@ -36,6 +36,8 @@ interface ChainConfig {
 interface CctpConfig {
   token_messenger: Record<string, string>
   message_transmitter: Record<string, string>
+  cctp_extensions?: Record<string, string>
+  stablecoin_handler?: Record<string, string>
 }
 
 interface RawConfig {
@@ -274,6 +276,64 @@ async function verifyAptos(mode: Mode, chain: ChainConfig): Promise<CheckResult[
       } catch (error) {
         add(`CCTP v${version} ${label} account exists`, false, (error as Error).message, true)
       }
+    }
+
+    if (version === 2) {
+      // Aptos V2 adds two more packages. They are referenced by the Move
+      // scripts, so a missing/renamed package is a real breakage.
+      const v2 = config.modes[mode].cctp.v2
+      const extras: Array<[string, string | undefined]> = [
+        ['CctpExtensions', v2.cctp_extensions?.[String(chain.domain)]],
+        ['StablecoinHandler', v2.stablecoin_handler?.[String(chain.domain)]],
+      ]
+      for (const [label, address] of extras) {
+        if (!address) {
+          add(`CCTP v2 ${label} config`, false, 'missing')
+          continue
+        }
+        try {
+          const res = await get(`/accounts/${address}`)
+          add(`CCTP v2 ${label} account exists`, res.ok, `${res.status}`)
+        } catch (error) {
+          add(`CCTP v2 ${label} account exists`, false, (error as Error).message, true)
+        }
+      }
+
+      // Verify the V2 interface itself: Circle upgraded Aptos to a unified
+      // 8-parameter deposit_for_burn and a 3-parameter receive_message.
+      const checkInterface = async (
+        pkg: string | undefined,
+        moduleName: string,
+        fnName: string,
+        expectedParams: number,
+        label: string,
+      ) => {
+        if (!pkg) {
+          add(label, false, 'missing package address')
+          return
+        }
+        try {
+          const res = await get(`/accounts/${pkg}/module/${moduleName}`)
+          if (!res.ok) {
+            add(label, false, `HTTP ${res.status}`, true)
+            return
+          }
+          const json = await res.json() as {
+            abi?: { exposed_functions?: Array<{ name: string; params: string[] }> }
+          }
+          const fn = json.abi?.exposed_functions?.find((entry) => entry.name === fnName)
+          add(
+            label,
+            !!fn && fn.params.length === expectedParams,
+            fn ? `${fn.params.length} params (expected ${expectedParams})` : 'function missing',
+          )
+        } catch (error) {
+          add(label, false, (error as Error).message, true)
+        }
+      }
+
+      await checkInterface(tm, 'token_messenger_minter', 'deposit_for_burn', 8, 'CCTP v2 deposit_for_burn interface')
+      await checkInterface(mt, 'message_transmitter', 'receive_message', 3, 'CCTP v2 receive_message interface')
     }
   }
 

@@ -125,6 +125,7 @@ VITE_BASE=/Xansfer-Chain/ bun run build
 cd frontend
 bun run test                        # 确定性单测
 bun run verify:chains               # 链上地址/合约校验（默认 testnet）
+bun run verify:aptos-scripts        # Aptos CCTP Move 脚本是否落后于 Circle 仓库
 bun run canary                      # 跨链 canary 干跑（真实执行需要 CANARY_EXECUTE=true）
 bun run canary:matrix               # 查看路由矩阵 / 分片 / 覆盖情况
 ```
