@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import configJson from '../../../config/chains.json'
 import {
   getAttestationUrl,
   getCctpContracts,
@@ -170,6 +171,52 @@ describe.each(MODES)('chain config (%s)', (mode) => {
       expect(chain.rpc_url, chain.name).toMatch(/^https:\/\//)
     }
   })
+})
+
+describe('Aptos CCTP v2 deployment', () => {
+  const expected = {
+    mainnet: {
+      tokenMessenger: '0x551e32781793c30bf1580d11e4f5171e8d068c3d45c3a5b20ae240bfdad99af8',
+      messageTransmitter: '0x1b3f6d749cb835451202f9a1932e49014266f7e3d51611a9a763d156cb4bdaf6',
+      cctpExtensions: '0x93c742af9a876b10c8e13584fb443597611f0efdb342530aa0ebc5ad208815ff',
+      stablecoinHandler: '0x2b963f8aa28b815d2e875bd85a1a01d5f2d346f08f5b9fcf8953c77680735af2',
+      stablecoin: '0xbae207659db88bea0cbead6da0ed00aac12edcdda169e591cd41c94180b46f3b',
+    },
+    testnet: {
+      tokenMessenger: '0xc601d3f7b89b77b552726d5d84cbf2a6d3e8a73adbbee3f09fad169a3286bb59',
+      messageTransmitter: '0xa582dc019ae17b0485f7d3fcc4ca85bea7941e3b70a4b682cea22759f36e711f',
+      cctpExtensions: '0x84010f184db7b60e0067f360b6f809c16cf72ae6ea061cf15ffff2ce9b9b6963',
+      stablecoinHandler: '0xe5d19c4eb6e1e42c5435901fc6153fd19f6615651be0e6cefe0f07226d4a6846',
+      stablecoin: '0x69091fbab5f7d635ee7ac5098cf0c1efbe31d68fec0f2cd565e8d168daf52832',
+    },
+  } as const
+
+  for (const mode of ['mainnet', 'testnet'] as const) {
+    it(`matches Circle docs on ${mode}`, () => {
+      const v2 = (configJson as unknown as {
+        modes: Record<string, {
+          cctp: {
+            v2: {
+              token_messenger: Record<string, string>
+              message_transmitter: Record<string, string>
+              cctp_extensions?: Record<string, string>
+              stablecoin_handler?: Record<string, string>
+            }
+          }
+          chains: Array<{ domain: number; chain_type: string; usdc_address: string; cctp_versions: number[] }>
+        }>
+      }).modes[mode]
+      const aptos = v2.chains.find((chain) => chain.chain_type === 'aptos')
+
+      expect(aptos).toBeDefined()
+      expect(aptos!.cctp_versions).toContain(2)
+      expect(aptos!.usdc_address).toBe(expected[mode].stablecoin)
+      expect(v2.cctp.v2.token_messenger['9']).toBe(expected[mode].tokenMessenger)
+      expect(v2.cctp.v2.message_transmitter['9']).toBe(expected[mode].messageTransmitter)
+      expect(v2.cctp.v2.cctp_extensions?.['9']).toBe(expected[mode].cctpExtensions)
+      expect(v2.cctp.v2.stablecoin_handler?.['9']).toBe(expected[mode].stablecoinHandler)
+    })
+  }
 })
 
 describe('attestation URLs', () => {

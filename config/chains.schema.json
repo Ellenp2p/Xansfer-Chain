@@ -46,6 +46,7 @@
         "rpc_url": { "$ref": "#/definitions/ResolvableString" },
         "explorer_url": { "type": "string", "minLength": 1 },
         "usdc_address": { "type": "string" },
+        "usdc_decimals": { "type": "integer", "minimum": 0, "maximum": 36 },
         "usdc_sac": { "type": "string" },
         "cctp_versions": {
           "type": "array",
@@ -80,6 +81,14 @@
           "additionalProperties": { "type": "string", "minLength": 1 }
         },
         "message_transmitter": {
+          "type": "object",
+          "additionalProperties": { "type": "string", "minLength": 1 }
+        },
+        "cctp_extensions": {
+          "type": "object",
+          "additionalProperties": { "type": "string", "minLength": 1 }
+        },
+        "stablecoin_handler": {
           "type": "object",
           "additionalProperties": { "type": "string", "minLength": 1 }
         },

@@ -8,7 +8,10 @@ on:
   pull_request:
     paths:
       - 'config/chains.json'
+      - 'config/chains.schema.json'
       - 'frontend/scripts/verify-chains.ts'
+      - 'frontend/scripts/verify-aptos-scripts.ts'
+      - 'frontend/src/config/aptosScripts.ts'
 
 permissions:
   contents: read
@@ -28,6 +31,12 @@ jobs:
           bun-version: latest
       - name: Install dependencies (workspace)
         run: bun install --frozen-lockfile
+
+      - name: Verify Aptos Move scripts
+        working-directory: frontend
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bun run verify:aptos-scripts
 
       - name: Verify testnet addresses and contracts
         working-directory: frontend
