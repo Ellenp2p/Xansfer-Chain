@@ -87,7 +87,46 @@ CANARY_PRIVATE_KEY=0x... CANARY_EXECUTE=true \
 
 建议先手动 dry-run 确认余额，再手动 dispatch 一次 `execute=true`，最后再依赖每周调度。
 
+## 路由矩阵与全路径覆盖
+
+真实转账不可能每轮把所有路径跑一遍，所以用**矩阵 + 分片 + 覆盖记录**：
+
+```bash
+cd frontend
+bun run canary:matrix                                   # 默认只列已实现的 driver（当前是 evm）
+CANARY_DRIVERS=evm,aptos,sui,stellar bun run canary:matrix   # 按计划中的 driver 预览矩阵
+CANARY_SHARD=0/4 bun run canary:matrix                  # 只看第 0/4 片
+```
+
+- `CANARY_DRIVERS`：声明哪些链类型有 driver；矩阵只会列出**有 driver 的路径**，不会把不存在的路径算进去。
+- `CANARY_SHARD=i/N`：稳定分片，每条路径只属于一个分片。
+- 覆盖记录写在 `frontend/.canary-coverage.json`（已 gitignore），执行成功后记录 route id，下次优先挑未覆盖的。
+- 每轮仍受金额 / 笔数 / 每日上限约束，所以清空整个矩阵需要多轮；这正是避免撞限流的方式。
+
+当前测试网规模（`CANARY_DRIVERS=evm`）：
+
+| driver 组合 | 路径数 |
+| --- | --- |
+| 仅 `evm`（已实现） | 112 |
+| `evm,aptos,sui,stellar`（计划中） | 168 |
+
+也就是说：EVM 全部有向路径是 112 条，加上 Aptos / Sui / Stellar 后是 168 条；Solana、Starknet 目前连 driver 都没有，矩阵里不会出现。
+
+### Driver 状态
+
+| 链类型 | burn/claim driver | 说明 |
+| --- | --- | --- |
+| EVM | ✅ 已实现 | `canary.ts` 内建 |
+| Stellar | ⏳ 待实现 | 可用 `@stellar/stellar-sdk` + Keypair 直接签 |
+| Aptos | ⏳ 待实现 | 复用 Move 脚本 bytecode + `@aptos-labs/ts-sdk` |
+| Sui | ⏳ 待实现 | 复用 PTB 逻辑 + `@mysten/sui` |
+| Solana | ❌ 未实现 | 需要 CCTP Solana 指令编码 |
+| Starknet | ❌ 未实现 | 需要 Starknet CCTP ABI 与签名 |
+
+矩阵层已经就位：每补一个 driver，只需要把它加进 `CANARY_DRIVERS`，对应的所有路径就会自动纳入分片和覆盖统计。
+
 ## 它验证了什么 / 没验证什么
+
 
 验证：当前配置里的 USDC 地址、CCTP v2 合约地址、domain、EVM chain id、Iris attestation 流程、目标链 receiveMessage、金额编码与 mint recipient 编码。
 
