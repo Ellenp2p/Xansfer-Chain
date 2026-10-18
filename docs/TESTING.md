@@ -64,10 +64,12 @@ CI：`.github/workflows/verify-chains.yml`
 ```bash
 cd frontend
 bun run canary                                    # dry run
-CANARY_PRIVATE_KEY=0x... CANARY_EXECUTE=true bun run canary
+CANARY_ROUTE=base-sepolia->aptos-testnet bun run canary
+CANARY_EVM_PRIVATE_KEY=0x... CANARY_APTOS_PRIVATE_KEY=ed25519-priv-0x... \
+  CANARY_EXECUTE=true CANARY_ROUTE=base-sepolia->aptos-testnet bun run canary
 ```
 
-当前覆盖 EVM + CCTP v2 测试网；非 EVM（Solana / Sui / Aptos / Stellar）的真实 burn/claim 尚未实现。完整说明见 [`CANARY.md`](CANARY.md)。
+现在覆盖全部 6 种测试网链类型：`evm`、`aptos`、`sui`（v1）、`stellar`、`solana`、`starknet`。路由矩阵（`bun run canary:matrix`）按 driver 能力枚举，共 216 条有向路由；每条链的私钥变量见 [`CANARY.md`](CANARY.md)。完整说明见 [`CANARY.md`](CANARY.md)。
 
 ## 第 4 层（可选）：浏览器冒烟测试
 
