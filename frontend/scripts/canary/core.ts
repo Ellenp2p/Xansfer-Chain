@@ -10,6 +10,7 @@
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { deriveWallet } from '../../src/lib/canaryWallet'
 import type { CctpVersionConfig, DriverChain, Mode, TestnetConfig } from './types'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -146,12 +147,49 @@ function firstEnv(names: string[]): string | undefined {
   return undefined
 }
 
+/** Optional single-mnemonic mode: derive per-chain secrets/addresses from CANARY_MNEMONIC. */
+export function mnemonicFor(): string | undefined {
+  const mnemonic = process.env.CANARY_MNEMONIC
+  return mnemonic && mnemonic.trim() ? mnemonic : undefined
+}
+
+export function accountIndex(): number {
+  const raw = process.env.CANARY_ACCOUNT_INDEX
+  if (raw == null || raw === '') return 0
+  const index = Number(raw)
+  if (!Number.isInteger(index) || index < 0) {
+    throw new Error(`CANARY_ACCOUNT_INDEX must be a non-negative integer (got "${raw}")`)
+  }
+  return index
+}
+
+function derivedFor(chainType: string): { address: string; secret: string | null } | undefined {
+  const mnemonic = mnemonicFor()
+  if (!mnemonic) return undefined
+  try {
+    const wallet = deriveWallet(mnemonic, chainType, {
+      index: accountIndex(),
+      passphrase: process.env.CANARY_MNEMONIC_PASSPHRASE,
+      allowUnsupported: true,
+    })
+    return { address: wallet.address, secret: wallet.secret }
+  } catch {
+    return undefined
+  }
+}
+
 export function secretFor(chainType: string): string | undefined {
-  return firstEnv(SECRET_ENV[chainType] ?? [])
+  const fromEnv = firstEnv(SECRET_ENV[chainType] ?? [])
+  if (fromEnv) return fromEnv
+  const derived = derivedFor(chainType)
+  return derived?.secret ?? undefined
 }
 
 export function addressOverride(chainType: string): string | undefined {
-  return firstEnv(ADDRESS_ENV[chainType] ?? [])
+  const fromEnv = firstEnv(ADDRESS_ENV[chainType] ?? [])
+  if (fromEnv) return fromEnv
+  const derived = derivedFor(chainType)
+  return derived?.address || undefined
 }
 
 export function secretEnvName(chainType: string): string {

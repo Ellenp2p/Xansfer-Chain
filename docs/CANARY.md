@@ -73,46 +73,77 @@ Starknet 的账户地址无法从私钥推导，所以执行时必须同时提�
 
 路由里的链名用 slug 或 domain，例如 `base-sepolia->ethereum-sepolia`、`6->0`、`ethereum-sepolia->sui-testnet`。
 
-## 本地使用
+## 本地使用（一个助记词）
+
+### 助记词派生
+
+`CANARY_MNEMONIC` 一套助记词派生所有链的地址（index 0 = 主钱包，index 1 = 接收钱包）：
+
+| 链 | 路径 |
+| --- | --- |
+| EVM | `m/44'/60'/0'/0/{i}` |
+| Aptos | `m/44'/637'/0'/0'/{i}'` |
+| Sui | `m/44'/784'/0'/0'/{i}'` |
+| Stellar | `m/44'/148'/{i}'` |
+| Solana | `m/44'/501'/{i}'/0'` |
+
+Starknet 的地址取决于账户实现，无法只从私钥推导，需要额外提供 `CANARY_STARKNET_ADDRESS`（以及 `CANARY_STARKNET_PRIVATE_KEY`）。
 
 ```bash
 cd frontend
+# 放到 frontend/.env.local（gitignore），或每次导出
+export CANARY_MNEMONIC="word1 word2 ... word12"
 
-# 干跑：只解析配置/路由/金额，不发交易（没有私钥时跳过余额预检）
-bun run canary
+# 打印所有链地址（只读、不联网、不打印私钥）
+bun run canary:wallet
 
-# 带只读地址的余额预检（不签名）
-CANARY_EVM_ADDRESS=0x... CANARY_APTOS_ADDRESS=0x1 \
-  CANARY_ROUTE=base-sepolia->aptos-testnet bun run canary
-
-# 多链：Base Sepolia -> Aptos Testnet（需要两端私钥，claim 在目标链签名）
-CANARY_EVM_PRIVATE_KEY=0x... CANARY_APTOS_PRIVATE_KEY=ed25519-priv-0x... \
-  CANARY_EXECUTE=true CANARY_ROUTE=base-sepolia->aptos-testnet bun run canary
-
-# 归集：多条 -> 同一目标链
-CANARY_EVM_PRIVATE_KEY=0x... CANARY_EXECUTE=true \
-  CANARY_MODE=collect CANARY_MAX_TRANSFERS=2 \
-  CANARY_ROUTE='base-sepolia->ethereum-sepolia,arbitrum-sepolia->ethereum-sepolia' \
-  bun run canary
+# 体检：余额、缺口、一次性准备、下一步能跑哪些路径（只读）
+bun run canary:check
 ```
+
+`canary:check` 不会发交易；环境不通的链会单独标 `error`，其他链继续。它同时给出每条链作为源链需要的 USDC 数量（路径数 × 金额）。
+
+### 运行单条/少量路径
+
+```bash
+# 干跑
+CANARY_ROUTE=base-sepolia->aptos-testnet bun run canary
+
+# 真实执行（需要 gas + USDC）
+CANARY_EXECUTE=true CANARY_ROUTE=base-sepolia->aptos-testnet bun run canary
+
+# 归集
+CANARY_EXECUTE=true CANARY_MODE=collect CANARY_MAX_TRANSFERS=2 \
+  CANARY_ROUTE='base-sepolia->ethereum-sepolia,arbitrum-sepolia->ethereum-sepolia' bun run canary
+```
+
+### 全量路径（本地，不在 CI）
+
+216 条路径建议按等待时间分批：
+
+- 快链（Aptos / Sui / Stellar / Solana / Avalanche / Polygon）
+- L1-finality（Ethereum / Base / Arbitrum / OP / Linea / …）
+- Starknet（单独一批，2–4 小时）
+
+campaign / recover / 状态机尚未实现，属于本 PR 的后续步骤；当前 PR 先提供助记词派生 + 体检。
 
 ## CI 使用
 
 `.github/workflows/canary.yml`：
 
 - `workflow_dispatch`：可选 `mode` / `routes` / `amount` / `drivers` / `execute`（默认 dry-run）。
-- `schedule`：每周一 04:00 UTC；配置了任一路线私钥才真正执行，否则自动降级为 dry-run，不会失败。
+- **没有 `schedule`**：真实转账不自动跑；campaign 走本地。
 - `concurrency: cctp-canary`：防止并发调度把交易量放大。
 - PR 的 `ci.yml` 会跑 `canary:matrix`，确保所有 driver 的路由枚举没有回归。
 
 ## 准备一个测试钱包
 
-1. 每条要测的链用一个**专门的测试网钱包**，不要复用主钱包。
-2. 确认该路由两端链的 gas 代币余额：EVM（ETH）、Aptos（APT）、Sui（SUI）、Stellar（XLM 且账户已激活）、Solana（SOL）、Starknet（STRK/ETH）。
+1. 本地模式只要一个 `CANARY_MNEMONIC`：index 0 是主钱包，index 1 是接收钱包（`bun run canary:wallet` 可查看地址）。
+2. 确认每条链的 gas 代币余额：EVM（ETH）、Aptos（APT）、Sui（SUI）、Stellar（XLM 且账户已激活）、Solana（SOL）、Starknet（STRK/ETH）。
 3. 给源链钱包准备测试网 USDC（金额 ≥ 0.01）。
-4. 在仓库 Secrets 里按上表添加对应私钥；Starknet 还要加 `CANARY_STARKNET_ADDRESS`。
+4. Starknet 额外提供 `CANARY_STARKNET_ADDRESS`。
 
-建议先跑一次 dry-run 确认余额，再手动 dispatch 一次 `execute=true`，之后依赖每周调度即可。
+先跑 `bun run canary:check` 看缺口，按它给出的数量去 faucet 领，再跑 campaign。
 
 ## 路由矩阵与全路径覆盖
 

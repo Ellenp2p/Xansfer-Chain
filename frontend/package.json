@@ -12,7 +12,9 @@
     "verify:chains": "bun scripts/verify-chains.ts",
     "verify:aptos-scripts": "bun scripts/verify-aptos-scripts.ts",
     "canary": "bun scripts/canary.ts",
-    "canary:matrix": "bun scripts/canary-matrix.ts"
+    "canary:matrix": "bun scripts/canary-matrix.ts",
+    "canary:wallet": "bun scripts/canary/wallet.ts",
+    "canary:check": "bun scripts/canary/check.ts"
   },
   "dependencies": {
     "@aptos-labs/ts-sdk": "^7.5.0",
@@ -31,6 +33,8 @@
     "@telegram-apps/bridge": "^2.11.0",
     "@wagmi/core": "^3.6.5",
     "@xansfer/wallet-connect": "workspace:*",
+    "@noble/hashes": "^1.8.0",
+    "@scure/bip39": "^1.6.0",
     "bs58": "^6.0.0",
     "lucide-react": "^1.59.0",
     "react": "^19.3.1",
