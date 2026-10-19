@@ -24,9 +24,6 @@ on:
         description: 'Actually send transactions (off = dry run)'
         type: boolean
         default: false
-  schedule:
-    # Weekly canary. Runs only when a route secret is configured.
-    - cron: '0 4 * * 1'
 
 permissions:
   contents: read

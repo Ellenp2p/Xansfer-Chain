@@ -10,3 +10,4 @@ target/
 *.tsbuildinfo
 .canary-state.json
 .canary-coverage.json
+.canary/

@@ -18,7 +18,9 @@ const ZERO_ADDRESS = `0x${'0'.repeat(64)}`
 const APTOS_DECIMALS = 8
 
 function client(chain: DriverChain): Aptos {
-  return new Aptos(new AptosConfig({ network: Network.TESTNET, fullnode: chain.rpc_url }))
+  return new Aptos(
+    new AptosConfig({ network: Network.TESTNET, fullnode: chain.rpc_url, clientConfig: { http2: false } }),
+  )
 }
 
 function accountFromSecret(secret: string): Account {
