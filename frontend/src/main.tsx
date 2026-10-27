@@ -30,7 +30,11 @@ if (import.meta.env.DEV) {
 function Root() {
   return (
     <React.StrictMode>
-      <HashRouter basename={import.meta.env.BASE_URL}>
+      {/* HashRouter keeps routes in location.hash (#/mainnet, #/tx/...), which is
+          already independent of the deploy sub-path. Do NOT pass
+          import.meta.env.BASE_URL as basename: React Router would then expect
+          hash paths like "/Xansfer-Chain/..." and render nothing on "#/". */}
+      <HashRouter>
         <ModeBound />
       </HashRouter>
     </React.StrictMode>
