@@ -122,6 +122,10 @@ export function getSupportedVersions(domain: number, mode: Mode = 'mainnet'): nu
 export interface CctpContractSet {
   tokenMessenger: string
   messageTransmitter: string
+  /** CCTP v2 only (Move chains): StablecoinHandler package. */
+  stablecoinHandler?: string
+  /** CCTP v2 only: CctpExtensions package. */
+  cctpExtensions?: string
 }
 
 export function getCctpContracts(domain: number, version: number, mode: Mode): CctpContractSet | null {
@@ -129,14 +133,22 @@ export function getCctpContracts(domain: number, version: number, mode: Mode): C
   if (version === 2 || version === 1) {
     const cfg = version === 2 ? cctp.v2 : cctp.v1
     if (!cfg) return null
-    const tokens = cfg.token_messenger as unknown as Record<string, ResolvableString>
-    const transmitters = cfg.message_transmitter as unknown as Record<string, ResolvableString>
-    const tm = tokens[String(domain)]
-    const mt = transmitters[String(domain)]
+    const raw = cfg as unknown as {
+      token_messenger: Record<string, ResolvableString>
+      message_transmitter: Record<string, ResolvableString>
+      stablecoin_handler?: Record<string, ResolvableString>
+      cctp_extensions?: Record<string, ResolvableString>
+    }
+    const tm = raw.token_messenger[String(domain)]
+    const mt = raw.message_transmitter[String(domain)]
     if (!tm || !mt) return null
+    const sh = raw.stablecoin_handler?.[String(domain)]
+    const ce = raw.cctp_extensions?.[String(domain)]
     return {
       tokenMessenger: resolveString(tm),
       messageTransmitter: resolveString(mt),
+      ...(sh ? { stablecoinHandler: resolveString(sh) } : {}),
+      ...(ce ? { cctpExtensions: resolveString(ce) } : {}),
     }
   }
   return null

@@ -15,11 +15,11 @@
 | `evm` | `scripts/canary/evm.ts` | v1 + v2 | viem 直接签名 |
 | `aptos` | `scripts/canary/aptos.ts` | v2（testnet） | 复用 Circle precompiled Move 脚本（`aptosScripts.ts`） |
 | `stellar` | `scripts/canary/stellar.ts` | v2 | Soroban `deposit_for_burn` + CctpForwarder `mint_and_forward` |
-| `sui` | `scripts/canary/sui.ts` | v1（testnet） | GraphQL endpoint（公共 JSON-RPC 已下线）+ PTB |
+| `sui` | `scripts/canary/sui.ts` | v1 + v2（testnet） | GraphQL endpoint（公共 JSON-RPC 已下线）+ PTB |
 | `solana` | `scripts/canary/solana.ts` | v2 | 按 Circle `solana-cctp-contracts` 手工编码 Anchor 指令与 PDA |
 | `starknet` | `scripts/canary/starknet.ts` | v2 | `starknet` SDK + 链上 ABI（`deposit_for_burn` / `receive_message`） |
 
-路由矩阵按「两端都有 driver 且 CCTP 版本有交集」枚举，所以不会把不存在的路径算作已覆盖。全部 6 种 driver 时测试网共 **216** 条有向路由。
+路由矩阵按「两端都有 driver 且 CCTP 版本有交集」枚举，所以不会把不存在的路径算作已覆盖。全部 6 种 driver 时测试网共 **246** 条有向路由。
 
 ## 安全边界（硬编码，不可绕过）
 
@@ -130,7 +130,7 @@ CANARY_SHARD=0/4 bun run canary:matrix      # 取 0/4 分片
 - 覆盖记录在 `frontend/.canary-coverage.json`（已 gitignore），记录已跑过的 route id，多轮滚动覆盖。
 - 每轮仍受金额 / 笔数 / 每日上限约束，所以用分片逐步覆盖整个矩阵，而不是一轮打满。
 
-当前全部 driver 的测试网矩阵：**216 条有向路由**，按链类型对分布：
+当前全部 driver 的测试网矩阵：**246 条有向路由**，按链类型对分布：
 
 | 对 | 数量 |
 | --- | --- |
@@ -139,9 +139,9 @@ CANARY_SHARD=0/4 bun run canary:matrix      # 取 0/4 分片
 | evm ↔ stellar | 22 |
 | evm ↔ solana | 22 |
 | evm ↔ starknet | 22 |
-| evm ↔ sui | 4（v1） |
+| evm ↔ sui | 26（v1 + v2） |
 | aptos / stellar / solana / starknet 两两 | 各 2 |
-| aptos/solana/stellar/starknet ↔ sui | v1 交集为空，无 |
+| aptos/solana/stellar/starknet ↔ sui | 各 2（v2） |
 
 ## 它验证什么 / 没验证什么
 

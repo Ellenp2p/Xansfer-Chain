@@ -16,7 +16,7 @@ const chains: CanaryChain[] = [
   { domain: 0, name: 'Ethereum Sepolia', chain_type: 'evm', chain_id: 11155111, cctp_versions: [1, 2] },
   { domain: 3, name: 'Arbitrum Sepolia', chain_type: 'evm', chain_id: 421614, cctp_versions: [2] },
   { domain: 6, name: 'Base Sepolia', chain_type: 'evm', chain_id: 84532, cctp_versions: [2] },
-  { domain: 8, name: 'Sui Testnet', chain_type: 'sui', chain_id: null, cctp_versions: [1] },
+  { domain: 8, name: 'Sui Testnet', chain_type: 'sui', chain_id: null, cctp_versions: [1, 2] },
   { domain: 9, name: 'Aptos Testnet', chain_type: 'aptos', chain_id: null, cctp_versions: [2] },
   { domain: 27, name: 'Stellar Testnet', chain_type: 'stellar', chain_id: null, cctp_versions: [2] },
   { domain: 5, name: 'Solana Devnet', chain_type: 'solana', chain_id: null, cctp_versions: [2] },
@@ -46,11 +46,11 @@ describe('parseDriverList', () => {
 describe('commonVersion', () => {
   it('picks the highest shared version', () => {
     expect(commonVersion(chains[0], chains[1])).toBe(2)
-    expect(commonVersion(chains[0], chains[3])).toBe(1)
+    expect(commonVersion(chains[0], chains[3])).toBe(2)
   })
 
   it('rejects disjoint version sets', () => {
-    expect(() => commonVersion(chains[3], chains[4])).toThrow(/no CCTP version in common/)
+    expect(() => commonVersion(chains[8], chains[4])).toThrow(/no CCTP version in common/)
   })
 })
 
@@ -62,7 +62,7 @@ describe('parseRoute', () => {
       to: { domain: 0 },
     })
     expect(parseRoute('6->0', chains).to.domain).toBe(0)
-    expect(parseRoute('ethereum-sepolia->sui-testnet', chains).version).toBe(1)
+    expect(parseRoute('ethereum-sepolia->sui-testnet', chains).version).toBe(2)
     expect(parseRoute('base-sepolia->aptos-testnet', chains).version).toBe(2)
   })
 
@@ -114,7 +114,7 @@ describe('buildCanaryPlan', () => {
       chains,
     })
     expect(plan.map((leg) => [leg.fromDomain, leg.toDomain, leg.version])).toEqual([
-      [0, 8, 1],
+      [0, 8, 2],
       [6, 9, 2],
       [9, 27, 2],
     ])

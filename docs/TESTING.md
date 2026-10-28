@@ -69,7 +69,7 @@ CANARY_EVM_PRIVATE_KEY=0x... CANARY_APTOS_PRIVATE_KEY=ed25519-priv-0x... \
   CANARY_EXECUTE=true CANARY_ROUTE=base-sepolia->aptos-testnet bun run canary
 ```
 
-现在覆盖全部 6 种测试网链类型：`evm`、`aptos`、`sui`（v1）、`stellar`、`solana`、`starknet`。路由矩阵（`bun run canary:matrix`）按 driver 能力枚举，共 216 条有向路由；每条链的私钥变量见 [`CANARY.md`](CANARY.md)。完整说明见 [`CANARY.md`](CANARY.md)。
+现在覆盖全部 6 种测试网链类型：`evm`、`aptos`、`sui`（v1 + v2）、`stellar`、`solana`、`starknet`。路由矩阵（`bun run canary:matrix`）按 driver 能力枚举，共 246 条有向路由；每条链的私钥变量见 [`CANARY.md`](CANARY.md)。完整说明见 [`CANARY.md`](CANARY.md)。
 
 ## 第 4 层（可选）：浏览器冒烟测试
 
@@ -97,6 +97,16 @@ bun run verify:aptos-scripts   # 与 Circle aptos-cctp master 的 .mv 逐字节�
 - `aptosScripts.test.ts` 固定了当前脚本的 SHA-256，防止本地误改。
 - `verify-chains.yml` 每天/改配置时跑 `verify:aptos-scripts`，Circle 升级脚本会直接失败并提示更新。
 - `verify-chains.ts` 对 v1 检查 `token_messenger::deposit_for_burn`（4 参数）与 `message_transmitter::receive_message`（3 参数），对 v2 检查 8/3 参数，并检查 V2 的 `CctpExtensions` / `StablecoinHandler` 账户。
+
+## Sui CCTP v2（已核对）
+
+Circle 已在 Sui 部署 **CCTP v2**。仓库把 Sui 的 `cctp_versions` 改成 `[1, 2]`：新交易默认走 v2，v1 只保留给旧交易的 claim。
+
+- 包地址与 shared object 按 Circle 文档写入 `config/chains.json` 和 `frontend/src/lib/suiCctpV2.ts`，并在 mainnet / testnet GraphQL 上核对过模块存在（`deposit_for_burn`、`receive_message`、`handle_receive_message`、`handler`）。
+- v2 burn：`deposit_for_burn -> handler::burn -> complete_burn`；v2 claim：`receive_message -> prepare_mint -> handler::mint -> complete_mint`。
+- Sui USDC 既可能是 Coin object，也可能是 SIP-58 address balance；burn 对两种形态都支持（`coin::split` / `coin::redeem_funds`）。
+- 前端和 canary driver 共用 `suiCctpV2.ts` 里的 PTB builder，避免两套实现漂移。
+- `suiCctpV2.test.ts` 固定了 PTB 的调用顺序、`handler::Auth` 类型参数和 deny-list 参数。
 
 ## 加一条新链时
 
