@@ -129,7 +129,8 @@
           "explorer_url": "https://suiscan.xyz/mainnet/home",
           "usdc_address": "0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC",
           "cctp_versions": [
-            1
+            1,
+            2
           ],
           "chain_type": "sui",
           "supports_fast_transfer": false,
@@ -471,6 +472,7 @@
             "5": "CCTPV2vPZJS2u2BBsUoscuikbYjnpFmbFsvVuJdgUMQe",
             "6": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
             "7": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+            "8": "0xeb14978abfe93a37c5d5bf86a0623b923553a5f0e794daac7724f1e2fdbfb830",
             "9": "0x551e32781793c30bf1580d11e4f5171e8d068c3d45c3a5b20ae240bfdad99af8",
             "10": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
             "11": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
@@ -500,6 +502,7 @@
             "5": "CCTPV2Sm4AdWt5296sk4P66VBZ7bEhcARwFaaS9YPbeC",
             "6": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
             "7": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
+            "8": "0x16bcfcfc465f96281663a344641c017de84529370e11aa3879d0dce43ad6db87",
             "9": "0x1b3f6d749cb835451202f9a1932e49014266f7e3d51611a9a763d156cb4bdaf6",
             "10": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
             "11": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
@@ -523,9 +526,11 @@
           },
           "attestation_api": "https://iris-api.circle.com",
           "cctp_extensions": {
+            "8": "0x194c593691aed72b23b967cacad967a93c0b17ff98180d417e91ac503ce3597d",
             "9": "0x93c742af9a876b10c8e13584fb443597611f0efdb342530aa0ebc5ad208815ff"
           },
           "stablecoin_handler": {
+            "8": "0x185ed207c4d64fc594882ab927f9f3c6ff957aad03df8a731ba64378faeeb2bf",
             "9": "0x2b963f8aa28b815d2e875bd85a1a01d5f2d346f08f5b9fcf8953c77680735af2"
           }
         },
@@ -791,7 +796,8 @@
           "explorer_url": "https://suiscan.xyz/testnet/home",
           "usdc_address": "0xa1ec7fc00a6f40db9693ad1415d0c193ad3906494428cf252621037bd7117e29::usdc::USDC",
           "cctp_versions": [
-            1
+            1,
+            2
           ],
           "chain_type": "sui",
           "supports_fast_transfer": false,
@@ -826,6 +832,7 @@
             "5": "CCTPV2vPZJS2u2BBsUoscuikbYjnpFmbFsvVuJdgUMQe",
             "6": "0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA",
             "7": "0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA",
+            "8": "0x267d3c0cb776eace2840f27e4d33da9c6d952f9749403f1fe6579f4962ed3c64",
             "9": "0xc601d3f7b89b77b552726d5d84cbf2a6d3e8a73adbbee3f09fad169a3286bb59",
             "10": "0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA",
             "11": "0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA",
@@ -843,6 +850,7 @@
             "5": "CCTPV2Sm4AdWt5296sk4P66VBZ7bEhcARwFaaS9YPbeC",
             "6": "0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275",
             "7": "0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275",
+            "8": "0xe9678cd42a81886e18e21361088071f275105636a4d3751e1d7f255211f73bbe",
             "9": "0xa582dc019ae17b0485f7d3fcc4ca85bea7941e3b70a4b682cea22759f36e711f",
             "10": "0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275",
             "11": "0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275",
@@ -854,9 +862,11 @@
           },
           "attestation_api": "https://iris-api-sandbox.circle.com",
           "cctp_extensions": {
+            "8": "0x3cdb05f9a035c147410f5a9cfe2ccb741f4ab3cd59411e86714ce4b45e2c4d95",
             "9": "0x84010f184db7b60e0067f360b6f809c16cf72ae6ea061cf15ffff2ce9b9b6963"
           },
           "stablecoin_handler": {
+            "8": "0xbe8479044396a45e07de2c7f14789c35b8338406eebc53b2527da56839a91561",
             "9": "0xe5d19c4eb6e1e42c5435901fc6153fd19f6615651be0e6cefe0f07226d4a6846"
           }
         },

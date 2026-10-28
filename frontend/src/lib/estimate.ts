@@ -16,7 +16,7 @@ const ESTIMATED_WAIT_BY_CHAIN: Record<string, Record<number, { fast?: number; st
   base:        { 1: { standard: 1020 }, 2: { fast: 8, standard: 1020 } },
   polygon:     { 1: { standard: 98 },  2: { standard: 8 } },
   solana:      { 1: { standard: 25 },  2: { fast: 8, standard: 25 } },
-  sui:         { 1: { standard: 8 } },
+  sui:         { 1: { standard: 8 }, 2: { standard: 1 } },
   aptos:       { 1: { standard: 8 }, 2: { standard: 8 } },
   unichain:    { 1: { standard: 1020 }, 2: { fast: 8, standard: 1020 } },
 

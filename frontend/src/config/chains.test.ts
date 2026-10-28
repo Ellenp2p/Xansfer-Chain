@@ -234,6 +234,60 @@ describe('Aptos CCTP v2 deployment', () => {
   }
 })
 
+describe('Sui CCTP v2 deployment', () => {
+  const expected = {
+    mainnet: {
+      tokenMessenger: '0xeb14978abfe93a37c5d5bf86a0623b923553a5f0e794daac7724f1e2fdbfb830',
+      messageTransmitter: '0x16bcfcfc465f96281663a344641c017de84529370e11aa3879d0dce43ad6db87',
+      cctpExtensions: '0x194c593691aed72b23b967cacad967a93c0b17ff98180d417e91ac503ce3597d',
+      stablecoinHandler: '0x185ed207c4d64fc594882ab927f9f3c6ff957aad03df8a731ba64378faeeb2bf',
+      v1TokenMessenger: '0x2aa6c5d56376c371f88a6cc42e852824994993cb9bab8d3e6450cbe3cb32b94e',
+      v1MessageTransmitter: '0x08d87d37ba49e785dde270a83f8e979605b03dc552b5548f26fdf2f49bf7ed1b',
+    },
+    testnet: {
+      tokenMessenger: '0x267d3c0cb776eace2840f27e4d33da9c6d952f9749403f1fe6579f4962ed3c64',
+      messageTransmitter: '0xe9678cd42a81886e18e21361088071f275105636a4d3751e1d7f255211f73bbe',
+      cctpExtensions: '0x3cdb05f9a035c147410f5a9cfe2ccb741f4ab3cd59411e86714ce4b45e2c4d95',
+      stablecoinHandler: '0xbe8479044396a45e07de2c7f14789c35b8338406eebc53b2527da56839a91561',
+      v1TokenMessenger: '0x31cc14d80c175ae39777c0238f20594c6d4869cfab199f40b69f3319956b8beb',
+      v1MessageTransmitter: '0x4931e06dce648b3931f890035bd196920770e913e43e45990b383f6486fdd0a5',
+    },
+  } as const
+
+  for (const mode of ['mainnet', 'testnet'] as const) {
+    it(`matches Circle docs on ${mode}`, () => {
+      const cfg = (configJson as unknown as {
+        modes: Record<string, {
+          cctp: {
+            v1: {
+              token_messenger: Record<string, string>
+              message_transmitter: Record<string, string>
+            }
+            v2: {
+              token_messenger: Record<string, string>
+              message_transmitter: Record<string, string>
+              cctp_extensions?: Record<string, string>
+              stablecoin_handler?: Record<string, string>
+            }
+          }
+          chains: Array<{ chain_type: string; cctp_versions: number[] }>
+        }>
+      }).modes[mode]
+      const sui = cfg.chains.find((chain) => chain.chain_type === 'sui')
+
+      expect(sui).toBeDefined()
+      expect(sui!.cctp_versions).toEqual([1, 2])
+      expect(cfg.cctp.v2.token_messenger['8']).toBe(expected[mode].tokenMessenger)
+      expect(cfg.cctp.v2.message_transmitter['8']).toBe(expected[mode].messageTransmitter)
+      expect(cfg.cctp.v2.cctp_extensions?.['8']).toBe(expected[mode].cctpExtensions)
+      expect(cfg.cctp.v2.stablecoin_handler?.['8']).toBe(expected[mode].stablecoinHandler)
+      // v1 stays configured so in-flight legacy claims keep working.
+      expect(cfg.cctp.v1.token_messenger['8']).toBe(expected[mode].v1TokenMessenger)
+      expect(cfg.cctp.v1.message_transmitter['8']).toBe(expected[mode].v1MessageTransmitter)
+    })
+  }
+})
+
 describe('attestation URLs', () => {
   it('uses the versioned path for CCTP v2', () => {
     expect(getAttestationUrl(2, 'testnet')).toMatch(/\/v2$/)

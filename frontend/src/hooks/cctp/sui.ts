@@ -2,10 +2,15 @@ import { useCallback } from 'react'
 import { useCurrentAccount, useSignAndExecuteTransaction, useSuiClientContext } from '@mysten/dapp-kit'
 import { Transaction } from '@mysten/sui/transactions'
 import { useNetworkMode } from '../../stores/networkMode'
-import { getCctpContracts, getChainByDomain } from '../../config/chains'
+import { getCctpContracts, getChainByDomain, type CctpContractSet } from '../../config/chains'
 import { assertDestinationAddress } from '../../lib/address'
 import { normalizeMintRecipient } from '../../lib/cctpEncoding'
 import { parseUsdcUnits } from '../../lib/fees'
+import {
+  buildSuiV2BurnTransaction,
+  buildSuiV2ClaimTransaction,
+  type SuiV2Deployment,
+} from '../../lib/suiCctpV2'
 import type { ChainAdapter, SourceBurnParams, ClaimParams } from './types'
 import type { ChainConfig, ChainType } from '../../types'
 
@@ -25,13 +30,21 @@ function hexToBytes(hex: string): number[] {
   return bytes
 }
 
-interface SuiCctpObjects {
+interface SuiCctpV1Objects {
   tokenMessengerMinterState: string
   messageTransmitterState: string
   treasury: string
 }
 
-const CCTP_OBJECTS: Record<string, SuiCctpObjects> = {
+interface SuiCctpV2Objects {
+  tokenMessengerMinterState: string
+  messageTransmitterState: string
+  stablecoinHandlerState: string
+  stablecoinHandlerPackage: string
+  treasury: string
+}
+
+const CCTP_V1_OBJECTS: Record<string, SuiCctpV1Objects> = {
   mainnet: {
     tokenMessengerMinterState: '0x45993eecc0382f37419864992c12faee2238f5cfe22b98ad3bf455baf65c8a2f',
     messageTransmitterState: '0xf68268c3d9b1df3215f2439400c1c4ea08ac4ef4bb7d6f3ca6a2a239e17510af',
@@ -44,8 +57,41 @@ const CCTP_OBJECTS: Record<string, SuiCctpObjects> = {
   },
 }
 
+// Circle CCTP v2 on Sui: https://developers.circle.com/cctp/references/sui-packages
+const CCTP_V2_OBJECTS: Record<string, SuiCctpV2Objects> = {
+  mainnet: {
+    tokenMessengerMinterState: '0x06fb166941cd7bc095edc019d054a753ec3f1e4c25f28f2ecc4a6cfa0a9b1167',
+    messageTransmitterState: '0x0c067f7d325e5b60e3179712e7783534ba1556cbb3d359d8161497e37689230c',
+    stablecoinHandlerState: '0xa32de8a6dd0178fb05f662929d55cddb69a25c26bde4b83f89e36d17ead94c41',
+    stablecoinHandlerPackage: '0x185ed207c4d64fc594882ab927f9f3c6ff957aad03df8a731ba64378faeeb2bf',
+    treasury: '0x57d6725e7a8b49a7b2a612f6bd66ab5f39fc95332ca48be421c3229d514a6de7',
+  },
+  testnet: {
+    tokenMessengerMinterState: '0x72cb55cd14d01e6361386d6ea93eecda9fa1efc3c202b8dd69c1e4683e4c0ca0',
+    messageTransmitterState: '0xfee3a2b47f9ef2de2405fc63d79194307945f8ea768815cfc46083bc20fbe6ed',
+    stablecoinHandlerState: '0xfbd9c0517c4f0e1817445ee2be598806e3c392a465d7e3d773d1055f3f0eed32',
+    stablecoinHandlerPackage: '0xbe8479044396a45e07de2c7f14789c35b8338406eebc53b2527da56839a91561',
+    treasury: '0x7170137d4a6431bf83351ac025baf462909bffe2877d87716374fb42b9629ebe',
+  },
+}
+
 function usdcCoinType(usdcPackage: string): string {
   return `${usdcPackage}::usdc::USDC`
+}
+
+function deploymentFor(mode: string, contracts: CctpContractSet): SuiV2Deployment | null {
+  const objects = CCTP_V2_OBJECTS[mode]
+  const stablecoinHandler = contracts.stablecoinHandler ?? objects?.stablecoinHandlerPackage
+  if (!objects || !stablecoinHandler) return null
+  return {
+    tokenMessenger: contracts.tokenMessenger,
+    messageTransmitter: contracts.messageTransmitter,
+    stablecoinHandler,
+    tokenMessengerState: objects.tokenMessengerMinterState,
+    messageTransmitterState: objects.messageTransmitterState,
+    stablecoinHandlerState: objects.stablecoinHandlerState,
+    treasury: objects.treasury,
+  }
 }
 
 async function graphqlQuery<T = any>(mode: string, query: string, variables?: Record<string, unknown>): Promise<T> {
@@ -131,6 +177,22 @@ async function findUsdcCoin(
   throw new Error('Insufficient USDC balance or no USDC coin object found')
 }
 
+async function tryFindUsdcCoin(
+  mode: string,
+  owner: string,
+  coinType: string,
+  requiredAmount: bigint,
+): Promise<SuiCoin | null> {
+  try {
+    return await findUsdcCoin(mode, owner, coinType, requiredAmount)
+  } catch (error) {
+    // No spendable Coin object: the balance may live in a SIP-58 address
+    // balance instead, which the v2 burn redeems with coin::redeem_funds.
+    if ((error as Error).message.includes('Insufficient USDC balance')) return null
+    throw error
+  }
+}
+
 async function waitForTransaction(mode: string, digest: string): Promise<{ sender: string }> {
   for (let i = 0; i < 60; i++) {
     try {
@@ -206,38 +268,59 @@ export function useSuiAdapter(): ChainAdapter {
   const burnUsdc = useCallback(
     async ({ chainConfig, amount, destDomain, destAddress, cctpVersion = 1, destChainType }: SourceBurnParams): Promise<string> => {
       if (!account?.address) throw new Error('Sui wallet not connected')
-      if (cctpVersion !== 1) throw new Error('Sui CCTP only supports v1')
+      if (cctpVersion !== 1 && cctpVersion !== 2) throw new Error(`Unsupported Sui CCTP version: v${cctpVersion}`)
       if (destChainType === 'stellar') throw new Error('Sui -> Stellar forwarding is not supported')
       assertWalletNetwork()
       assertDestinationAddress(destAddress, destChainType as ChainType, mode)
 
       const contracts = getCctpContracts(chainConfig.domain, cctpVersion, mode)
-      if (!contracts) throw new Error(`No CCTP v1 contracts configured for Sui domain ${chainConfig.domain}`)
-      const objects = CCTP_OBJECTS[mode]
-      if (!objects) throw new Error(`No known CCTP shared objects for Sui mode "${mode}"`)
+      if (!contracts) throw new Error(`No CCTP v${cctpVersion} contracts configured for Sui domain ${chainConfig.domain}`)
 
       const amountRaw = parseUsdcUnits(amount, chainConfig.usdc_decimals ?? 6)
       const usdcType = usdcCoinType(chainConfig.usdc_address.split('::')[0])
-      const coin = await findUsdcCoin(mode, account.address, usdcType, amountRaw)
 
-      const tx = new Transaction()
-      tx.setSender(account.address)
+      let tx: Transaction
+      if (cctpVersion === 2) {
+        // CCTP v2 on Sui: deposit_for_burn -> handler::burn -> complete_burn.
+        const deployment = deploymentFor(mode, contracts)
+        if (!deployment) throw new Error(`No known CCTP v2 shared objects for Sui mode "${mode}"`)
 
-      const [splitCoin] = tx.splitCoins(tx.object(coin.objectId), [tx.pure.u64(amountRaw)])
+        // USDC can live in Coin objects (v1 mints) or a SIP-58 address balance
+        // (Circle faucet / v2 mint). Support both.
+        const coin = await tryFindUsdcCoin(mode, account.address, usdcType, amountRaw)
+        tx = buildSuiV2BurnTransaction({
+          sender: account.address,
+          deployment,
+          usdcCoinType: usdcType,
+          amount: amountRaw,
+          destinationDomain: destDomain,
+          mintRecipient: normalizeMintRecipient(destAddress),
+          coinObjectId: coin?.objectId ?? null,
+        })
+      } else {
+        // CCTP v1: single deposit_for_burn call (legacy paths only).
+        const objects = CCTP_V1_OBJECTS[mode]
+        if (!objects) throw new Error(`No known CCTP v1 shared objects for Sui mode "${mode}"`)
+        const coin = await findUsdcCoin(mode, account.address, usdcType, amountRaw)
 
-      tx.moveCall({
-        target: `${contracts.tokenMessenger}::deposit_for_burn::deposit_for_burn`,
-        typeArguments: [usdcType],
-        arguments: [
-          splitCoin,
-          tx.pure.u32(destDomain),
-          tx.pure.address(normalizeMintRecipient(destAddress)),
-          tx.object(objects.tokenMessengerMinterState),
-          tx.object(objects.messageTransmitterState),
-          tx.object(DENY_LIST_OBJECT_ID),
-          tx.object(objects.treasury),
-        ],
-      })
+        tx = new Transaction()
+        tx.setSender(account.address)
+        const [splitCoin] = tx.splitCoins(tx.object(coin.objectId), [tx.pure.u64(amountRaw)])
+
+        tx.moveCall({
+          target: `${contracts.tokenMessenger}::deposit_for_burn::deposit_for_burn`,
+          typeArguments: [usdcType],
+          arguments: [
+            splitCoin,
+            tx.pure.u32(destDomain),
+            tx.pure.address(normalizeMintRecipient(destAddress)),
+            tx.object(objects.tokenMessengerMinterState),
+            tx.object(objects.messageTransmitterState),
+            tx.object(DENY_LIST_OBJECT_ID),
+            tx.object(objects.treasury),
+          ],
+        })
+      }
 
       const result = await signAndExecute({ transaction: tx, chain: `sui:${mode}` })
       return result.digest
@@ -256,61 +339,78 @@ export function useSuiAdapter(): ChainAdapter {
   const claimOnDest = useCallback(
     async ({ message, attestation, destDomain, cctpVersion }: ClaimParams): Promise<string> => {
       if (!account?.address) throw new Error('Sui wallet not connected')
-      if (cctpVersion !== 1) throw new Error('Sui CCTP only supports v1')
+      if (cctpVersion !== 1 && cctpVersion !== 2) throw new Error(`Unsupported Sui CCTP version: v${cctpVersion}`)
       assertWalletNetwork()
 
       const chainConfig = getChainByDomain(destDomain, mode)
       if (!chainConfig || chainConfig.chain_type !== 'sui') throw new Error('Destination chain is not Sui')
 
       const contracts = getCctpContracts(destDomain, cctpVersion, mode)
-      if (!contracts) throw new Error(`No CCTP v1 contracts configured for Sui domain ${destDomain}`)
-      const objects = CCTP_OBJECTS[mode]
-      if (!objects) throw new Error(`No known CCTP shared objects for Sui mode "${mode}"`)
+      if (!contracts) throw new Error(`No CCTP v${cctpVersion} contracts configured for Sui domain ${destDomain}`)
 
       const usdcType = usdcCoinType(chainConfig.usdc_address.split('::')[0])
-
       const messageBytes = hexToBytes(message)
       const attestationBytes = hexToBytes(attestation)
 
-      const tx = new Transaction()
-      tx.setSender(account.address)
+      let tx: Transaction
+      if (cctpVersion === 2) {
+        // CCTP v2 on Sui: receive_message -> prepare_mint -> handler::mint -> complete_mint.
+        // The minted Coin<USDC> is public_transfer'd to the signer; a later v2 burn
+        // picks it up as a Coin object (or the user can fold it with coin::send_funds).
+        const deployment = deploymentFor(mode, contracts)
+        if (!deployment) throw new Error(`No known CCTP v2 shared objects for Sui mode "${mode}"`)
+        tx = buildSuiV2ClaimTransaction({
+          sender: account.address,
+          deployment,
+          usdcCoinType: usdcType,
+          message,
+          attestation,
+        })
+      } else {
+        // CCTP v1 legacy claim path.
+        const objects = CCTP_V1_OBJECTS[mode]
+        if (!objects) throw new Error(`No known CCTP v1 shared objects for Sui mode "${mode}"`)
 
-      const receipt = tx.moveCall({
-        target: `${contracts.messageTransmitter}::receive_message::receive_message`,
-        arguments: [
-          tx.pure.vector('u8', messageBytes),
-          tx.pure.vector('u8', attestationBytes),
-          tx.object(objects.messageTransmitterState),
-        ],
-      })
+        tx = new Transaction()
+        tx.setSender(account.address)
 
-      const stampReceiptTicketWithBurnMessage = tx.moveCall({
-        target: `${contracts.tokenMessenger}::handle_receive_message::handle_receive_message`,
-        typeArguments: [usdcType],
-        arguments: [
-          receipt,
-          tx.object(objects.tokenMessengerMinterState),
-          tx.object(DENY_LIST_OBJECT_ID),
-          tx.object(objects.treasury),
-        ],
-      })
+        const receipt = tx.moveCall({
+          target: `${contracts.messageTransmitter}::receive_message::receive_message`,
+          arguments: [
+            tx.pure.vector('u8', messageBytes),
+            tx.pure.vector('u8', attestationBytes),
+            tx.object(objects.messageTransmitterState),
+          ],
+        })
 
-      const [stampTicket, _burnMessage] = tx.moveCall({
-        target: `${contracts.tokenMessenger}::handle_receive_message::deconstruct_stamp_receipt_ticket_with_burn_message`,
-        arguments: [stampReceiptTicketWithBurnMessage],
-      })
+        const stampReceiptTicketWithBurnMessage = tx.moveCall({
+          target: `${contracts.tokenMessenger}::handle_receive_message::handle_receive_message`,
+          typeArguments: [usdcType],
+          arguments: [
+            receipt,
+            tx.object(objects.tokenMessengerMinterState),
+            tx.object(DENY_LIST_OBJECT_ID),
+            tx.object(objects.treasury),
+          ],
+        })
 
-      const authenticatorType = `${contracts.tokenMessenger}::message_transmitter_authenticator::MessageTransmitterAuthenticator`
-      const stampedReceipt = tx.moveCall({
-        target: `${contracts.messageTransmitter}::receive_message::stamp_receipt`,
-        typeArguments: [authenticatorType],
-        arguments: [stampTicket, tx.object(objects.messageTransmitterState)],
-      })
+        const [stampTicket] = tx.moveCall({
+          target: `${contracts.tokenMessenger}::handle_receive_message::deconstruct_stamp_receipt_ticket_with_burn_message`,
+          arguments: [stampReceiptTicketWithBurnMessage],
+        })
 
-      tx.moveCall({
-        target: `${contracts.messageTransmitter}::receive_message::complete_receive_message`,
-        arguments: [stampedReceipt, tx.object(objects.messageTransmitterState)],
-      })
+        const authenticatorType = `${contracts.tokenMessenger}::message_transmitter_authenticator::MessageTransmitterAuthenticator`
+        const stampedReceipt = tx.moveCall({
+          target: `${contracts.messageTransmitter}::receive_message::stamp_receipt`,
+          typeArguments: [authenticatorType],
+          arguments: [stampTicket, tx.object(objects.messageTransmitterState)],
+        })
+
+        tx.moveCall({
+          target: `${contracts.messageTransmitter}::receive_message::complete_receive_message`,
+          arguments: [stampedReceipt, tx.object(objects.messageTransmitterState)],
+        })
+      }
 
       const result = await signAndExecute({ transaction: tx, chain: `sui:${mode}` })
       return result.digest
